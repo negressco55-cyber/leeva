@@ -644,7 +644,15 @@ export async function declineOffer(db: DB, offerId: string, motoboyId: string, r
   return { ok: true as const };
 }
 
-/** Calcula e grava taxa/remuneração/rota da entrega (uma vez). */
+/**
+ * Grava rota/taxa/remuneração da entrega (uma vez).
+ *
+ * FONTE ÚNICA DA REMUNERAÇÃO: se a entrega veio de uma oferta aceita, o
+ * `driver_payout` é EXATAMENTE o `payout_estimate` que o motoboy viu na
+ * oferta — nunca recalculado. Recalcular em outro momento (com outra
+ * medição de distância) causava divergência entre o valor ofertado e o
+ * valor pago. Só recalcula quando não há oferta (atribuição manual).
+ */
 export async function finalizeLogisticsForOrder(db: DB, orderId: string, restaurantId: string) {
   const { data: order } = await db
     .from('orders')
@@ -652,6 +660,17 @@ export async function finalizeLogisticsForOrder(db: DB, orderId: string, restaur
     .eq('id', orderId)
     .maybeSingle();
   if (!order || order.driver_payout != null) return; // já finalizado
+
+  // valor autoritativo: a oferta aceita (o que o motoboy realmente viu)
+  const { data: acceptedOffer } = await db
+    .from('dispatch_attempts')
+    .select('payout_estimate')
+    .eq('order_id', orderId)
+    .eq('outcome', 'accepted')
+    .not('payout_estimate', 'is', null)
+    .order('responded_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const { data: rst } = await db
     .from('restaurants')
@@ -685,7 +704,10 @@ export async function finalizeLogisticsForOrder(db: DB, orderId: string, restaur
   }
 
   const policy = await getPayoutPolicy(db, restaurantId);
-  const payout = computeDriverPayout(policy, { distanceKm, groupSize });
+  const payoutTotal =
+    acceptedOffer?.payout_estimate != null
+      ? Number(acceptedOffer.payout_estimate) // valor da oferta aceita — nunca recalcula
+      : computeDriverPayout(policy, { distanceKm, groupSize }).total; // fallback: atribuição manual
 
   // A taxa da LOGÍSTICA cobrada do restaurante é a configurada em
   // logistics_config (não a delivery_fee da venda, que é dinheiro do
@@ -695,7 +717,7 @@ export async function finalizeLogisticsForOrder(db: DB, orderId: string, restaur
       ? Number(order.customer_fee)
       : cfg.customer_fee;
 
-  const fin = computeLogisticsFinance({ customerFee, driverPayout: payout.total });
+  const fin = computeLogisticsFinance({ customerFee, driverPayout: payoutTotal });
 
   await db
     .from('orders')

@@ -3,7 +3,14 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRealtimeOrders } from '@leeva/shared/hooks';
-import { formatCurrencyBRL, ORDER_STATUS_LABELS, type OrderStatus } from '@leeva/shared';
+import {
+  formatCurrencyBRL,
+  ORDER_STATUS_LABELS,
+  paymentPendingOnDelivery,
+  type OrderStatus,
+  type PaymentMethod,
+  type PaymentStatus,
+} from '@leeva/shared';
 
 type Delivery = {
   id: string;
@@ -16,6 +23,9 @@ type Delivery = {
   longitude: number | null;
   order_amount: number;
   delivery_fee: number;
+  driver_payout: number | null;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
   notes: string | null;
   eta_min: number | null;
   eta_max: number | null;
@@ -115,9 +125,16 @@ export default function DeliveryFlow({
         </div>
 
         <p style={{ margin: '4px 0' }}>
-          A receber: <strong>{formatCurrencyBRL(Number(current.order_amount) + Number(current.delivery_fee))}</strong>{' '}
-          <span className="muted">(taxa {formatCurrencyBRL(current.delivery_fee)})</span>
+          Você recebe por esta entrega:{' '}
+          <strong>{formatCurrencyBRL(Number(current.driver_payout ?? 0))}</strong>
         </p>
+        {paymentPendingOnDelivery(current.payment_method, current.payment_status) &&
+          Number(current.order_amount) > 0 && (
+            <p style={{ margin: '4px 0', color: '#fbbf24' }}>
+              💰 Receber do cliente na entrega:{' '}
+              <strong>{formatCurrencyBRL(Number(current.order_amount))}</strong>
+            </p>
+          )}
         {current.notes && <p className="muted">Obs: {current.notes}</p>}
 
         <div className="grid" style={{ gap: 10, marginTop: 12 }}>
