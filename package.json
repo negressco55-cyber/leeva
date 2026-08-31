@@ -1,0 +1,38 @@
+{
+  "name": "leeva",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Leeva — sistema operacional de entregas para restaurantes",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:restaurante": "turbo run dev --filter=@leeva/restaurante",
+    "dev:motoboy": "turbo run dev --filter=@leeva/motoboy",
+    "dev:admin": "turbo run dev --filter=@leeva/admin",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-integration.mjs",
+    "test:concurrency": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-concurrency.mjs",
+    "test:security": "node --env-file=apps/restaurante/.env.local scripts/test-security.mjs",
+    "test:fase3": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-fase3.mjs",
+    "test:fase35": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-fase35.mjs",
+    "seed:fase3": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-fase3.mjs",
+    "seed:admin": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-admin.mjs",
+    "seed": "node --env-file=apps/restaurante/.env.local scripts/seed.mjs",
+    "seed:demo": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-demo.mjs",
+    "db:types": "supabase gen types typescript --project-id $LEEVA_PROJECT_ID > packages/shared/src/types/database.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "npm@11.13.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

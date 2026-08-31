@@ -1,0 +1,80 @@
+.track-wrap {
+  min-height: 100vh;
+  background: #0b0c0f;
+  color: #e8eaed;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 48px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.track-card {
+  width: 100%;
+  max-width: 460px;
+  background: #16181d;
+  border: 1px solid #2a2e37;
+  border-radius: 16px;
+  padding: 24px;
+}
+.track-card h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+.track-card .muted {
+  color: #9aa0aa;
+}
+.track-steps {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+}
+.track-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  color: #9aa0aa;
+}
+.track-steps li.done {
+  color: #e8eaed;
+}
+.track-steps li.current {
+  color: #ff5a1f;
+  font-weight: 600;
+}
+.track-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid #2a2e37;
+  flex: none;
+}
+.track-steps li.done .track-dot {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+.track-steps li.current .track-dot {
+  background: #ff5a1f;
+  border-color: #ff5a1f;
+}
+.track-eta {
+  background: #0f1115;
+  border: 1px solid #2a2e37;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 16px 0;
+  font-size: 15px;
+}
+.track-map {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px;
+  border: 1px solid #2a2e37;
+  background: #0f1115;
+  display: block;
+}
+.track-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: #ff5a1f;
+  font-size: 14px;
+}

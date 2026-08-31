@@ -1,0 +1,36 @@
+# deps
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+.next/
+out/
+dist/
+build/
+
+# turbo
+.turbo/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env*.local
+
+# supabase
+supabase/.branches
+supabase/.temp
+
+# misc
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# claude code — configuração local / MCP (pode conter segredos)
+.claude/settings.local.json
+.mcp.json

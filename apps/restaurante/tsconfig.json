@@ -1,0 +1,60 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "jsx": "preserve",
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@leeva/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@leeva/shared/client": [
+        "../../packages/shared/src/supabase/client.ts"
+      ],
+      "@leeva/shared/server": [
+        "../../packages/shared/src/supabase/server.ts"
+      ],
+      "@leeva/shared/middleware": [
+        "../../packages/shared/src/supabase/middleware.ts"
+      ],
+      "@leeva/shared/types": [
+        "../../packages/shared/src/types/index.ts"
+      ],
+      "@leeva/shared/hooks": [
+        "../../packages/shared/src/hooks/index.ts"
+      ],
+      "@leeva/shared/utils": [
+        "../../packages/shared/src/utils/index.ts"
+      ],
+      "@leeva/shared/constants": [
+        "../../packages/shared/src/constants.ts"
+      ],
+      "@leeva/shared/services": [
+        "../../packages/shared/src/services/index.ts"
+      ],
+      "@leeva/shared/integrations": [
+        "../../packages/shared/src/integrations/index.ts"
+      ],
+      "@leeva/shared/lib/crypto": [
+        "../../packages/shared/src/lib/crypto.ts"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
