@@ -143,7 +143,8 @@ begin
   perform net.http_post(
     url     := v_url,
     headers := jsonb_build_object('Content-Type','application/json','x-cron-secret', v_secret),
-    body    := jsonb_build_object('source','pg_cron')
+    body    := jsonb_build_object('source','pg_cron'),
+    timeout_milliseconds := 20000  -- partida a frio do endpoint pode passar de 5s
   );
 end $$;
 

@@ -18,6 +18,68 @@ const pct = (cur: number, prev: number): number | null =>
 
 export type AdminPeriod = 'today' | '7d' | '30d' | 'month';
 
+export type DispatchHealth = {
+  status: 'ok' | 'warn' | 'down' | 'unknown';
+  lastRunAt: string | null;
+  secondsSinceLastRun: number | null;
+  runsLastHour: number;
+  errorsLastHour: number;
+  skippedLastHour: number;
+  avgDurationMs: number | null;
+  message: string;
+};
+
+/** Saúde do motor de despacho: o cron (pg_cron → /api/cron/dispatch-tick) está rodando? */
+export async function getDispatchHealth(db: DB): Promise<DispatchHealth> {
+  const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+  const { data } = await db
+    .from('dispatch_runs')
+    .select('started_at, finished_at, duration_ms, error, skipped, source')
+    .gte('started_at', hourAgo)
+    .order('started_at', { ascending: false })
+    .limit(500);
+
+  const rows = data ?? [];
+  const last = rows[0];
+  const lastRunAt = last?.started_at ?? null;
+  const secondsSinceLastRun = lastRunAt ? Math.round((Date.now() - new Date(lastRunAt).getTime()) / 1000) : null;
+  const errorsLastHour = rows.filter((r) => r.error).length;
+  const skippedLastHour = rows.filter((r) => r.skipped).length;
+  const durations = rows.map((r) => r.duration_ms).filter((d): d is number => typeof d === 'number' && d > 0);
+  const avgDurationMs = durations.length ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length) : null;
+
+  let status: DispatchHealth['status'];
+  let message: string;
+  if (secondsSinceLastRun == null) {
+    status = 'down';
+    message = 'Nenhuma execução na última hora. O cron pode estar parado — ver docs/DEPLOY.md §4.';
+  } else if (secondsSinceLastRun <= 120) {
+    status = 'ok';
+    message = `Rodando normalmente (última execução há ${secondsSinceLastRun}s).`;
+  } else if (secondsSinceLastRun <= 900) {
+    status = 'warn';
+    message = `Última execução há ${Math.round(secondsSinceLastRun / 60)} min — deveria ser a cada ~30s.`;
+  } else {
+    status = 'down';
+    message = `Sem executar há ${Math.round(secondsSinceLastRun / 60)} min. O cron provavelmente caiu.`;
+  }
+  if (status === 'ok' && errorsLastHour > 0) {
+    status = 'warn';
+    message += ` ${errorsLastHour} execução(ões) com erro na última hora.`;
+  }
+
+  return {
+    status,
+    lastRunAt,
+    secondsSinceLastRun,
+    runsLastHour: rows.length,
+    errorsLastHour,
+    skippedLastHour,
+    avgDurationMs,
+    message,
+  };
+}
+
 function ranges(period: AdminPeriod) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -68,6 +130,7 @@ export type AdminOverview = {
   motoboysRegistered: number;
   motoboysOnline: number;
   deliveriesNoDriver: number;
+  dispatchHealth: DispatchHealth;
   deltas: {
     saasRevenue: number | null;
     deliveryRevenue: number | null;
@@ -153,6 +216,7 @@ export async function getAdminOverview(db: DB, period: AdminPeriod = '30d'): Pro
 
   const totalRevenue = round(cur.saas + cur.delivery);
   const prevTotal = round(prev.saas + prev.delivery);
+  const dispatchHealth = await getDispatchHealth(db);
 
   return {
     period,
@@ -169,6 +233,7 @@ export async function getAdminOverview(db: DB, period: AdminPeriod = '30d'): Pro
     motoboysRegistered: motoTotal.count ?? 0,
     motoboysOnline: motoOnline.count ?? 0,
     deliveriesNoDriver: noDriver.count ?? 0,
+    dispatchHealth,
     deltas: {
       saasRevenue: pct(cur.saas, prev.saas),
       deliveryRevenue: pct(cur.delivery, prev.delivery),

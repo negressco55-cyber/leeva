@@ -34,3 +34,6 @@ npm-debug.log*
 # claude code — configuração local / MCP (pode conter segredos)
 .claude/settings.local.json
 .mcp.json
+
+# vercel
+.vercel

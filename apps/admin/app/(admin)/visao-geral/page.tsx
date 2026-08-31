@@ -21,6 +21,33 @@ export default async function VisaoGeral({ searchParams }: { searchParams: Promi
         <PeriodNav base="/visao-geral" current={period} />
       </div>
 
+      {(() => {
+        const h = o.dispatchHealth;
+        const color = h.status === 'ok' ? '#16a34a' : h.status === 'warn' ? '#d97706' : '#dc2626';
+        const dot = h.status === 'ok' ? '🟢' : h.status === 'warn' ? '🟡' : '🔴';
+        return (
+          <div className="card" style={{ borderLeft: `3px solid ${color}` }}>
+            <div className="card-title">Motor de despacho</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>
+                {dot}{' '}
+                {h.secondsSinceLastRun == null
+                  ? 'sem execução'
+                  : h.secondsSinceLastRun < 90
+                    ? `última execução há ${h.secondsSinceLastRun}s`
+                    : `última execução há ${Math.round(h.secondsSinceLastRun / 60)} min`}
+              </span>
+              <span className="muted" style={{ fontSize: 13 }}>
+                {h.runsLastHour} execuções na última hora
+                {h.errorsLastHour > 0 ? ` · ${h.errorsLastHour} com erro` : ''}
+                {h.avgDurationMs ? ` · ~${h.avgDurationMs} ms/exec` : ''}
+              </span>
+            </div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{h.message}</div>
+          </div>
+        );
+      })()}
+
       <div className="card">
         <div className="card-title">Receita</div>
         <div className="stat-row">
