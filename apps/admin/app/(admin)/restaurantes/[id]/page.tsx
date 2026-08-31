@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/context';
 import { getRestaurantDetail } from '@leeva/shared/services';
 import { money, num } from '../../_lib/ui';
+import { CreditAdjust } from './CreditAdjust';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,30 @@ export default async function RestaurantDetail({ params }: { params: Promise<{ i
           <div className="stat"><div className="v">{money(d.usage30d.driverCost)}</div><div className="l">Custo entregadores</div></div>
           <div className="stat"><div className="v">{money(d.usage30d.logisticsMargin)}</div><div className="l">Margem logística</div></div>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Crédito</div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: d.credits.balance < 20 ? '#fca5a5' : undefined }}>
+          {money(d.credits.balance)}
+        </div>
+        <CreditAdjust restaurantId={id} />
+        {d.credits.history.length > 0 && (
+          <table className="tbl" style={{ marginTop: 10 }}>
+            <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th style={{ textAlign: 'right' }}>Valor</th><th style={{ textAlign: 'right' }}>Saldo</th></tr></thead>
+            <tbody>
+              {d.credits.history.map((h, i) => (
+                <tr key={i}>
+                  <td>{new Date(h.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td>{h.kind}</td>
+                  <td>{h.description}</td>
+                  <td style={{ textAlign: 'right' }}>{money(Number(h.amount))}</td>
+                  <td style={{ textAlign: 'right' }}>{money(Number(h.balance_after))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="grid-2">

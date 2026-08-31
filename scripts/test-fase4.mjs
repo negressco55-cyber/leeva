@@ -17,6 +17,10 @@ import {
   computeDeliveryCharge,
   ensureSubscription,
   changePlan,
+  addCredit,
+  getCreditBalance,
+  consumeCreditForOrder,
+  refundCreditForOrder,
 } from '../packages/shared/src/services/index.ts';
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -169,7 +173,7 @@ async function main() {
       paymentMethod: 'online',
       paymentStatus: 'paid',
       notes: '[F4]',
-    });
+    }, { skipCredit: true });
     assert.ok(res.ok, res.error);
     cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
     const { data: o } = await db
@@ -204,7 +208,7 @@ async function main() {
         paymentMethod: 'online',
         paymentStatus: 'paid',
         notes: '[F4]',
-      });
+      }, { skipCredit: true });
       cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
       const { data: o } = await db.from('orders').select('logistics_margin').eq('id', res.orderId).single();
       return Number(o.logistics_margin);
@@ -227,7 +231,7 @@ async function main() {
       paymentMethod: 'online',
       paymentStatus: 'paid',
       notes: '[F4]',
-    });
+    }, { skipCredit: true });
     cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
     const { data: o } = await db.from('orders').select('driver_payout, customer_fee').eq('id', res.orderId).single();
     assert.equal(Number(o.driver_payout), preview.driverPayout);
@@ -249,6 +253,105 @@ async function main() {
     // o payout é da tabela de distância, não % da venda
     assert.notEqual(Number(ord.driver_payout), 120);
     assert.ok(Number(ord.driver_payout) < 60, 'payout parece proporcional à venda — errado');
+  });
+
+  // ---------------------------------------------------------------
+  // BLOCO 2 — créditos pré-pagos
+  // ---------------------------------------------------------------
+  cleanup.push(() => db.from('credit_ledger').delete().eq('restaurant_id', r.id));
+  cleanup.push(() => db.from('restaurant_credits').delete().eq('restaurant_id', r.id));
+
+  const mkNormalized = (extra = {}) => ({
+    externalId: null,
+    source: 'manual',
+    customer: { name: 'C', phone: null },
+    items: [],
+    address: { formatted: 'Rua C - Bessa', latitude: -7.093, longitude: -34.84 },
+    total: 0,
+    deliveryFee: 0,
+    paymentMethod: 'online',
+    paymentStatus: 'paid',
+    notes: '[F4]',
+    ...extra,
+  });
+
+  await t('crédito: compra soma ao saldo e registra no histórico', async () => {
+    const bal = await addCredit(db, r.id, 100, 'purchase', 'teste');
+    assert.equal(bal, 100);
+    const { balance } = await getCreditBalance(db, r.id);
+    assert.equal(balance, 100);
+    const { count } = await db.from('credit_ledger').select('id', { count: 'exact', head: true }).eq('restaurant_id', r.id).eq('kind', 'purchase');
+    assert.equal(count, 1);
+  });
+
+  await t('crédito: criar entrega debita o total do saldo', async () => {
+    const before = (await getCreditBalance(db, r.id)).balance;
+    const res = await createOrderFromNormalized(db, r.id, mkNormalized());
+    assert.ok(res.ok, res.error);
+    cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
+    const { data: o } = await db.from('orders').select('customer_fee').eq('id', res.orderId).single();
+    const after = (await getCreditBalance(db, r.id)).balance;
+    assert.equal(Math.round((before - after) * 100) / 100, Number(o.customer_fee), 'débito != custo da entrega');
+    const { data: led } = await db.from('credit_ledger').select('amount, kind').eq('order_id', res.orderId).single();
+    assert.equal(led.kind, 'consumption');
+    assert.equal(Number(led.amount), -Number(o.customer_fee));
+  });
+
+  await t('crédito: saldo insuficiente → pedido NÃO é criado', async () => {
+    // zera o saldo
+    const bal = (await getCreditBalance(db, r.id)).balance;
+    if (bal > 0) await db.rpc('credit_consume', { p_restaurant_id: r.id, p_amount: bal, p_order_id: null, p_description: 'zera' });
+    const res = await createOrderFromNormalized(db, r.id, mkNormalized());
+    assert.equal(res.ok, false);
+    assert.match(res.error, /insuficiente/i);
+    // nenhum pedido órfão
+    const { count } = await db.from('orders').select('id', { count: 'exact', head: true }).eq('restaurant_id', r.id).eq('customer_address', 'Rua C - Bessa').is('driver_payout', null);
+    assert.equal(count, 0, 'ficou pedido órfão sem débito');
+  });
+
+  await t('crédito: cancelar entrega estorna o valor consumido', async () => {
+    await addCredit(db, r.id, 50, 'purchase', 'recarrega');
+    const res = await createOrderFromNormalized(db, r.id, mkNormalized());
+    assert.ok(res.ok, res.error);
+    cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
+    const afterDebit = (await getCreditBalance(db, r.id)).balance;
+    await advanceOrderStatus(db, res.orderId, 'cancelled', { actorType: 'restaurant' });
+    const afterRefund = (await getCreditBalance(db, r.id)).balance;
+    const { data: o } = await db.from('orders').select('customer_fee').eq('id', res.orderId).single();
+    assert.equal(Math.round((afterRefund - afterDebit) * 100) / 100, Number(o.customer_fee), 'estorno != custo');
+    // não estorna duas vezes
+    const r2 = await refundCreditForOrder(db, res.orderId);
+    assert.equal(r2, null);
+  });
+
+  await t('crédito: consume é idempotente (não debita duas vezes o mesmo pedido)', async () => {
+    await addCredit(db, r.id, 100, 'purchase', 'x');
+    const res = await createOrderFromNormalized(db, r.id, mkNormalized());
+    cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
+    const b1 = (await getCreditBalance(db, r.id)).balance;
+    const { data: o } = await db.from('orders').select('customer_fee').eq('id', res.orderId).single();
+    // tenta consumir de novo pelo mesmo pedido
+    const again = await consumeCreditForOrder(db, r.id, Number(o.customer_fee), res.orderId, 'retry');
+    assert.equal(again.ok, true);
+    const b2 = (await getCreditBalance(db, r.id)).balance;
+    assert.equal(b1, b2, 'debitou de novo');
+  });
+
+  await t('crédito: 2 entregas simultâneas quando só cabe 1 → só uma passa', async () => {
+    // saldo suficiente para exatamente ~1 entrega
+    const bal = (await getCreditBalance(db, r.id)).balance;
+    if (bal > 0) await db.rpc('credit_consume', { p_restaurant_id: r.id, p_amount: bal, p_order_id: null, p_description: 'zera' });
+    const preview = await computeDeliveryCharge(db, r.id, { latitude: -7.093, longitude: -34.84 });
+    await addCredit(db, r.id, preview.total + 0.5, 'purchase', 'só 1');
+    const [a, b] = await Promise.all([
+      createOrderFromNormalized(db, r.id, mkNormalized()),
+      createOrderFromNormalized(db, r.id, mkNormalized()),
+    ]);
+    for (const x of [a, b]) if (x.ok) cleanup.push(() => db.from('orders').delete().eq('id', x.orderId));
+    const oks = [a, b].filter((x) => x.ok).length;
+    assert.equal(oks, 1, `passaram ${oks}, deveria 1`);
+    const final = (await getCreditBalance(db, r.id)).balance;
+    assert.ok(final >= 0, `saldo ficou negativo: ${final}`);
   });
 }
 

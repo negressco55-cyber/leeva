@@ -17,6 +17,8 @@ type FeePreview = {
   driverPayout?: number;
   margin?: number;
   total?: number;
+  balance?: number;
+  sufficient?: boolean;
   error?: string;
 };
 
@@ -154,6 +156,13 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
                   <b>Total descontado do seu crédito: {formatCurrencyBRL(fee.total)}</b>
                 </div>
               )}
+              {fee.balance != null && (
+                <div style={{ fontSize: 12, marginTop: 6, color: fee.sufficient ? '#86efac' : '#fca5a5' }}>
+                  {fee.sufficient
+                    ? `Seu saldo: ${formatCurrencyBRL(fee.balance)} — suficiente`
+                    : `Saldo insuficiente (${formatCurrencyBRL(fee.balance)}). Compre créditos antes de criar.`}
+                </div>
+              )}
             </div>
           )}
           {fee && !fee.ok && lat && lng && (
@@ -188,8 +197,12 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
 
           {err && <div className="op-alert critical">{err}</div>}
 
-          <button className="btn primary" onClick={submit} disabled={busy || !customerName.trim() || !address.trim()}>
-            {busy ? 'Criando…' : 'Criar e buscar entregador'}
+          <button
+            className="btn primary"
+            onClick={submit}
+            disabled={busy || !customerName.trim() || !address.trim() || (fee?.ok === true && fee.sufficient === false)}
+          >
+            {busy ? 'Criando…' : fee?.ok && fee.sufficient === false ? 'Saldo insuficiente' : 'Criar e buscar entregador'}
           </button>
         </div>
       </div>

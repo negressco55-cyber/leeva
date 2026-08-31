@@ -30,3 +30,4 @@ export * from './ratelimit';
 export * from './observability';
 export * from './platform';
 export * from './apikeys';
+export * from './credits';

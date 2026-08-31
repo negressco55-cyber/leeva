@@ -16,7 +16,10 @@ import { finalizeLogisticsForOrder } from './autodispatch';
 import { finalizeDeliveryCharge } from './payout';
 import { recordDeliveryUsage } from './billing';
 import { recordIncident } from './reputation';
+import { consumeCreditForOrder, refundCreditForOrder } from './credits';
 import type { IncidentOrigin } from '../types';
+
+const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 
 type DB = SupabaseClient<Database>;
 
@@ -39,7 +42,7 @@ export async function createOrderFromNormalized(
   db: DB,
   restaurantId: string,
   n: NormalizedOrder,
-  opts: { integrationEventId?: string; requireConfirmation?: boolean } = {},
+  opts: { integrationEventId?: string; requireConfirmation?: boolean; skipCredit?: boolean } = {},
 ): Promise<CreateResult> {
   // --- idempotência ---
   if (n.externalId) {
@@ -156,10 +159,35 @@ export async function createOrderFromNormalized(
   }
 
   // TAXA DA ENTREGA — calculada UMA VEZ, aqui. Tudo depois lê o valor gravado.
+  let charge: Awaited<ReturnType<typeof finalizeDeliveryCharge>> = null;
   try {
-    await finalizeDeliveryCharge(db, order.id, restaurantId);
+    charge = await finalizeDeliveryCharge(db, order.id, restaurantId);
   } catch (e) {
     console.error('[orders] cálculo da taxa falhou (ignorado):', (e as Error).message);
+  }
+
+  // CRÉDITO — desconta o total do saldo. Sem saldo → o pedido NÃO é criado.
+  if (!opts.skipCredit && charge && charge.total > 0) {
+    try {
+      const c = await consumeCreditForOrder(
+        db,
+        restaurantId,
+        charge.total,
+        order.id,
+        `Entrega #${order.order_number ?? ''} — ${charge.distanceKm ?? '?'} km`,
+      );
+      if (!c.ok) {
+        // rollback: apaga o pedido recém-criado
+        await db.from('order_items').delete().eq('order_id', order.id);
+        await db.from('orders').delete().eq('id', order.id);
+        return {
+          ok: false,
+          error: `Saldo de créditos insuficiente. Esta entrega custa ${brl(charge.total)} e você tem ${brl(c.balance)}. Compre mais créditos para continuar.`,
+        };
+      }
+    } catch (e) {
+      console.error('[orders] débito de crédito falhou (ignorado):', (e as Error).message);
+    }
   }
 
   // dispara o despacho automático (o motor decide o entregador sozinho).
@@ -258,6 +286,13 @@ export async function advanceOrderStatus(
       .eq('order_id', orderId)
       .is('responded_at', null);
     await db.from('orders').update({ dispatch_state: 'none' }).eq('id', orderId);
+
+    // estorna o crédito consumido por este pedido
+    try {
+      await refundCreditForOrder(db, orderId);
+    } catch (e) {
+      console.error('[orders] estorno de crédito falhou (ignorado):', (e as Error).message);
+    }
 
     // cancelou DEPOIS de aceitar → incidente. A ORIGEM decide se penaliza:
     // problema do restaurante / cliente / sistema NÃO pune o entregador.

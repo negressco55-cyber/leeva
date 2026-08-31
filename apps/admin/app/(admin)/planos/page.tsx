@@ -2,14 +2,16 @@ import { adminDb } from '@/lib/context';
 import { DEFAULT_PAYOUT_CONFIG } from '@leeva/shared/services';
 import { PlansEditor } from './PlansEditor';
 import { FeeTableEditor } from './FeeTableEditor';
+import { PackagesEditor } from './PackagesEditor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Planos() {
   const db = adminDb();
-  const [{ data: plans }, { data: policy }] = await Promise.all([
+  const [{ data: plans }, { data: policy }, { data: packages }] = await Promise.all([
     db.from('plans').select('*').order('sort_order'),
     db.from('payout_policies').select('config').is('restaurant_id', null).maybeSingle(),
+    db.from('credit_packages').select('*').order('sort_order'),
   ]);
   const cfg = { ...DEFAULT_PAYOUT_CONFIG, ...((policy?.config as object) ?? {}) };
 
@@ -30,6 +32,8 @@ export default async function Planos() {
           min_payout: Number(cfg.min_payout),
         }}
       />
+
+      <PackagesEditor initial={(packages ?? []) as never} />
 
       <div className="card-title" style={{ marginTop: 8 }}>Planos SaaS</div>
       <PlansEditor initial={(plans ?? []) as never} />

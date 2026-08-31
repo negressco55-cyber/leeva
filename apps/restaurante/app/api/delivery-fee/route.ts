@@ -1,6 +1,6 @@
 import { getApiContext, adminDb } from '@/lib/context';
 import { json, unauthorized, serverError } from '@/lib/api';
-import { computeDeliveryCharge } from '@leeva/shared/services';
+import { computeDeliveryCharge, getCreditBalance } from '@leeva/shared/services';
 
 /**
  * Pré-visualização da taxa da entrega — o restaurante vê ANTES de criar
@@ -17,8 +17,17 @@ export async function GET(req: Request) {
     return json({ ok: false, error: 'informe a localização da entrega' }, 200);
   }
   try {
-    const charge = await computeDeliveryCharge(adminDb(), ctx.restaurantId, { latitude: lat, longitude: lng });
-    return json({ ok: true, ...charge });
+    const db = adminDb();
+    const [charge, credit] = await Promise.all([
+      computeDeliveryCharge(db, ctx.restaurantId, { latitude: lat, longitude: lng }),
+      getCreditBalance(db, ctx.restaurantId),
+    ]);
+    return json({
+      ok: true,
+      ...charge,
+      balance: credit.balance,
+      sufficient: credit.balance >= charge.total,
+    });
   } catch (e) {
     return serverError(e);
   }

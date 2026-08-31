@@ -175,6 +175,87 @@ export type Database = {
           },
         ]
       }
+      credit_ledger: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          created_by: string | null
+          description: string
+          external_ref: string | null
+          id: string
+          kind: Database["public"]["Enums"]["credit_movement"]
+          order_id: string | null
+          restaurant_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string
+          created_by?: string | null
+          description: string
+          external_ref?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["credit_movement"]
+          order_id?: string | null
+          restaurant_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          external_ref?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["credit_movement"]
+          order_id?: string | null
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_ledger_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_ledger_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_packages: {
+        Row: {
+          active: boolean
+          amount: number
+          bonus: number
+          id: string
+          label: string | null
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          bonus?: number
+          id?: string
+          label?: string | null
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          bonus?: number
+          id?: string
+          label?: string | null
+          sort_order?: number
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -1276,6 +1357,35 @@ export type Database = {
         }
         Relationships: []
       }
+      restaurant_credits: {
+        Row: {
+          balance: number
+          low_balance_threshold: number
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          low_balance_threshold?: number
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          low_balance_threshold?: number
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_credits_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurants: {
         Row: {
           address: string | null
@@ -1481,6 +1591,33 @@ export type Database = {
         Args: { p_schedule?: string; p_secret: string; p_target_url: string }
         Returns: string
       }
+      credit_add: {
+        Args: {
+          p_amount: number
+          p_created_by?: string
+          p_description: string
+          p_external_ref?: string
+          p_kind: Database["public"]["Enums"]["credit_movement"]
+          p_restaurant_id: string
+        }
+        Returns: number
+      }
+      credit_consume: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_order_id: string
+          p_restaurant_id: string
+        }
+        Returns: {
+          allowed: boolean
+          new_balance: number
+        }[]
+      }
+      credit_refund: {
+        Args: { p_description?: string; p_order_id: string }
+        Returns: number
+      }
       current_motoboy_id: { Args: never; Returns: string }
       current_restaurant_id: { Args: never; Returns: string }
       current_user_role: {
@@ -1522,6 +1659,12 @@ export type Database = {
         | "delivery_fee"
         | "adjustment"
         | "credit"
+      credit_movement:
+        | "purchase"
+        | "consumption"
+        | "refund"
+        | "adjustment"
+        | "bonus"
       dispatch_outcome:
         | "accepted"
         | "declined"
@@ -1711,6 +1854,13 @@ export const Constants = {
         "delivery_fee",
         "adjustment",
         "credit",
+      ],
+      credit_movement: [
+        "purchase",
+        "consumption",
+        "refund",
+        "adjustment",
+        "bonus",
       ],
       dispatch_outcome: [
         "accepted",

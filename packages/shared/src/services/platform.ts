@@ -378,6 +378,7 @@ export type AdminRestaurantRow = {
   createdAt: string;
   trialEndsAt: string | null;
   lastActivityAt: string | null;
+  creditBalance: number;
 };
 
 export async function listRestaurants(
@@ -426,6 +427,9 @@ export async function listRestaurants(
       lastByRest.set(o.restaurant_id, o.delivered_at);
   }
 
+  const { data: creds } = await db.from('restaurant_credits').select('restaurant_id, balance').in('restaurant_id', ids);
+  const balByRest = new Map((creds ?? []).map((c) => [c.restaurant_id, Number(c.balance)]));
+
   let rows: AdminRestaurantRow[] = rests.map((r) => {
     const sub = subByRest.get(r.id) as
       | { status?: string; trial_ends_at?: string | null; plans?: { code?: string; name?: string; monthly_price?: number } }
@@ -443,6 +447,7 @@ export async function listRestaurants(
       createdAt: r.created_at,
       trialEndsAt: sub?.trial_ends_at ?? null,
       lastActivityAt: lastByRest.get(r.id) ?? null,
+      creditBalance: balByRest.get(r.id) ?? 0,
     };
   });
 
@@ -500,12 +505,25 @@ export async function getRestaurantDetail(db: DB, restaurantId: string) {
     .order('created_at', { ascending: false })
     .limit(20);
 
+  const { data: credits } = await db
+    .from('restaurant_credits')
+    .select('balance, low_balance_threshold')
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  const { data: creditHistory } = await db
+    .from('credit_ledger')
+    .select('kind, amount, balance_after, description, created_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false })
+    .limit(15);
+
   return {
     restaurant: r,
     subscription: sub,
     team: users ?? [],
     integrations: integrations ?? [],
     payoutPolicy: payout ?? null,
+    credits: { balance: Number(credits?.balance ?? 0), history: creditHistory ?? [] },
     usage30d: {
       delivered,
       driverCost: round(cost),
