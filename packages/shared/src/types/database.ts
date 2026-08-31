@@ -1183,6 +1183,7 @@ export type Database = {
           id: string
           monthly_price: number
           name: string
+          per_delivery_margin: number
           per_delivery_price: number
           sort_order: number
           trial_days: number
@@ -1195,6 +1196,7 @@ export type Database = {
           id?: string
           monthly_price?: number
           name: string
+          per_delivery_margin?: number
           per_delivery_price?: number
           sort_order?: number
           trial_days?: number
@@ -1207,6 +1209,7 @@ export type Database = {
           id?: string
           monthly_price?: number
           name?: string
+          per_delivery_margin?: number
           per_delivery_price?: number
           sort_order?: number
           trial_days?: number

@@ -185,7 +185,8 @@ export default function OrdersBoard({
                 <div style={{ marginTop: 4 }}>{o.customer_name} · {o.customer_address}</div>
                 <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
                   {formatDateTime(o.created_at)}
-                  {o.leeva_fee != null && ` · logística ${formatCurrencyBRL(Number(o.leeva_fee))} · margem ${formatCurrencyBRL(Number(o.logistics_margin ?? 0))}`}
+                  {o.leeva_fee != null &&
+                    ` · custo ${formatCurrencyBRL(Number(o.leeva_fee))} (entregador ${formatCurrencyBRL(Number(o.driver_payout ?? 0))} + Leeva ${formatCurrencyBRL(Number(o.logistics_margin ?? 0))})`}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

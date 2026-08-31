@@ -13,6 +13,7 @@ import { emitEvent, notifyForStatusChange } from './events';
 import { queueNotification } from './notifications';
 import { estimateOrderEta } from './eta';
 import { finalizeLogisticsForOrder } from './autodispatch';
+import { finalizeDeliveryCharge } from './payout';
 import { recordDeliveryUsage } from './billing';
 import { recordIncident } from './reputation';
 import type { IncidentOrigin } from '../types';
@@ -96,8 +97,11 @@ export async function createOrderFromNormalized(
       latitude: lat,
       longitude: lng,
       region: region?.slice(0, 120) ?? null,
+      // order_amount = valor da VENDA — só interessa quando o pagamento é na
+      // entrega (motoboy precisa saber quanto cobrar). Senão, o Leeva não
+      // toca no dinheiro da venda.
       order_amount: clampMoney(n.total),
-      delivery_fee: clampMoney(n.deliveryFee),
+      delivery_fee: 0, // taxa manual removida — o Leeva calcula (finalizeDeliveryCharge)
       payment_method: n.paymentMethod ?? 'unknown',
       payment_status: n.paymentStatus ?? 'pending',
       notes: n.notes ? notesPrefix + n.notes : opts.requireConfirmation ? notesPrefix.trim() : null,
@@ -149,6 +153,13 @@ export async function createOrderFromNormalized(
       .from('integration_events')
       .update({ order_id: order.id, status: 'processed', processed_at: new Date().toISOString() })
       .eq('id', opts.integrationEventId);
+  }
+
+  // TAXA DA ENTREGA — calculada UMA VEZ, aqui. Tudo depois lê o valor gravado.
+  try {
+    await finalizeDeliveryCharge(db, order.id, restaurantId);
+  } catch (e) {
+    console.error('[orders] cálculo da taxa falhou (ignorado):', (e as Error).message);
   }
 
   // dispara o despacho automático (o motor decide o entregador sozinho).

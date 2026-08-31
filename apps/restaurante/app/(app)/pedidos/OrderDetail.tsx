@@ -105,25 +105,34 @@ export default function OrderDetail({ order, onChanged }: { order: OrderRow; onC
           {order.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {order.notes}</div>}
 
           <div className="card-title" style={{ marginTop: 14 }}>Pagamento da venda</div>
-          <div style={{ fontSize: 14 }}>
-            {formatCurrencyBRL(Number(order.order_amount))} —{' '}
-            {PAYMENT_METHOD_LABELS[order.payment_method as keyof typeof PAYMENT_METHOD_LABELS] ?? order.payment_method}
-            {' · '}
-            <b>{PAYMENT_STATUS_LABELS[order.payment_status as keyof typeof PAYMENT_STATUS_LABELS] ?? order.payment_status}</b>
-          </div>
-          <div className="muted" style={{ fontSize: 12 }}>
-            O Leeva não processa a venda — o dinheiro é do restaurante.
-          </div>
+          {Number(order.order_amount) > 0 ? (
+            <>
+              <div style={{ fontSize: 14 }}>
+                {formatCurrencyBRL(Number(order.order_amount))} a receber do cliente na entrega —{' '}
+                {PAYMENT_METHOD_LABELS[order.payment_method as keyof typeof PAYMENT_METHOD_LABELS] ?? order.payment_method}
+              </div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                O entregador recolhe esse valor. O Leeva não processa a venda — o dinheiro é seu.
+              </div>
+            </>
+          ) : (
+            <div className="muted" style={{ fontSize: 13 }}>
+              Venda já paga nos seus canais. O Leeva não toca no dinheiro da venda.
+            </div>
+          )}
         </div>
 
         <div>
-          <div className="card-title">Custo da logística</div>
-          <table className="data" style={{ fontSize: 13 }}>
+          <div className="card-title">Custo desta entrega</div>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>
+            {order.leeva_fee != null ? formatCurrencyBRL(Number(order.leeva_fee)) : 'a calcular'}
+          </div>
+          <div className="muted" style={{ fontSize: 12 }}>descontado do seu crédito</div>
+          <table className="data" style={{ fontSize: 13, marginTop: 8 }}>
             <tbody>
-              <tr><td>Distância estimada</td><td>{order.route_distance_km != null ? `${Number(order.route_distance_km).toFixed(1)} km` : '—'}</td></tr>
-              <tr><td>Taxa de entrega (logística)</td><td>{order.leeva_fee != null ? formatCurrencyBRL(Number(order.leeva_fee)) : 'a calcular'}</td></tr>
-              <tr><td>Remuneração do entregador</td><td>{order.driver_payout != null ? formatCurrencyBRL(Number(order.driver_payout)) : 'a calcular'}</td></tr>
-              <tr style={{ fontWeight: 700 }}><td>Margem logística</td><td>{order.logistics_margin != null ? formatCurrencyBRL(Number(order.logistics_margin)) : '—'}</td></tr>
+              <tr><td>Distância</td><td>{order.route_distance_km != null ? `${Number(order.route_distance_km).toFixed(1)} km` : '—'}</td></tr>
+              <tr><td>Entregador (100% pela distância)</td><td>{order.driver_payout != null ? formatCurrencyBRL(Number(order.driver_payout)) : '—'}</td></tr>
+              <tr><td>Leeva (margem do seu plano)</td><td>{order.logistics_margin != null ? formatCurrencyBRL(Number(order.logistics_margin)) : '—'}</td></tr>
             </tbody>
           </table>
 

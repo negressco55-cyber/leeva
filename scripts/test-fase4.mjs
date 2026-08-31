@@ -13,6 +13,10 @@ import {
   acceptOffer,
   assignDriver,
   advanceOrderStatus,
+  createOrderFromNormalized,
+  computeDeliveryCharge,
+  ensureSubscription,
+  changePlan,
 } from '../packages/shared/src/services/index.ts';
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -145,6 +149,89 @@ async function main() {
     const { data: ord } = await db.from('orders').select('driver_payout').eq('id', o.id).single();
     assert.ok(ord.driver_payout != null, 'driver_payout não gravado na atribuição manual');
     assert.ok(Number(ord.driver_payout) > 0);
+  });
+
+  // ---------------------------------------------------------------
+  // BLOCO 1 — taxa automática, calculada na criação e gravada
+  // ---------------------------------------------------------------
+  await t('criação do pedido: driver_payout e total são calculados e gravados', async () => {
+    await ensureSubscription(db, r.id, 'pro');
+    const cp = await changePlan(db, r.id, 'pro'); // margem 1,00 — garante
+    assert.ok(cp.ok, cp.error);
+    const res = await createOrderFromNormalized(db, r.id, {
+      externalId: null,
+      source: 'manual',
+      customer: { name: 'C', phone: null },
+      items: [],
+      address: { formatted: 'Rua Y - Bessa', latitude: -7.093, longitude: -34.84, region: 'Bessa' },
+      total: 0,
+      deliveryFee: 0,
+      paymentMethod: 'online',
+      paymentStatus: 'paid',
+      notes: '[F4]',
+    });
+    assert.ok(res.ok, res.error);
+    cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
+    const { data: o } = await db
+      .from('orders')
+      .select('driver_payout, customer_fee, leeva_fee, logistics_margin, route_distance_km, delivery_fee')
+      .eq('id', res.orderId)
+      .single();
+    assert.ok(o.driver_payout != null && Number(o.driver_payout) >= 6, `payout ${o.driver_payout}`);
+    assert.equal(Number(o.delivery_fee), 0, 'taxa manual deve ser 0');
+    // total cobrado = payout + margem do plano (Pro = 1,00)
+    assert.equal(Number(o.customer_fee), Number(o.leeva_fee));
+    assert.equal(
+      Math.round((Number(o.driver_payout) + 1.0) * 100) / 100,
+      Number(o.customer_fee),
+      `total ${o.customer_fee} != payout ${o.driver_payout} + 1,00`,
+    );
+    // margem (coluna gerada) = leeva_fee - driver_payout = 1,00
+    assert.equal(Number(o.logistics_margin), 1.0);
+  });
+
+  await t('margem vem do plano do restaurante (Starter 1,50 vs Pro 1,00)', async () => {
+    const mkAndCharge = async (planCode) => {
+      await changePlan(db, r.id, planCode);
+      const res = await createOrderFromNormalized(db, r.id, {
+        externalId: null,
+        source: 'manual',
+        customer: { name: 'C', phone: null },
+        items: [],
+        address: { formatted: 'Rua Z - Bessa', latitude: -7.093, longitude: -34.84 },
+        total: 0,
+        deliveryFee: 0,
+        paymentMethod: 'online',
+        paymentStatus: 'paid',
+        notes: '[F4]',
+      });
+      cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
+      const { data: o } = await db.from('orders').select('logistics_margin').eq('id', res.orderId).single();
+      return Number(o.logistics_margin);
+    };
+    assert.equal(await mkAndCharge('start'), 1.5);
+    assert.equal(await mkAndCharge('pro'), 1.0);
+    await changePlan(db, r.id, 'pro'); // volta
+  });
+
+  await t('preview (computeDeliveryCharge) = o que é gravado no pedido', async () => {
+    const preview = await computeDeliveryCharge(db, r.id, { latitude: -7.093, longitude: -34.84 });
+    const res = await createOrderFromNormalized(db, r.id, {
+      externalId: null,
+      source: 'manual',
+      customer: { name: 'C', phone: null },
+      items: [],
+      address: { formatted: 'Rua W - Bessa', latitude: -7.093, longitude: -34.84 },
+      total: 0,
+      deliveryFee: 0,
+      paymentMethod: 'online',
+      paymentStatus: 'paid',
+      notes: '[F4]',
+    });
+    cleanup.push(() => db.from('orders').delete().eq('id', res.orderId));
+    const { data: o } = await db.from('orders').select('driver_payout, customer_fee').eq('id', res.orderId).single();
+    assert.equal(Number(o.driver_payout), preview.driverPayout);
+    assert.equal(Number(o.customer_fee), preview.total);
   });
 
   await t('o valor pago ao motoboy nunca é uma fração da venda (order_amount)', async () => {

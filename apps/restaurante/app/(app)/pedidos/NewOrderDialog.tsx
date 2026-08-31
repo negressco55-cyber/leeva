@@ -1,12 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiGet, apiPost } from '../_lib/client';
-import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS, type PaymentMethod, type PaymentStatus } from '@leeva/shared';
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_STATUS_LABELS,
+  formatCurrencyBRL,
+  paymentPendingOnDelivery,
+  type PaymentMethod,
+  type PaymentStatus,
+} from '@leeva/shared';
+
+type FeePreview = {
+  ok: boolean;
+  distanceKm?: number | null;
+  driverPayout?: number;
+  margin?: number;
+  total?: number;
+  error?: string;
+};
 
 /**
- * Nova entrega — o Leeva recebe só os dados LOGÍSTICOS. Itens são opcionais.
- * Ao criar, o despacho automático começa a procurar entregador na hora.
+ * Nova entrega — o restaurante informa só o endereço. O Leeva calcula a taxa
+ * automaticamente (distância) e mostra ANTES de criar. Sem taxa surpresa.
  */
 export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [customerName, setCustomerName] = useState('');
@@ -17,12 +33,30 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   const [geoLabel, setGeoLabel] = useState<string | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [orderValue, setOrderValue] = useState('');
-  const [deliveryFee, setDeliveryFee] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('unknown');
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pending');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [fee, setFee] = useState<FeePreview | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+
+  const collectOnDelivery = paymentPendingOnDelivery(paymentMethod, paymentStatus);
+
+  // pré-visualização da taxa sempre que a localização mudar
+  useEffect(() => {
+    if (!lat || !lng) {
+      setFee(null);
+      return;
+    }
+    let cancelled = false;
+    apiGet<FeePreview>(`/api/delivery-fee?latitude=${lat}&longitude=${lng}`)
+      .then((r) => !cancelled && setFee(r))
+      .catch(() => !cancelled && setFee(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [lat, lng]);
 
   async function geocode() {
     if (address.trim().length < 5) return;
@@ -56,8 +90,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
         address,
         latitude: lat ? Number(lat) : null,
         longitude: lng ? Number(lng) : null,
-        deliveryFee: deliveryFee ? Number(deliveryFee) : 0,
-        total: orderValue ? Number(orderValue) : 0,
+        total: collectOnDelivery && orderValue ? Number(orderValue) : 0,
         paymentMethod,
         paymentStatus,
         notes: notes || null,
@@ -79,7 +112,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
           <button className="btn sm" onClick={onClose}>✕</button>
         </div>
         <p className="muted" style={{ fontSize: 13 }}>
-          O Leeva encontra o entregador automaticamente ao criar.
+          O Leeva calcula a taxa pela distância e encontra o entregador automaticamente.
         </p>
 
         <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
@@ -97,10 +130,35 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
             <input className="input" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} style={{ flex: 1 }} />
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="input" type="number" step="0.01" placeholder="Valor do pedido (R$)" value={orderValue} onChange={(e) => setOrderValue(e.target.value)} style={{ flex: 1 }} />
-            <input className="input" type="number" step="0.01" placeholder="Taxa de entrega (R$)" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} style={{ flex: 1 }} />
-          </div>
+          {/* pré-visualização da taxa */}
+          {fee?.ok && fee.total != null && (
+            <div className="op-alert info" style={{ marginBottom: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>
+                Esta entrega vai custar {formatCurrencyBRL(fee.total)}
+                {fee.distanceKm != null && (
+                  <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}> · {fee.distanceKm} km</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn sm"
+                style={{ marginTop: 6 }}
+                onClick={() => setShowDetail((s) => !s)}
+              >
+                {showDetail ? 'ocultar detalhe' : 'ver detalhe'}
+              </button>
+              {showDetail && (
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  Entregador: {formatCurrencyBRL(fee.driverPayout ?? 0)} (100% pela distância)<br />
+                  Leeva: {formatCurrencyBRL(fee.margin ?? 0)} (margem do seu plano)<br />
+                  <b>Total descontado do seu crédito: {formatCurrencyBRL(fee.total)}</b>
+                </div>
+              )}
+            </div>
+          )}
+          {fee && !fee.ok && lat && lng && (
+            <div className="muted" style={{ fontSize: 12 }}>Não foi possível calcular a taxa: {fee.error}</div>
+          )}
 
           <div style={{ display: 'flex', gap: 8 }}>
             <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} style={{ flex: 1 }}>
@@ -114,6 +172,17 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
               ))}
             </select>
           </div>
+
+          {collectOnDelivery && (
+            <input
+              className="input"
+              type="number"
+              step="0.01"
+              placeholder="Valor a receber do cliente na entrega (R$)"
+              value={orderValue}
+              onChange={(e) => setOrderValue(e.target.value)}
+            />
+          )}
 
           <textarea className="input" placeholder="Observações de entrega" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
 

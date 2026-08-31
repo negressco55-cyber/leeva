@@ -440,7 +440,7 @@ async function classifyOfferForCandidate(
 }> {
   const { data: order } = await db
     .from('orders')
-    .select('latitude, longitude, group_id')
+    .select('latitude, longitude, group_id, driver_payout, route_distance_km')
     .eq('id', orderId)
     .maybeSingle();
   const { data: rst } = await db
@@ -456,25 +456,31 @@ async function classifyOfferForCandidate(
     ? { latitude: order!.latitude as number, longitude: order!.longitude as number }
     : null;
 
-  let distanceDropoffKm: number | null = null;
-  let etaDropoffMin: number | null = null;
-  if (pickup && dropoff) {
+  let distanceDropoffKm: number | null =
+    order?.route_distance_km != null ? Number(order.route_distance_km) : null;
+  let etaDropoffMin: number | null =
+    distanceDropoffKm != null ? minutesForKm(distanceDropoffKm) : null;
+  if (distanceDropoffKm == null && pickup && dropoff) {
     const leg = await getRoutingService().leg(pickup, dropoff);
     distanceDropoffKm = leg?.distanceKm ?? haversineKm(pickup, dropoff);
     etaDropoffMin = leg?.durationMin ?? (distanceDropoffKm != null ? minutesForKm(distanceDropoffKm) : null);
   }
 
-  let groupSize = 1;
-  if (order?.group_id) {
-    const { count } = await db
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('group_id', order.group_id);
-    groupSize = Math.max(1, count ?? 1);
+  // FONTE ÚNICA: a remuneração já foi calculada e gravada na criação do pedido.
+  // A oferta mostra EXATAMENTE esse valor — nunca recalcula.
+  let payout = order?.driver_payout != null ? Number(order.driver_payout) : null;
+  if (payout == null) {
+    let groupSize = 1;
+    if (order?.group_id) {
+      const { count } = await db
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('group_id', order.group_id);
+      groupSize = Math.max(1, count ?? 1);
+    }
+    const policy = await getPayoutPolicy(db, restaurantId);
+    payout = computeDriverPayout(policy, { distanceKm: distanceDropoffKm, groupSize }).total;
   }
-
-  const policy = await getPayoutPolicy(db, restaurantId);
-  const payout = computeDriverPayout(policy, { distanceKm: distanceDropoffKm, groupSize }).total;
 
   const etaTotalMin =
     best.etaToPickupMin != null || etaDropoffMin != null

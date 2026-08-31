@@ -13,7 +13,8 @@ export type ManualOrderInput = {
   longitude?: number | null;
   region?: string | null;
   items: { name: string; quantity: number; unitPrice: number; notes?: string }[];
-  deliveryFee: number;
+  /** obsoleto — o Leeva calcula a taxa pela distância (Fase 4) */
+  deliveryFee?: number;
   notes?: string | null;
   /** valor total dos itens; se ausente, é calculado a partir dos itens */
   total?: number;

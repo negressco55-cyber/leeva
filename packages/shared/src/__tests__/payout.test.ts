@@ -58,3 +58,37 @@ test('margem: valores negativos são zerados', () => {
   assert.equal(f.driverPayout, 0);
   assert.equal(f.margin, 0);
 });
+
+// ---- Fase 4: tabela de valores do entregador (base 5 / +1,50 km / mín 6) ----
+const F4 = { ...DEFAULT_PAYOUT_CONFIG, base: 5, per_km: 1.5, free_km: 2, min_payout: 6, grouped_extra: 3, peak_bonus: 0 };
+
+test('fase4: 2 km → mínimo R$ 6,00 (base 5 < mínimo 6)', () => {
+  assert.equal(computeDriverPayout(F4, { distanceKm: 2 }).total, 6);
+});
+
+test('fase4: 3 km → R$ 6,50 (5 + 1×1,50)', () => {
+  assert.equal(computeDriverPayout(F4, { distanceKm: 3 }).total, 6.5);
+});
+
+test('fase4: 2,67 km ainda cai no mínimo (5 + 0,67×1,50 ≈ 6,00)', () => {
+  assert.equal(computeDriverPayout(F4, { distanceKm: 2.67 }).total, 6);
+});
+
+test('fase4: 5 km → R$ 9,50 (5 + 3×1,50)', () => {
+  assert.equal(computeDriverPayout(F4, { distanceKm: 5 }).total, 9.5);
+});
+
+test('fase4: km adicional é contínuo, não em degraus (3,4 km ≠ 3 km)', () => {
+  const a = computeDriverPayout(F4, { distanceKm: 3 }).total;
+  const b = computeDriverPayout(F4, { distanceKm: 3.4 }).total;
+  assert.equal(a, 6.5);
+  assert.equal(b, 7.1); // 5 + 1,4×1,50
+  assert.notEqual(a, b);
+});
+
+test('fase4: exemplo do enunciado — 3 km, plano Pro → total R$ 7,50', () => {
+  const motoboy = computeDriverPayout(F4, { distanceKm: 3 }).total; // 6,50
+  const margemPro = 1.0;
+  assert.equal(motoboy, 6.5);
+  assert.equal(Math.round((motoboy + margemPro) * 100) / 100, 7.5);
+});

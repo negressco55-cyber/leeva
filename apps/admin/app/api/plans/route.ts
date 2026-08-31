@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     name: String(b.name ?? b.code).slice(0, 80),
     monthly_price: Number(b.monthly_price ?? 0),
     per_delivery_price: Number(b.per_delivery_price ?? 0),
+    per_delivery_margin: Number(b.per_delivery_margin ?? 1.0),
     trial_days: Math.max(0, Math.round(Number(b.trial_days ?? 14))),
     sort_order: Math.round(Number(b.sort_order ?? 0)),
     active: !!b.active,
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   };
   if (!Number.isFinite(row.monthly_price) || row.monthly_price < 0) return businessError('mensalidade inválida');
   if (!Number.isFinite(row.per_delivery_price) || row.per_delivery_price < 0) return businessError('valor por entrega inválido');
+  if (!Number.isFinite(row.per_delivery_margin) || row.per_delivery_margin < 0) return businessError('margem por entrega inválida');
   if (typeof row.features !== 'object' || Array.isArray(row.features)) return businessError('features deve ser um objeto JSON');
 
   try {
