@@ -14,6 +14,37 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import { getAsaasClient, pixKeyTypeToAsaas } from './asaas';
+import { notifyDriver } from './notify-driver';
+
+const money = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
+
+async function notifyPayout(
+  db: DB,
+  motoboyId: string,
+  outcome: 'paid' | 'failed',
+  amount: number,
+): Promise<void> {
+  try {
+    if (outcome === 'paid') {
+      await notifyDriver(db, {
+        motoboyId,
+        kind: 'payout_paid',
+        title: 'Repasse enviado',
+        body: `Seu repasse de ${money(amount)} foi enviado para sua chave Pix.`,
+      });
+    } else {
+      await notifyDriver(db, {
+        motoboyId,
+        kind: 'payout_failed',
+        title: 'Repasse não saiu',
+        body: `Não conseguimos enviar seu repasse de ${money(amount)}. Confira sua chave Pix em Pagamentos — vamos tentar de novo.`,
+        urgent: true,
+      });
+    }
+  } catch {
+    /* aviso nunca bloqueia o repasse */
+  }
+}
 
 type DB = SupabaseClient<Database>;
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -242,6 +273,7 @@ export async function processPayoutBatch(
         error: null,
       })
       .eq('id', batchId);
+    await notifyPayout(db, batch.motoboy_id, 'paid', amount);
     return { batchId, status: 'paid', amount, simulated: true };
   }
 
@@ -257,11 +289,13 @@ export async function processPayoutBatch(
       .from('payout_batches')
       .update({ status: 'paid', paid_at: new Date().toISOString(), external_ref: r.data.id, simulated: false, error: null })
       .eq('id', batchId);
+    await notifyPayout(db, batch.motoboy_id, 'paid', amount);
     return { batchId, status: 'paid', amount, simulated: false };
   }
 
   await db.from('payout_batches').update({ status: 'failed', error: r.error.slice(0, 300) }).eq('id', batchId);
   await createPayoutAlert(db, batch.motoboy_id, batchId, `Transferência falhou: ${r.error}`);
+  await notifyPayout(db, batch.motoboy_id, 'failed', amount);
   return { batchId, status: 'failed', amount, simulated: false, error: r.error };
 }
 

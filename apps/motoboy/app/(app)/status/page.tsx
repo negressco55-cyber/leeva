@@ -1,5 +1,6 @@
 import { requireMotoboyContext, adminDb } from '@/lib/context';
 import StatusToggle from './StatusToggle';
+import NotificationSetup from '../_lib/NotificationSetup';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,12 +22,15 @@ export default async function StatusPage() {
     .gte('delivered_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
 
   return (
-    <StatusToggle
-      restaurantId={ctx.restaurantId}
-      motoboyId={ctx.motoboyId}
-      initialStatus={ctx.status}
-      activeDeliveries={activeCount ?? 0}
-      doneToday={doneToday ?? 0}
-    />
+    <div className="grid" style={{ gap: 16 }}>
+      <StatusToggle
+        restaurantId={ctx.restaurantId}
+        motoboyId={ctx.motoboyId}
+        initialStatus={ctx.status}
+        activeDeliveries={activeCount ?? 0}
+        doneToday={doneToday ?? 0}
+      />
+      <NotificationSetup askNow={ctx.status !== 'offline'} />
+    </div>
   );
 }

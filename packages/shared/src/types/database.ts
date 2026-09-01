@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       alerts: {
@@ -849,6 +874,7 @@ export type Database = {
           pix_key: string | null
           pix_key_type: string | null
           punctuality_rate: number
+          push_enabled: boolean
           rating: number
           reliability_index: number
           reputation_updated_at: string | null
@@ -892,6 +918,7 @@ export type Database = {
           pix_key?: string | null
           pix_key_type?: string | null
           punctuality_rate?: number
+          push_enabled?: boolean
           rating?: number
           reliability_index?: number
           reputation_updated_at?: string | null
@@ -935,6 +962,7 @@ export type Database = {
           pix_key?: string | null
           pix_key_type?: string | null
           punctuality_rate?: number
+          push_enabled?: boolean
           rating?: number
           reliability_index?: number
           reputation_updated_at?: string | null
@@ -1501,6 +1529,50 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          failure_count: number
+          id: string
+          last_seen_at: string
+          motoboy_id: string
+          p256dh: string
+          user_agent: string | null
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          failure_count?: number
+          id?: string
+          last_seen_at?: string
+          motoboy_id: string
+          p256dh: string
+          user_agent?: string | null
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          failure_count?: number
+          id?: string
+          last_seen_at?: string
+          motoboy_id?: string
+          p256dh?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_motoboy_id_fkey"
+            columns: ["motoboy_id"]
+            isOneToOne: false
+            referencedRelation: "motoboys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limit_hits: {
         Row: {
           bucket: string
@@ -2061,6 +2133,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       alert_severity: ["info", "warning", "critical", "ok"],

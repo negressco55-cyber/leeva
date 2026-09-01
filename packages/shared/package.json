@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4"
+    "@supabase/supabase-js": "^2.112.4",
+    "web-push": "^3.6.7"
   },
   "peerDependencies": {
     "next": "^15.0.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.23.13",
     "typescript": "^5.7.2"
   }

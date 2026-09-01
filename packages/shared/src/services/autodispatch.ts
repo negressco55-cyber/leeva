@@ -20,6 +20,7 @@ import { haversineKm, minutesForKm, isValidLatLng, type LatLng } from './geo';
 import { getRoutingService } from './routing';
 import { getPayoutPolicy, computeDriverPayout, computeLogisticsFinance } from './payout';
 import { classifyOfferQuality } from './reputation';
+import { sendPushToMotoboy } from './push';
 
 type DB = SupabaseClient<Database>;
 
@@ -431,6 +432,25 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       sent_at: new Date().toISOString(),
       data: { order_id: o.id, quality: quality.quality },
     });
+
+    // Web Push (se o motoboy autorizou) — chega mesmo com o app fechado.
+    const { data: pushM } = await db
+      .from('motoboys')
+      .select('push_enabled')
+      .eq('id', best.motoboyId)
+      .maybeSingle();
+    if (pushM?.push_enabled) {
+      const payoutTxt =
+        quality.payout != null ? ` — você recebe R$ ${quality.payout.toFixed(2).replace('.', ',')}` : '';
+      void sendPushToMotoboy(db, best.motoboyId, {
+        title: 'Nova entrega disponível',
+        body: `${priorityLine}${payoutTxt}. Aceite antes que expire.`,
+        url: '/status',
+        tag: 'offer',
+        urgent: true,
+        data: { order_id: o.id },
+      }).catch(() => {});
+    }
   }
 
   return res;

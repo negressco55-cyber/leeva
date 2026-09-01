@@ -17,6 +17,10 @@ import {
   getActiveTerms,
   scoreCandidatesForOrder,
   runDispatchTick,
+  savePushSubscription,
+  deletePushSubscription,
+  sendPushToMotoboy,
+  notifyDriver,
 } from '../packages/shared/src/services/index.ts';
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -219,6 +223,83 @@ async function main() {
     await acceptTerms(db, d1, 999, null);
     const { candidates: c2 } = await scoreCandidatesForOrder(db, o.id);
     assert.ok(c2.map((c) => c.motoboyId).includes(d1), 're-aceitou → volta ao pool');
+  });
+
+  // ---------------------------------------------------------------
+  // BLOCO B — Web Push
+  // ---------------------------------------------------------------
+  const FAKE_SUB = {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/f5-fake-' + crypto.randomUUID(),
+    keys: {
+      p256dh: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+      auth: 'k8JV6sjdbhAiSg2Lq9nA9A',
+    },
+  };
+
+  await t('push: salva subscription e liga push_enabled', async () => {
+    const r = await savePushSubscription(db, d1, FAKE_SUB);
+    assert.ok(r.ok, r.error);
+    const { data: m } = await db.from('motoboys').select('push_enabled').eq('id', d1).single();
+    assert.equal(m.push_enabled, true);
+    const { count } = await db
+      .from('push_subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('motoboy_id', d1);
+    assert.equal(count, 1);
+  });
+
+  await t('push: subscription duplicada (mesmo endpoint) não cria linha nova', async () => {
+    await savePushSubscription(db, d1, FAKE_SUB);
+    const { count } = await db
+      .from('push_subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('motoboy_id', d1);
+    assert.equal(count, 1);
+  });
+
+  await t('push: envio a endpoint inválido não lança e contabiliza falha/remoção', async () => {
+    const r = await sendPushToMotoboy(db, d1, { title: 'x', body: 'y' });
+    // endpoint fake: web-push devolve 4xx → ou remove (404/410) ou incrementa failure_count
+    assert.equal(r.ok, false);
+    assert.equal(typeof r.sent, 'number');
+  });
+
+  await t('push: remover subscription desliga push_enabled quando era a última', async () => {
+    // garante estado limpo: recria e remove
+    await savePushSubscription(db, d1, FAKE_SUB);
+    await deletePushSubscription(db, d1, FAKE_SUB.endpoint);
+    const { data: m } = await db.from('motoboys').select('push_enabled').eq('id', d1).single();
+    assert.equal(m.push_enabled, false);
+  });
+
+  await t('push: sendPushToMotoboy sem dispositivos devolve erro tratado', async () => {
+    const r = await sendPushToMotoboy(db, d1, { title: 'x', body: 'y' });
+    assert.equal(r.ok, false);
+    assert.match(r.error ?? '', /dispositivo|VAPID/i);
+  });
+
+  await t('notifyDriver: grava in-app quando há restaurantId', async () => {
+    const { data: rst } = await db
+      .from('restaurants')
+      .insert({ name: '[F5] Rn', latitude: -7.11, longitude: -34.84, fleet_mode: 'leeva', onboarding_completed: true })
+      .select('id')
+      .single();
+    cleanup.push(() => db.from('restaurants').delete().eq('id', rst.id));
+    await notifyDriver(db, {
+      motoboyId: d1,
+      restaurantId: rst.id,
+      kind: 'offer_cancelled',
+      title: 'Entrega cancelada',
+      body: 'teste',
+    });
+    const { data: n } = await db
+      .from('notifications')
+      .select('id, template, recipient')
+      .eq('recipient', d1)
+      .eq('template', 'motoboy.offer_cancelled')
+      .limit(1);
+    assert.ok(n?.length, 'deveria ter gravado a notificação in-app');
+    cleanup.push(() => db.from('notifications').delete().eq('recipient', d1).eq('template', 'motoboy.offer_cancelled'));
   });
 }
 

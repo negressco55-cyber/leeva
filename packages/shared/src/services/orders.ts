@@ -17,6 +17,7 @@ import { finalizeDeliveryCharge } from './payout';
 import { recordDeliveryUsage } from './billing';
 import { recordIncident } from './reputation';
 import { consumeCreditForOrder, refundCreditForOrder } from './credits';
+import { notifyDriver } from './notify-driver';
 import type { IncidentOrigin } from '../types';
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
@@ -311,6 +312,23 @@ export async function advanceOrderStatus(
         });
       } catch (e) {
         console.error('[orders] incidente não registrado (ignorado):', (e as Error).message);
+      }
+
+      // avisa o motoboy que a entrega que ele aceitou foi cancelada
+      try {
+        await notifyDriver(db, {
+          motoboyId: order.motoboy_id,
+          restaurantId: order.restaurant_id,
+          orderId,
+          kind: 'offer_cancelled',
+          title: 'Entrega cancelada',
+          body: opts.cancelReason
+            ? `A entrega que você aceitou foi cancelada: ${opts.cancelReason}`
+            : 'A entrega que você aceitou foi cancelada. Você já pode receber outra.',
+          urgent: true,
+        });
+      } catch (e) {
+        console.error('[orders] aviso ao motoboy falhou (ignorado):', (e as Error).message);
       }
     }
   }
