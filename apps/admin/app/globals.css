@@ -230,8 +230,8 @@ label .input, label select, label textarea { margin-top: var(--s1); }
 .dot.blue, .dot.brand { background: var(--brand); }
 
 /* ---------- KPI / métrica ---------- */
-.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); }
-.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: var(--s3) var(--s4); }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.stat { background: var(--surface); border: none; border-radius: 0; padding: var(--s3) var(--s4); box-shadow: inset 1px 0 0 var(--border), inset 0 1px 0 var(--border); }
 .stat .v { font-size: var(--fs-display); font-weight: 650; letter-spacing: -0.01em; line-height: 1.1; }
 .stat .l { color: var(--muted); font-size: var(--fs-label); margin-top: 3px; }
 .stat.warn .v { color: var(--danger); }

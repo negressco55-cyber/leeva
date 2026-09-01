@@ -261,3 +261,54 @@ app nativo do motoboy** e manter o resto do nosso Leeva.
 - Publicar na Play Store: conta de desenvolvedor Google (US$ 25, uma vez).
 - Testar num aparelho real (Expo Go): login, ficar online, receber oferta,
   aceitar, fluxo de entrega, notificação.
+
+---
+
+## App nativo — ícone, GPS em segundo plano, preparação de build (01/09)
+
+Sessão "usuário fora, sem token da Expo". Adiantado tudo que não depende de
+autenticação. Resumo em `docs/RESUMO-2026-09-01-app-nativo.md`.
+
+**Decisões tomadas sozinho:**
+
+1. **`app.json` virou `app.config.js` (config dinâmica).** Motivo: o pedido era
+   "o código reconhece o `google-services.json` sozinho, sem mais mudança
+   depois". Com config estática isso não dá; com `app.config.js` eu checo
+   `fs.existsSync('google-services.json')` e injeto `googleServicesFile` só se
+   existir. É o padrão do Expo pra isso, reversível, e não muda comportamento
+   nenhum enquanto o arquivo não está lá.
+2. **Ícone: um "L" terminando num pino de rota**, verde-pinho do design system.
+   Não reaproveitei o chevron "A" azul do zip (era rascunho, com as linhas de
+   grade aparecendo, e azul). Gerado com `sharp` a partir de um SVG; todos os
+   tamanhos do Expo (icon, adaptive foreground dentro da zona segura,
+   monochrome, splash).
+3. **A task de segundo plano é a ÚNICA que manda localização pro servidor
+   quando há entrega ativa.** O `watchPositionAsync` de primeiro plano passou a
+   só alimentar o mapa (`setPosition`), sem `POST /api/location`. Assim não tem
+   envio duplicado quando o app está aberto com o foreground service rodando.
+   Sem entrega ativa (só "disponível"), o foreground watch volta a enviar.
+4. **Rastreamento em segundo plano liga/desliga sozinho pelo `activeDelivery`.**
+   Enquanto há entrega → `startLocationUpdatesAsync` com foreground service +
+   notificação fixa. Sem entrega / offline / logout → `stopLocationUpdatesAsync`.
+   Nada de ficar drenando bateria fora de entrega.
+5. **Testes só da lógica pura** (`locationPayload.ts`: throttle, montagem do
+   payload, "última leitura do lote"). O comportamento nativo (foreground
+   service, permissão background) só dá pra validar num device/build — anotado.
+6. **`eas.json` com as env NÃO-secretas embutidas** (`EXPO_PUBLIC_API_URL`,
+   `EXPO_PUBLIC_SUPABASE_URL`). A chave anon do Supabase fica no `.env` local
+   (gitignored) que o EAS lê no build — não no `eas.json` (que vai pro repo
+   público).
+7. **Indicadores das telas de admin/restaurante: consolidação via CSS.**
+   `.stat-row` deixou de ser "vários cartões com borda" e virou um cartão só
+   com divisórias de 1px entre os números (o design system pedia isso).
+   Fiz no CSS em vez de reescrever cada tela — mesma melhora, risco quase zero,
+   pega Visão geral / Financeiro / Unit economics / Entregadores / Repasses /
+   detalhe do restaurante de uma vez.
+8. **`delivery.nearby` (pedido chegando):** descobri que **já estava
+   implementado** em `recordDriverLocation` (< 400 m do destino, idempotente).
+   Estava listado como pendente por engano na sessão anterior. Só adicionei um
+   teste (`test-tracking.mjs`).
+
+**Nada disso é irreversível ou arquitetural** — o PWA em produção não foi
+tocado, o backend só ganhou o teste novo, e todo o resto é o app nativo (que
+ainda não está publicado em lugar nenhum).

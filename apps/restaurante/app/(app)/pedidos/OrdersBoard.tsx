@@ -46,8 +46,12 @@ type OrderRow = {
   driver_payout: number | null;
   logistics_margin: number | null;
   route_distance_km: number | null;
+  group_id: string | null;
+  group_sequence: number | null;
   order_items: { id: string; name: string; quantity: number; unit_price: number; notes: string | null }[];
 };
+
+export type GroupPeer = { orderNumber: number | null; customerName: string; seq: number | null };
 
 /** Como o restaurante enxerga o andamento — status do pedido OU do despacho. */
 function progressLabel(o: OrderRow): { text: string; cls: string } {
@@ -73,9 +77,11 @@ function progressLabel(o: OrderRow): { text: string; cls: string } {
 export default function OrdersBoard({
   restaurantId,
   initialOrders,
+  groupPeers = {},
 }: {
   restaurantId: string;
   initialOrders: OrderRow[];
+  groupPeers?: Record<string, GroupPeer[]>;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -181,6 +187,11 @@ export default function OrdersBoard({
                   {o.eta_min != null && o.status !== 'delivered' && o.status !== 'cancelled' && (
                     <span className="muted" style={{ fontSize: 12 }}>ETA {o.eta_min}–{o.eta_max} min</span>
                   )}
+                  {o.group_id && (groupPeers[o.group_id]?.length ?? 0) > 1 && (
+                    <span className="tag blue">
+                      rota agrupada · {o.group_sequence}ª de {groupPeers[o.group_id]!.length}
+                    </span>
+                  )}
                 </div>
                 <div style={{ marginTop: 4 }}>{o.customer_name} · {o.customer_address}</div>
                 <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
@@ -208,7 +219,11 @@ export default function OrdersBoard({
               </div>
             </div>
             {openId === o.id && (
-              <OrderDetail order={o} onChanged={() => startTransition(() => router.refresh())} />
+              <OrderDetail
+                order={o}
+                groupPeers={o.group_id ? groupPeers[o.group_id] : undefined}
+                onChanged={() => startTransition(() => router.refresh())}
+              />
             )}
           </div>
         );

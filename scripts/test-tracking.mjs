@@ -14,6 +14,7 @@ import {
   advanceOrderStatus,
   runDispatchTick,
   acceptOffer,
+  recordDriverLocation,
   getPublicTrackingSnapshot,
   ensureTrackingToken,
   trackingUrl,
@@ -164,6 +165,56 @@ async function main() {
     const res = await getPublicTrackingSnapshot(db, token);
     assert.ok(res.ok);
     assert.equal(res.snapshot.driver?.name, 'João');
+  });
+
+  await t('proximidade: motoboy a < 400 m do destino → aviso "pedido chegando"', async () => {
+    // oid está com motoboy atribuído; leva até in_route
+    await advanceOrderStatus(db, oid, 'picked_up', { actorType: 'motoboy' });
+    await advanceOrderStatus(db, oid, 'in_route', { actorType: 'motoboy' });
+
+    const { data: ord } = await db.from('orders').select('latitude, longitude, motoboy_id, restaurant_id').eq('id', oid).single();
+    // ~150 m ao norte do destino
+    const near = { latitude: ord.latitude + 0.0014, longitude: ord.longitude };
+
+    const rec = await recordDriverLocation(db, {
+      restaurantId: ord.restaurant_id,
+      motoboyId: ord.motoboy_id,
+      orderId: oid,
+      latitude: near.latitude,
+      longitude: near.longitude,
+    });
+    assert.ok(rec.ok, rec.error);
+
+    const { data: ev } = await db
+      .from('order_events')
+      .select('type')
+      .eq('order_id', oid)
+      .eq('type', 'delivery.nearby')
+      .maybeSingle();
+    assert.ok(ev, 'evento delivery.nearby não criado');
+
+    const { data: nn } = await db
+      .from('notifications')
+      .select('template')
+      .eq('order_id', oid)
+      .eq('template', 'customer.nearby')
+      .maybeSingle();
+    assert.ok(nn, 'notificação "pedido chegando" não criada');
+
+    // repetir não duplica
+    await recordDriverLocation(db, {
+      restaurantId: ord.restaurant_id,
+      motoboyId: ord.motoboy_id,
+      orderId: oid,
+      latitude: near.latitude,
+      longitude: near.longitude,
+    });
+    const { count } = await db
+      .from('order_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('order_id', oid)
+      .eq('type', 'delivery.nearby');
+    assert.equal(count, 1, 'delivery.nearby duplicou');
   });
 
   await t('token inválido → erro tratado', async () => {

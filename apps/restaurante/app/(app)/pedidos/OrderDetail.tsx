@@ -50,7 +50,17 @@ type Detail = {
   dispatchAttempts?: { attempt_number: number; outcome: string | null; reason: string | null; offered_at: string; score: number | null }[];
 };
 
-export default function OrderDetail({ order, onChanged }: { order: OrderRow; onChanged: () => void }) {
+type GroupPeer = { orderNumber: number | null; customerName: string; seq: number | null };
+
+export default function OrderDetail({
+  order,
+  groupPeers,
+  onChanged,
+}: {
+  order: OrderRow;
+  groupPeers?: GroupPeer[];
+  onChanged: () => void;
+}) {
   const [d, setD] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -135,6 +145,25 @@ export default function OrderDetail({ order, onChanged }: { order: OrderRow; onC
               <tr><td>Leeva (margem do seu plano)</td><td>{order.logistics_margin != null ? formatCurrencyBRL(Number(order.logistics_margin)) : '—'}</td></tr>
             </tbody>
           </table>
+
+          {groupPeers && groupPeers.length > 1 && (
+            <div className="section" style={{ marginTop: 10, fontSize: 13 }}>
+              <strong style={{ fontSize: 12 }}>Rota agrupada</strong>
+              <p className="muted" style={{ fontSize: 12, margin: '4px 0 6px' }}>
+                Um único entregador faz esta e mais {groupPeers.length - 1}{' '}
+                {groupPeers.length - 1 === 1 ? 'entrega' : 'entregas'} na mesma saída. Por isso o custo acima
+                é menor que o de uma entrega avulsa.
+              </p>
+              <ol style={{ margin: 0, paddingLeft: 18 }}>
+                {groupPeers.map((p) => (
+                  <li key={`${p.orderNumber}-${p.seq}`} style={{ fontWeight: p.orderNumber === order.order_number ? 700 : 400 }}>
+                    {p.seq}ª parada — #{p.orderNumber} ({p.customerName})
+                    {p.orderNumber === order.order_number ? ' — este pedido' : ''}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           <div className="card-title" style={{ marginTop: 14 }}>Despacho</div>
           <div style={{ fontSize: 14 }}>
