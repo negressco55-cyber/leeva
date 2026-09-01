@@ -210,3 +210,54 @@ caindo para Haversine × 1,3 — então a troca é segura.
 - Ícones emoji na navegação (📦 🗺️) foram **mantidos** — o usuário não os
   listou como clichê e eles ajudam a orientação. O design system os marca
   como opcionais/decorativos.
+
+---
+
+## Extra — app nativo do motoboy (Android) a partir do zip "Levva-clone"
+
+O usuário mandou um zip com uma segunda versão do Leeva (stack diferente:
+Express + Prisma + Socket.io + app Expo/React Native). Pedido: **portar só o
+app nativo do motoboy** e manter o resto do nosso Leeva.
+
+**Feito:**
+- `apps/motoboy-app/` — app Expo/RN, **fora do workspace npm** (deps de React
+  Native não convivem com as dos apps web; tem `node_modules` e lockfile
+  próprios). Vercel não toca nele; turbo não vê.
+- Camada de dados reescrita: `@supabase/supabase-js` (login, tempo real) +
+  `fetch` nas rotas `/api/*` do `apps/motoboy` com `Authorization: Bearer`
+  (access token do Supabase). Socket.io → Supabase Realtime.
+- Backend: `getMotoboyContextFromReq(req)` aceita Bearer **além** do cookie
+  (PWA continua igual). Novas rotas JSON: `/api/me`, `/api/entrega`,
+  `/api/historico`, `/api/push/expo`.
+- Push nativo via **Expo Push Service** — `push_subscriptions.kind` ('web' |
+  'expo'), migration 0029. `sendPushToMotoboy` agora envia pros dois canais.
+- Telas adaptadas ao nosso modelo (ofertas com `dispatch_attempts`, entregas
+  com `orders`, ofertas agrupadas, gate de aprovação + termos).
+- `expo-doctor` 21/21, `tsc` limpo, bundle Android gera sem erro.
+
+**Decisões tomadas sozinho:**
+1. **App nativo = cliente fino sobre as rotas `/api` que o PWA já usa.** Em
+   vez de duplicar a lógica de negócio (aceitar oferta, avançar status) ou
+   abrir o RLS pro cliente nativo, o app chama os mesmos endpoints. Só
+   precisou o Bearer no backend.
+2. **Cadastro de novo entregador continua no site.** O `/quero-entregar` tem
+   upload de documentos (CNH/RG + CRLV) — refazer isso em RN com câmera/picker
+   é um projeto à parte. O app tem um botão que abre o cadastro no navegador.
+3. **Chave Pix: só leitura no app** por enquanto (mesma razão — o fluxo bom
+   é no painel). Dá pra adicionar edição depois.
+4. **Tema escuro no app nativo** (o design system é claro-primeiro). Deliberado:
+   entregador usa na rua/à noite, tela escura poupa bateria. Usa a MESMA cor de
+   marca (verde) e os mesmos tokens da versão escura do design system.
+5. **GPS só em primeiro plano** nesta primeira versão. Rastreamento em segundo
+   plano (app fechado) precisa de `expo-task-manager` + `expo-location`
+   background + configuração extra de build — anotado como próximo passo.
+6. **Servidor OSRM público** (já era assim no resto do Leeva).
+
+**O que falta pro app ir pra loja (precisa do usuário):**
+- Conta Expo (grátis) + `eas build` → gera o APK/AAB. `apps/motoboy-app/README.md`
+  tem o passo a passo.
+- Para o push nativo funcionar no APK standalone: `google-services.json` (FCM) —
+  o assistente do `eas build` guia.
+- Publicar na Play Store: conta de desenvolvedor Google (US$ 25, uma vez).
+- Testar num aparelho real (Expo Go): login, ficar online, receber oferta,
+  aceitar, fluxo de entrega, notificação.
