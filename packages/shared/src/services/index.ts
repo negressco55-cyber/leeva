@@ -31,3 +31,5 @@ export * from './observability';
 export * from './platform';
 export * from './apikeys';
 export * from './credits';
+export * from './asaas';
+export * from './driverpayouts';

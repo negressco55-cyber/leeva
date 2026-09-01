@@ -9,6 +9,7 @@ const TABS = [
   { href: '/entrega', label: 'Entrega' },
   { href: '/historico', label: 'Histórico' },
   { href: '/desempenho', label: 'Desempenho' },
+  { href: '/pagamentos', label: 'Pagamentos' },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

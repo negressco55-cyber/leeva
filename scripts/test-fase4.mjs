@@ -21,6 +21,11 @@ import {
   getCreditBalance,
   consumeCreditForOrder,
   refundCreditForOrder,
+  setPixKey,
+  getPendingEarnings,
+  closePayoutBatches,
+  retryPayoutBatch,
+  getPayoutHistory,
 } from '../packages/shared/src/services/index.ts';
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -352,6 +357,109 @@ async function main() {
     assert.equal(oks, 1, `passaram ${oks}, deveria 1`);
     const final = (await getCreditBalance(db, r.id)).balance;
     assert.ok(final >= 0, `saldo ficou negativo: ${final}`);
+  });
+
+  // ---------------------------------------------------------------
+  // BLOCO 4 — repasse ao motoboy
+  // ---------------------------------------------------------------
+  const earnMotoboys = [];
+  let periodSeq = 0;
+  const uniqPeriod = () => `2099-${String(1 + Math.floor(periodSeq / 28)).padStart(2, '0')}-${String(1 + (periodSeq++ % 28)).padStart(2, '0')}`;
+  cleanup.push(() => db.from('payout_batches').delete().in('motoboy_id', earnMotoboys));
+
+  const completeDelivery = async () => {
+    // isola: só o novo motoboy fica disponível (evita a oferta ir p/ outro [F4] D)
+    await db.from('motoboys').update({ status: 'offline' }).ilike('full_name', '[F4]%');
+    const dId = await mkDriver();
+    earnMotoboys.push(dId);
+    const o = await mkOrder();
+    await runDispatchTick(db, r.id);
+    const { data: offer } = await db
+      .from('dispatch_attempts')
+      .select('id, motoboy_id')
+      .eq('order_id', o.id)
+      .is('responded_at', null)
+      .maybeSingle();
+    await acceptOffer(db, offer.id, offer.motoboy_id);
+    await advanceOrderStatus(db, o.id, 'picked_up', { actorType: 'motoboy' });
+    await advanceOrderStatus(db, o.id, 'in_route', { actorType: 'motoboy' });
+    await advanceOrderStatus(db, o.id, 'delivered', { actorType: 'motoboy' });
+    const { data: ord } = await db.from('orders').select('driver_payout').eq('id', o.id).single();
+    return { motoboyId: offer.motoboy_id, payout: Number(ord.driver_payout) };
+  };
+
+  await t('repasse: entrega concluída gera driver_earnings (via trigger)', async () => {
+    const { motoboyId, payout } = await completeDelivery();
+    const { amount, count } = await getPendingEarnings(db, motoboyId);
+    assert.equal(count, 1);
+    assert.equal(amount, payout);
+  });
+
+  await t('repasse: chave Pix — validação', async () => {
+    const dId = await mkDriver();
+    earnMotoboys.push(dId);
+    assert.equal((await setPixKey(db, dId, 'abc', 'email')).ok, false); // e-mail inválido
+    assert.equal((await setPixKey(db, dId, 'x', 'cpf')).ok, false); // curta
+    assert.equal((await setPixKey(db, dId, 'motoboy@teste.com', 'email')).ok, true);
+    const { data: m } = await db.from('motoboys').select('pix_key, pix_key_type').eq('id', dId).single();
+    assert.equal(m.pix_key, 'motoboy@teste.com');
+    assert.equal(m.pix_key_type, 'email');
+  });
+
+  await t('repasse: fechamento paga (simulação) quando há chave Pix', async () => {
+    const { motoboyId, payout } = await completeDelivery();
+    await setPixKey(db, motoboyId, '11122233344', 'cpf');
+    const period = uniqPeriod();
+    const res = await closePayoutBatches(db, { periodDate: period });
+    assert.ok(res.paid >= 1, `paid=${res.paid}`);
+    const { data: batch } = await db
+      .from('payout_batches')
+      .select('status, amount, simulated, external_ref')
+      .eq('motoboy_id', motoboyId)
+      .eq('period_date', period)
+      .single();
+    assert.equal(batch.status, 'paid');
+    assert.equal(batch.simulated, true);
+    assert.equal(batch.external_ref, 'SIMULADO');
+    assert.equal(Number(batch.amount), payout);
+    // os ganhos ficaram ligados ao lote
+    const { amount } = await getPendingEarnings(db, motoboyId);
+    assert.equal(amount, 0, 'ainda tem ganho pendente após o fechamento');
+  });
+
+  await t('repasse: sem chave Pix → lote awaiting_pix + alerta, NÃO marca pago', async () => {
+    const { motoboyId } = await completeDelivery(); // motoboy sem pix
+    const period = uniqPeriod();
+    await closePayoutBatches(db, { periodDate: period });
+    const { data: batch } = await db
+      .from('payout_batches')
+      .select('id, status')
+      .eq('motoboy_id', motoboyId)
+      .eq('period_date', period)
+      .single();
+    assert.equal(batch.status, 'awaiting_pix');
+    const { count } = await db
+      .from('error_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('scope', 'billing')
+      .ilike('message', '%sem chave Pix%');
+    assert.ok(count >= 1, 'nenhum alerta gerado');
+
+    // motoboy cadastra a chave → reprocessa → paga
+    await setPixKey(db, motoboyId, '99988877766', 'cpf');
+    const retry = await retryPayoutBatch(db, batch.id);
+    assert.ok(retry.ok, retry.error);
+    const { data: after } = await db.from('payout_batches').select('status').eq('id', batch.id).single();
+    assert.equal(after.status, 'paid');
+  });
+
+  await t('repasse: histórico do motoboy lista os lotes', async () => {
+    const { motoboyId } = await completeDelivery();
+    await setPixKey(db, motoboyId, '12312312312', 'cpf');
+    await closePayoutBatches(db, { periodDate: uniqPeriod() });
+    const h = await getPayoutHistory(db, motoboyId);
+    assert.ok(h.length >= 1);
+    assert.ok(['paid', 'pending', 'awaiting_pix'].includes(h[0].status));
   });
 }
 

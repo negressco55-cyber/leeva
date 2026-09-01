@@ -465,6 +465,55 @@ export type Database = {
           },
         ]
       }
+      driver_earnings: {
+        Row: {
+          amount: number
+          batch_id: string | null
+          earned_at: string
+          id: string
+          motoboy_id: string
+          order_id: string
+        }
+        Insert: {
+          amount: number
+          batch_id?: string | null
+          earned_at?: string
+          id?: string
+          motoboy_id: string
+          order_id: string
+        }
+        Update: {
+          amount?: number
+          batch_id?: string | null
+          earned_at?: string
+          id?: string
+          motoboy_id?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_earnings_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "payout_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_earnings_motoboy_id_fkey"
+            columns: ["motoboy_id"]
+            isOneToOne: false
+            referencedRelation: "motoboys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_earnings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_incidents: {
         Row: {
           created_at: string
@@ -751,6 +800,8 @@ export type Database = {
           offers_adequate: number
           offers_adequate_accepted: number
           phone: string
+          pix_key: string | null
+          pix_key_type: string | null
           punctuality_rate: number
           rating: number
           reliability_index: number
@@ -782,6 +833,8 @@ export type Database = {
           offers_adequate?: number
           offers_adequate_accepted?: number
           phone: string
+          pix_key?: string | null
+          pix_key_type?: string | null
           punctuality_rate?: number
           rating?: number
           reliability_index?: number
@@ -813,6 +866,8 @@ export type Database = {
           offers_adequate?: number
           offers_adequate_accepted?: number
           phone?: string
+          pix_key?: string | null
+          pix_key_type?: string | null
           punctuality_rate?: number
           rating?: number
           reliability_index?: number
@@ -1213,6 +1268,62 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_batches: {
+        Row: {
+          amount: number
+          created_at: string
+          earnings_count: number
+          error: string | null
+          external_ref: string | null
+          id: string
+          motoboy_id: string
+          paid_at: string | null
+          period_date: string
+          pix_key: string | null
+          pix_key_type: string | null
+          simulated: boolean
+          status: Database["public"]["Enums"]["payout_batch_status"]
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          earnings_count?: number
+          error?: string | null
+          external_ref?: string | null
+          id?: string
+          motoboy_id: string
+          paid_at?: string | null
+          period_date: string
+          pix_key?: string | null
+          pix_key_type?: string | null
+          simulated?: boolean
+          status?: Database["public"]["Enums"]["payout_batch_status"]
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          earnings_count?: number
+          error?: string | null
+          external_ref?: string | null
+          id?: string
+          motoboy_id?: string
+          paid_at?: string | null
+          period_date?: string
+          pix_key?: string | null
+          pix_key_type?: string | null
+          simulated?: boolean
+          status?: Database["public"]["Enums"]["payout_batch_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_batches_motoboy_id_fkey"
+            columns: ["motoboy_id"]
+            isOneToOne: false
+            referencedRelation: "motoboys"
             referencedColumns: ["id"]
           },
         ]
@@ -1718,6 +1829,12 @@ export type Database = {
         | "other"
         | "unknown"
       payment_status: "pending" | "paid" | "failed" | "refunded"
+      payout_batch_status:
+        | "pending"
+        | "processing"
+        | "paid"
+        | "failed"
+        | "awaiting_pix"
       subscription_status: "trialing" | "active" | "past_due" | "canceled"
       user_role: "restaurant_owner" | "restaurant_staff" | "motoboy"
     }
@@ -1921,6 +2038,13 @@ export const Constants = {
         "unknown",
       ],
       payment_status: ["pending", "paid", "failed", "refunded"],
+      payout_batch_status: [
+        "pending",
+        "processing",
+        "paid",
+        "failed",
+        "awaiting_pix",
+      ],
       subscription_status: ["trialing", "active", "past_due", "canceled"],
       user_role: ["restaurant_owner", "restaurant_staff", "motoboy"],
     },

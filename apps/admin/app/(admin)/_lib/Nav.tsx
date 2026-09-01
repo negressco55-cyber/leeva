@@ -8,6 +8,7 @@ const NAV = [
   { href: '/operacao', label: 'Operação', icon: '🗺️' },
   { href: '/restaurantes', label: 'Restaurantes', icon: '🏪' },
   { href: '/entregadores', label: 'Entregadores', icon: '🛵' },
+  { href: '/repasses', label: 'Repasses', icon: '💸' },
   { href: '/financeiro', label: 'Financeiro', icon: '💰' },
   { href: '/planos', label: 'Planos', icon: '🎟️' },
   { href: '/reputacao', label: 'Reputação', icon: '⭐' },

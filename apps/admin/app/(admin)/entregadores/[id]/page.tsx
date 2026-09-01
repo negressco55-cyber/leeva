@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/context';
-import { getDriverPerformance, getReputationConfig } from '@leeva/shared/services';
+import { getDriverPerformance, getReputationConfig, getMotoboyPixInfo, getPayoutHistory, getPendingEarnings } from '@leeva/shared/services';
+import { money } from '../../_lib/ui';
 import { pctText } from '../../_lib/ui';
 import { BlockButton } from './BlockButton';
 
@@ -40,6 +41,12 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
     .eq('motoboy_id', id)
     .order('created_at', { ascending: false })
     .limit(40);
+
+  const [pix, payHistory, pendingEarn] = await Promise.all([
+    getMotoboyPixInfo(db, id),
+    getPayoutHistory(db, id, 20),
+    getPendingEarnings(db, id),
+  ]);
 
   const { data: offers } = await db
     .from('dispatch_attempts')
@@ -85,6 +92,31 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
           Amostra: {perf.sample.offersAdequate} ofertas adequadas · {perf.sample.deliveriesTotal} entregas · {perf.sample.deliveriesCompleted} concluídas
         </p>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Repasse</div>
+        <dl className="kv">
+          <dt>Chave Pix</dt>
+          <dd>{pix.masked ? `${pix.masked} (${pix.pixKeyType})` : <span className="tag red">não cadastrada</span>}</dd>
+          <dt>A receber (não fechado)</dt>
+          <dd>{money(pendingEarn.amount)} · {pendingEarn.count} entrega(s)</dd>
+        </dl>
+        {payHistory.length > 0 && (
+          <table className="tbl" style={{ marginTop: 8 }}>
+            <thead><tr><th>Data</th><th style={{ textAlign: 'right' }}>Entregas</th><th style={{ textAlign: 'right' }}>Valor</th><th>Status</th></tr></thead>
+            <tbody>
+              {payHistory.map((b) => (
+                <tr key={b.id}>
+                  <td>{new Date(b.periodDate).toLocaleDateString('pt-BR')}</td>
+                  <td style={{ textAlign: 'right' }}>{b.earningsCount}</td>
+                  <td style={{ textAlign: 'right' }}>{money(b.amount)}</td>
+                  <td>{b.status}{b.simulated ? ' (sim.)' : ''}{b.error ? ` — ${b.error}` : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="grid-2">
