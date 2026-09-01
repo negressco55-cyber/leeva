@@ -2,6 +2,9 @@ import 'react-native-gesture-handler';
 
 import { registerRootComponent } from 'expo';
 
+// registra a task de localização em segundo plano (precisa ser no topo,
+// antes do App renderizar) — ver src/lib/backgroundLocation.ts
+import './src/lib/backgroundLocation';
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

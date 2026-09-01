@@ -5,6 +5,7 @@ import { Alert, AppState } from 'react-native';
 import { advanceDelivery, getActiveDeliveries, getOffers, respondOffer } from '../api/entregas';
 import { sendLocation, setOnline } from '../api/motoboy';
 import { subscribeMotoboyRealtime, unsubscribeMotoboyRealtime } from '../api/realtime';
+import { startBackgroundLocation, stopBackgroundLocation } from '../lib/backgroundLocation';
 import { NEXT_STATUS, type Delivery, type Offer } from '../types';
 import { useAuth } from './AuthContext';
 import { usePosition } from './PositionContext';
@@ -84,6 +85,10 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setPosition({ latitude, longitude });
+        // com entrega ativa quem manda a posição pro servidor é a task de
+        // segundo plano (roda mesmo com o app fechado). Sem entrega, o
+        // watch de primeiro plano cobre.
+        if (hasActiveRef.current) return;
         const now = Date.now();
         if (now - lastSentRef.current < LOCATION_INTERVAL_MS - 500) return;
         lastSentRef.current = now;
@@ -162,6 +167,13 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     return () => unsubscribeMotoboyRealtime();
   }, [isAuthenticated, online, me?.motoboyId, tick, startWatch, stopWatch, setOffer]);
 
+  // localização em segundo plano: liga enquanto há entrega ativa, desliga quando não há
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (activeDelivery) void startBackgroundLocation();
+    else void stopBackgroundLocation();
+  }, [isAuthenticated, activeDelivery]);
+
   const goOnline = useCallback(async () => {
     if (me?.approvalStatus !== 'approved') {
       Alert.alert('Cadastro em análise', 'Você poderá ficar disponível quando o cadastro for aprovado.');
@@ -198,6 +210,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       await setOnline(false);
       setOnlineState(false);
       stopWatch();
+      void stopBackgroundLocation();
       unsubscribeMotoboyRealtime();
       setOffer(null);
       setPosition(null);
@@ -252,6 +265,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
   useEffect(() => {
     if (!isAuthenticated) {
       stopWatch();
+      void stopBackgroundLocation();
       unsubscribeMotoboyRealtime();
       setOnlineState(false);
       setOffer(null);
