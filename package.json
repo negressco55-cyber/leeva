@@ -29,7 +29,10 @@
     "seed:admin": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-admin.mjs",
     "seed": "node --env-file=apps/restaurante/.env.local scripts/seed.mjs",
     "seed:demo": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-demo.mjs",
-    "db:types": "supabase gen types typescript --project-id $LEEVA_PROJECT_ID > packages/shared/src/types/database.ts"
+    "db:types": "supabase gen types typescript --project-id $LEEVA_PROJECT_ID > packages/shared/src/types/database.ts",
+    "dev:preview:restaurante": "turbo run dev:preview --filter=@leeva/restaurante",
+    "dev:preview:motoboy": "turbo run dev:preview --filter=@leeva/motoboy",
+    "dev:preview:admin": "turbo run dev:preview --filter=@leeva/admin"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

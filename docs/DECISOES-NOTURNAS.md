@@ -161,3 +161,52 @@ caindo para Haversine × 1,3 — então a troca é segura.
   bloquear, o sistema continua funcionando na estimativa. Reversível: basta
   apagar a env.
 - Não liguei Google Maps / Mapbox (pagos, precisam de chave e cartão).
+
+---
+
+## Parte 2 — Redesign dos 3 apps ✅
+
+**Feito:**
+- `docs/DESIGN-SYSTEM.md` — sistema de design completo: princípios, paleta
+  (clara por padrão + escuro), escala tipográfica, espaçamento, specs de
+  componente, e uma lista explícita dos **clichês de IA proibidos**.
+- `globals.css` dos 3 apps reescritos sobre o novo sistema, **mantendo todos
+  os nomes de classe** já usados (`.card`, `.btn`, `.button`, `.input`,
+  `.tag`, `.op-alert`, `.stat`, `.tbl`, `.tabbar`, `.offer-*`...). Zero
+  mudança de estrutura de componente → baixo risco.
+- Aliases retrocompatíveis (`--accent` → `--brand`, `--panel` → `--surface`)
+  para os `style={{}}` inline que usam essas variáveis não quebrarem.
+- Cores hardcoded de tema escuro nos componentes (`#f87171`, `#fca5a5`,
+  `#86efac`, `#fbbf24`...) trocadas por tokens (`var(--danger)` etc.) — assim
+  funcionam nos dois temas.
+- Setas `→` removidas dos botões ("Ver entrega atual", "Abrir mapa completo",
+  "Abrir endereço no mapa"). Peso de fonte 800 → 650. `text-transform` zerado
+  no reset global.
+- Verificado no navegador nos 3 apps, tema claro e escuro: login, visão geral,
+  pedidos, restaurantes (admin), status (motoboy).
+
+**Direção de design escolhida (decisão minha):**
+- **"Ferramenta de trabalho", não site de marketing.** Sóbrio, denso,
+  legível com pressa.
+- **Claro por padrão** (restaurante trabalha de dia; modelo mental de
+  comanda impressa), com modo escuro real via `prefers-color-scheme`.
+- **Neutro cinza-quente** (`#f7f7f5`, hue ~40°, saturação < 4%) — explicitamente
+  **não** bege/terracota.
+- **Uma cor de marca: verde-pinho** (`#1f6f5c`). Troquei o laranja `#ff5a1f`
+  anterior — laranja é a cor-clichê de app de delivery. Verde = movimento,
+  confiança, "pode ir".
+- **Elevação é exceção**: sombra só no `.offer-card`, modais e popovers. Todo
+  o resto se separa com fundo (`--surface-2`) e linha de 1px.
+- Botões sem ícone/seta. Rótulos em caixa normal, sempre.
+
+**Escopo — o que fiz e o que não:**
+- Fiz: a **linguagem visual** (cor, tipografia, superfícies, botões, inputs,
+  tabelas, tags, navegação) trocada de forma sistemática nos 3 apps.
+- Não fiz: rework tela a tela das telas secundárias (cada formulário de
+  config, cada sub-página). A estrutura delas foi preservada e herda o novo
+  visual, mas algumas ainda têm grades de KPI com "vários cards iguais" que o
+  design system pede para consolidar. É a evolução natural: dá para ir
+  refinando tela por tela sem mais nenhuma mudança de base.
+- Ícones emoji na navegação (📦 🗺️) foram **mantidos** — o usuário não os
+  listou como clichê e eles ajudam a orientação. O design system os marca
+  como opcionais/decorativos.

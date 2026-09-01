@@ -28,7 +28,7 @@ export function BlockButton({ motoboyId, blocked }: { motoboyId: string; blocked
       <button className="btn" onClick={toggle} disabled={pending}>
         {pending ? '…' : blocked ? 'Desbloquear' : 'Bloquear entregador'}
       </button>
-      {err && <p style={{ color: '#f87171', fontSize: 12 }}>{err}</p>}
+      {err && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{err}</p>}
     </div>
   );
 }

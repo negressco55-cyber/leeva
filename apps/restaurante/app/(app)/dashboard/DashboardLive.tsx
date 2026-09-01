@@ -62,7 +62,7 @@ export function DashboardLive({
           </div>
         ))}
         {situation.action && (
-          <div style={{ marginTop: 8, fontWeight: 600 }}>→ {situation.action}</div>
+          <div style={{ marginTop: 8, fontWeight: 600 }}>{situation.action}</div>
         )}
       </section>
 
@@ -80,7 +80,7 @@ export function DashboardLive({
           <div className="lbl">em rota</div>
         </div>
         <div className="kpi">
-          <div className="big" style={{ color: c.late ? '#fca5a5' : undefined }}>
+          <div className="big" style={{ color: c.late ? 'var(--danger)' : undefined }}>
             {c.late}
           </div>
           <div className="lbl">atrasados</div>

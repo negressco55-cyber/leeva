@@ -118,7 +118,7 @@ export default function OpsCenter({
           <div className="sub">Central de operações{clock ? ` — ${clock}` : ''}</div>
         </div>
         <Link href="/mapa" className="btn sm">
-          Abrir mapa completo →
+          Abrir mapa completo
         </Link>
       </div>
 
@@ -129,7 +129,7 @@ export default function OpsCenter({
           {situation.lines.map((l, i) => (
             <div key={i} style={{ marginTop: 2 }}>{l}</div>
           ))}
-          {situation.action && <div style={{ marginTop: 6, fontWeight: 600 }}>→ {situation.action}</div>}
+          {situation.action && <div style={{ marginTop: 6, fontWeight: 600 }}>{situation.action}</div>}
         </div>
       </section>
 
@@ -170,9 +170,9 @@ export default function OpsCenter({
           />
           <div className="map-legend">
             <span><span className="dot" style={{ background: '#8fbcff' }} />Restaurante</span>
-            <span><span className="dot" style={{ background: '#ffce85' }} />Buscando entregador</span>
+            <span><span className="dot" style={{ background: 'var(--warn)' }} />Buscando entregador</span>
             <span><span className="dot" style={{ background: '#8fbcff' }} />A caminho</span>
-            <span><span className="dot" style={{ background: '#22c55e' }} />Em entrega</span>
+            <span><span className="dot" style={{ background: 'var(--ok)' }} />Em entrega</span>
             <span><span className="dot" style={{ background: '#ef4444' }} />Atrasado</span>
           </div>
         </div>
@@ -241,8 +241,8 @@ export default function OpsCenter({
 
 function colorFor(status: string, dispatch: string, late?: boolean) {
   if (late) return '#ef4444';
-  if (['searching', 'offered'].includes(dispatch)) return '#ffce85';
-  if (status === 'in_route' || status === 'picked_up') return '#22c55e';
+  if (['searching', 'offered'].includes(dispatch)) return 'var(--warn)';
+  if (status === 'in_route' || status === 'picked_up') return 'var(--ok)';
   if (status === 'assigned') return '#8fbcff';
   return '#ff5a1f';
 }

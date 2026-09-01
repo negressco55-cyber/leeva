@@ -112,7 +112,7 @@ export default function NotificationSetup({ askNow = false }: { askNow?: boolean
   }
 
   return (
-    <div className="panel" style={{ borderColor: 'var(--accent, #6c8cff)' }}>
+    <div className="panel" style={{ borderColor: 'var(--brand)' }}>
       <strong>Ative as notificações</strong>
       <p className="muted" style={{ fontSize: 14, marginTop: 4 }}>
         {state === 'denied'

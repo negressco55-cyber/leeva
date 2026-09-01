@@ -28,7 +28,7 @@ export default async function PagamentosPage() {
 
       <div className="panel">
         <h2 style={{ fontSize: 15, marginTop: 0 }}>A receber</h2>
-        <div style={{ fontSize: 30, fontWeight: 800 }}>{formatCurrencyBRL(pending.amount)}</div>
+        <div style={{ fontSize: 30, fontWeight: 650 }}>{formatCurrencyBRL(pending.amount)}</div>
         <p className="muted" style={{ fontSize: 12 }}>
           {pending.count} entrega(s) fechando no próximo repasse. O pagamento é feito uma vez por dia, via Pix.
         </p>
@@ -55,7 +55,7 @@ export default async function PagamentosPage() {
                 {b.error ? ` — ${b.error}` : ''}
               </div>
             </div>
-            <strong style={{ color: b.status === 'paid' ? '#86efac' : undefined }}>{formatCurrencyBRL(b.amount)}</strong>
+            <strong style={{ color: b.status === 'paid' ? 'var(--ok)' : undefined }}>{formatCurrencyBRL(b.amount)}</strong>
           </div>
         ))}
       </div>

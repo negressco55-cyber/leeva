@@ -35,10 +35,10 @@ type Offer = {
 };
 
 const QUALITY_LABEL: Record<string, { text: string; color: string }> = {
-  excellent: { text: '🟢 Ótima oferta', color: '#7be0a3' },
-  good: { text: '🟢 Boa oferta', color: '#7be0a3' },
-  acceptable: { text: '🟡 Oferta razoável', color: '#ffce85' },
-  poor: { text: '⚪ Oferta pouco vantajosa', color: '#c3c8d0' },
+  excellent: { text: '🟢 Ótima oferta', color: 'var(--ok)' },
+  good: { text: '🟢 Boa oferta', color: 'var(--ok)' },
+  acceptable: { text: '🟡 Oferta razoável', color: 'var(--warn)' },
+  poor: { text: '⚪ Oferta pouco vantajosa', color: 'var(--muted)' },
 };
 
 /**

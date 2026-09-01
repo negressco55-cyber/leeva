@@ -124,7 +124,7 @@ export default function OrderDetail({ order, onChanged }: { order: OrderRow; onC
 
         <div>
           <div className="card-title">Custo desta entrega</div>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>
+          <div style={{ fontSize: 22, fontWeight: 650 }}>
             {order.leeva_fee != null ? formatCurrencyBRL(Number(order.leeva_fee)) : 'a calcular'}
           </div>
           <div className="muted" style={{ fontSize: 12 }}>descontado do seu crédito</div>

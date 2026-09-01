@@ -10,6 +10,11 @@
       "cache": false,
       "persistent": true
     },
+    "dev:preview": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["PORT", "HOSTNAME"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]

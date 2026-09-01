@@ -86,7 +86,7 @@ export default async function RestaurantDetail({ params }: { params: Promise<{ i
 
       <div className="card">
         <div className="card-title">Crédito</div>
-        <div style={{ fontSize: 24, fontWeight: 800, color: d.credits.balance < 20 ? '#fca5a5' : undefined }}>
+        <div style={{ fontSize: 24, fontWeight: 650, color: d.credits.balance < 20 ? 'var(--danger)' : undefined }}>
           {money(d.credits.balance)}
         </div>
         <CreditAdjust restaurantId={id} />

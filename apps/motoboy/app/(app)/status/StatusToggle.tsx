@@ -47,18 +47,18 @@ export default function StatusToggle({
     <div className="grid" style={{ gap: 16 }}>
       <div className="panel" style={{ textAlign: 'center' }}>
         <p className="muted">Você está</p>
-        <div style={{ fontSize: 28, fontWeight: 800, color: online ? 'var(--ok)' : 'var(--muted)' }}>
+        <div style={{ fontSize: 28, fontWeight: 650, color: online ? 'var(--ok)' : 'var(--muted)' }}>
           {MOTOBOY_STATUS_LABELS[status]}
         </div>
         <button
           className="button"
           onClick={toggle}
           disabled={busy}
-          style={{ marginTop: 16, background: online ? '#45191b' : 'var(--ok)' }}
+          style={{ marginTop: 16, background: online ? 'var(--danger)' : 'var(--ok)' }}
         >
           {busy ? '…' : online ? 'Ficar offline' : 'Ficar online'}
         </button>
-        {err && <p style={{ color: '#f87171', marginTop: 8 }}>{err}</p>}
+        {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
       </div>
 
       <div className="row" style={{ gap: 12 }}>
@@ -74,7 +74,7 @@ export default function StatusToggle({
 
       {activeDeliveries > 0 && (
         <Link href="/entrega" className="button" style={{ textAlign: 'center' }}>
-          Ver entrega atual →
+          Ver entrega atual
         </Link>
       )}
     </div>

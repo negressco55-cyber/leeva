@@ -157,7 +157,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
                 </div>
               )}
               {fee.balance != null && (
-                <div style={{ fontSize: 12, marginTop: 6, color: fee.sufficient ? '#86efac' : '#fca5a5' }}>
+                <div style={{ fontSize: 12, marginTop: 6, color: fee.sufficient ? 'var(--ok)' : 'var(--danger)' }}>
                   {fee.sufficient
                     ? `Seu saldo: ${formatCurrencyBRL(fee.balance)} — suficiente`
                     : `Saldo insuficiente (${formatCurrencyBRL(fee.balance)}). Compre créditos antes de criar.`}

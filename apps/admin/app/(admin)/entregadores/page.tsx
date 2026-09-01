@@ -66,7 +66,7 @@ export default async function Entregadores({ searchParams }: { searchParams: Pro
                 <td style={{ textAlign: 'right' }}>{pctText(Math.round(m.completionRate))}</td>
                 <td style={{ textAlign: 'right' }}>{pctText(Math.round(m.punctualityRate))}</td>
                 <td style={{ textAlign: 'right' }}>{m.rating.toFixed(1)}</td>
-                <td style={{ textAlign: 'right', fontWeight: 700, color: m.reliabilityIndex < 50 ? '#fca5a5' : m.reliabilityIndex < 70 ? '#ffce85' : '#7be0a3' }}>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: m.reliabilityIndex < 50 ? 'var(--danger)' : m.reliabilityIndex < 70 ? 'var(--warn)' : 'var(--ok)' }}>
                   {Math.round(m.reliabilityIndex)}
                 </td>
               </tr>

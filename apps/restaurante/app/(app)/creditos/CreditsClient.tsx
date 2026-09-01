@@ -56,7 +56,7 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
     <>
       <div className="card" style={{ borderLeft: `3px solid ${data.isLow ? '#dc2626' : '#16a34a'}` }}>
         <div className="card-title">Saldo atual</div>
-        <div style={{ fontSize: 34, fontWeight: 800 }}>{formatCurrencyBRL(data.balance)}</div>
+        <div style={{ fontSize: 34, fontWeight: 650 }}>{formatCurrencyBRL(data.balance)}</div>
         {data.isLow && (
           <div className="op-alert warning" style={{ marginTop: 8 }}>
             Saldo baixo (abaixo de {formatCurrencyBRL(data.lowThreshold)}). Compre créditos para não parar de despachar.
@@ -105,7 +105,7 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
                 <td>{formatDateTime(e.createdAt)}</td>
                 <td>{KIND_LABEL[e.kind] ?? e.kind}</td>
                 <td>{e.description}</td>
-                <td style={{ textAlign: 'right', color: e.amount < 0 ? '#fca5a5' : '#86efac' }}>
+                <td style={{ textAlign: 'right', color: e.amount < 0 ? 'var(--danger)' : 'var(--ok)' }}>
                   {e.amount < 0 ? '−' : '+'}
                   {formatCurrencyBRL(Math.abs(e.amount))}
                 </td>

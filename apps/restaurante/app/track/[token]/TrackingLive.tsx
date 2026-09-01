@@ -110,7 +110,7 @@ function MiniMap({ snap }: { snap: PublicTrackingSnapshot }) {
   const y = (lat: number) =>
     h - 24 - ((lat - minLat) / (maxLat - minLat || 1)) * (h - 48) * (1 - pad) - (h * pad) / 2;
 
-  const colors: Record<string, string> = { origin: '#9aa0aa', dest: '#ff5a1f', driver: '#22c55e' };
+  const colors: Record<string, string> = { origin: '#9aa0aa', dest: '#ff5a1f', driver: 'var(--ok)' };
   const labels: Record<string, string> = { origin: 'Restaurante', dest: 'Você', driver: 'Entregador' };
   const dest = snap.destination;
 
@@ -143,7 +143,7 @@ function MiniMap({ snap }: { snap: PublicTrackingSnapshot }) {
           target="_blank"
           rel="noreferrer"
         >
-          Abrir endereço no mapa →
+          Abrir endereço no mapa
         </a>
       )}
     </div>

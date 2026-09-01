@@ -69,7 +69,7 @@ export default function QueroEntregarPage() {
           <input className="input" type="file" name="vehicleDoc" accept="image/*,application/pdf" required />
         </label>
 
-        {state.error && <p style={{ color: '#f87171' }}>{state.error}</p>}
+        {state.error && <p style={{ color: 'var(--danger)' }}>{state.error}</p>}
 
         <button className="button" type="submit" disabled={pending}>
           {pending ? 'Enviando…' : 'Enviar cadastro'}

@@ -71,7 +71,7 @@ export default async function Restaurantes({ searchParams }: { searchParams: Pro
                 <td>{r.fleetMode}</td>
                 <td style={{ textAlign: 'right' }}>{num(r.deliveries30d)}</td>
                 <td style={{ textAlign: 'right' }}>{money(r.mrr)}</td>
-                <td style={{ textAlign: 'right', color: r.creditBalance < 20 ? '#fca5a5' : undefined }}>{money(r.creditBalance)}</td>
+                <td style={{ textAlign: 'right', color: r.creditBalance < 20 ? 'var(--danger)' : undefined }}>{money(r.creditBalance)}</td>
                 <td>{new Date(r.createdAt).toLocaleDateString('pt-BR')}</td>
                 <td>{r.lastActivityAt ? new Date(r.lastActivityAt).toLocaleDateString('pt-BR') : '—'}</td>
               </tr>

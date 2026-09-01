@@ -100,7 +100,7 @@ export default function DeliveryFlow({
 
   return (
     <div className="grid" style={{ gap: 16 }}>
-      {err && <div className="panel" style={{ color: '#f87171' }}>{err}</div>}
+      {err && <div className="panel" style={{ color: 'var(--danger)' }}>{err}</div>}
 
       <div className="panel">
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -130,7 +130,7 @@ export default function DeliveryFlow({
         </p>
         {paymentPendingOnDelivery(current.payment_method, current.payment_status) &&
           Number(current.order_amount) > 0 && (
-            <p style={{ margin: '4px 0', color: '#fbbf24' }}>
+            <p style={{ margin: '4px 0', color: 'var(--warn)' }}>
               💰 Receber do cliente na entrega:{' '}
               <strong>{formatCurrencyBRL(Number(current.order_amount))}</strong>
             </p>

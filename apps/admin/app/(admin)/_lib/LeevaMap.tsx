@@ -25,7 +25,7 @@ export type MapMarker = {
 const KIND_COLOR: Record<string, string> = {
   restaurant: '#8fbcff',
   order: '#ff5a1f',
-  driver: '#22c55e',
+  driver: 'var(--ok)',
 };
 
 /**

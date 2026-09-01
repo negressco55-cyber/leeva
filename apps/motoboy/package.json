@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --port 3001",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:preview": "next dev"
   },
   "dependencies": {
     "@leeva/shared": "*",

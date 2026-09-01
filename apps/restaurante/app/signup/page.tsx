@@ -32,7 +32,7 @@ export default function SignupPage() {
           <input className="input" type="password" name="password" minLength={6} required />
         </label>
 
-        {state.error && <p style={{ color: '#f87171' }}>{state.error}</p>}
+        {state.error && <p style={{ color: 'var(--danger)' }}>{state.error}</p>}
 
         <button className="button" type="submit" disabled={pending}>
           {pending ? 'Criando…' : 'Criar conta'}

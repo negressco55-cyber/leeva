@@ -52,7 +52,7 @@ export function OnboardingGate({
 
         {state === 'rejected' && (
           <>
-            <h2 style={{ marginTop: 0, color: '#fca5a5' }}>Cadastro não aprovado</h2>
+            <h2 style={{ marginTop: 0, color: 'var(--danger)' }}>Cadastro não aprovado</h2>
             <p>{reason || 'Seu cadastro não foi aprovado desta vez.'}</p>
             <p className="muted" style={{ fontSize: 13 }}>Fale com o suporte se tiver dúvidas.</p>
           </>
@@ -75,7 +75,7 @@ export function OnboardingGate({
             >
               {terms.content}
             </div>
-            {err && <p style={{ color: '#f87171' }}>{err}</p>}
+            {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
             <button className="button" onClick={accept} disabled={busy}>
               {busy ? '…' : 'Li e aceito os termos'}
             </button>

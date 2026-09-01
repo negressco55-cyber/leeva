@@ -30,7 +30,7 @@ export default async function Desempenho() {
       <h2>Seu desempenho</h2>
 
       <div style={{ textAlign: 'center', margin: '12px 0' }}>
-        <div style={{ fontSize: 40, fontWeight: 800 }}>{Math.round(p.reliabilityIndex)}</div>
+        <div style={{ fontSize: 40, fontWeight: 650 }}>{Math.round(p.reliabilityIndex)}</div>
         <div className="muted">Índice de confiabilidade</div>
       </div>
 
@@ -49,7 +49,7 @@ export default async function Desempenho() {
       )}
 
       {p.blocked && (
-        <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: '#3a1618', color: '#fda4a4' }}>
+        <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: 'var(--danger-weak)', color: 'var(--danger)' }}>
           Sua conta está temporariamente pausada{p.blockedReason ? `: ${p.blockedReason}` : ''}. Fale com o suporte.
         </div>
       )}
