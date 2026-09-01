@@ -18,6 +18,20 @@ import { estimateOrderEta } from './eta';
 
 type DB = SupabaseClient<Database>;
 
+/** Base pública do app do restaurante (onde vive /track/:token). */
+export function trackingBaseUrl(): string {
+  return (
+    process.env.LEEVA_TRACKING_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://leeva-restaurante.vercel.app'
+  ).replace(/\/$/, '');
+}
+
+/** URL completa de rastreamento para um token. */
+export function trackingUrl(token: string): string {
+  return `${trackingBaseUrl()}/track/${token}`;
+}
+
 export async function ensureTrackingToken(db: DB, orderId: string): Promise<string | null> {
   const { data: existing } = await db
     .from('tracking_tokens')

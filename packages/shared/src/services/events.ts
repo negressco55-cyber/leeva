@@ -25,6 +25,7 @@ export type EmitInput = {
 const CUSTOMER_NOTIFY: Record<string, { template: string; body: string }> = {
   'order.confirmed': { template: 'customer.confirmed', body: 'Seu pedido foi confirmado.' },
   'order.preparing': { template: 'customer.preparing', body: 'Seu pedido está sendo preparado.' },
+  'delivery.assigned': { template: 'customer.driver_assigned', body: 'Um entregador está a caminho do restaurante para buscar seu pedido.' },
   'delivery.started': { template: 'customer.out_for_delivery', body: 'Seu pedido saiu para entrega.' },
   'delivery.nearby': { template: 'customer.nearby', body: 'Seu pedido está chegando.' },
   'delivery.delivered': { template: 'customer.delivered', body: 'Seu pedido foi entregue. Bom apetite!' },
@@ -42,6 +43,7 @@ export async function notifyForStatusChange(
   const map: Record<string, string> = {
     preparing: 'order.confirmed',
     ready: 'order.ready',
+    assigned: 'delivery.assigned',
     in_route: 'delivery.started',
     delivered: 'delivery.delivered',
   };

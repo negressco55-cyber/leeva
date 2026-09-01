@@ -159,6 +159,14 @@ export async function createOrderFromNormalized(
       .eq('id', opts.integrationEventId);
   }
 
+  // link de rastreamento do cliente — criado já na criação do pedido
+  try {
+    const { ensureTrackingToken } = await import('./tracking');
+    await ensureTrackingToken(db, order.id);
+  } catch (e) {
+    console.error('[orders] token de rastreamento falhou (ignorado):', (e as Error).message);
+  }
+
   // TAXA DA ENTREGA — calculada UMA VEZ, aqui. Tudo depois lê o valor gravado.
   let charge: Awaited<ReturnType<typeof finalizeDeliveryCharge>> = null;
   try {

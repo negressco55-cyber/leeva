@@ -97,3 +97,38 @@ banco/erro; o `POST /api/push/test` permite o usuário confirmar no celular.
 **Pendência menor:** a tela do restaurante ainda não destaca "este pedido foi
 agrupado com os pedidos X e Y". O valor cobrado já aparece certo. Anotado para
 o redesign.
+
+---
+
+## Bloco 4 — Comunicação automática com o cliente + rastreamento público ✅
+
+**Estado encontrado:** a maior parte já existia da Fase 2 —
+`services/tracking.ts` (token aleatório, expira em 48h, revogável),
+página pública `/track/[token]` com atualização ao vivo, API com rate limit,
+`events.ts` disparando notificação do cliente em mudança de status, e o
+`NotificationService` com WhatsApp/SMS "PREPARADOS" (ligam sozinhos quando
+`WHATSAPP_*` / `TWILIO_*` entram no ambiente).
+
+**Feito nesta noite:**
+- Token de rastreamento **criado já na criação do pedido** (antes só quando o
+  restaurante clicava "gerar link").
+- **Link de rastreamento vai junto de toda notificação do cliente** — no corpo
+  (WhatsApp/SMS) e em `notifications.data.tracking_url` (in-app). Helper
+  `trackingUrl()` + env `LEEVA_TRACKING_BASE_URL` nos 3 apps da Vercel.
+- Novo aviso **"um entregador está a caminho"** quando a oferta é aceita
+  (`customer.driver_assigned`) — antes o cliente só sabia no "saiu para entrega".
+- Testes: `scripts/test-tracking.mjs` (7/7).
+
+**Decisão / limite honesto:**
+- **Sem provedor externo, a notificação não *chega* ao cliente sozinha.** O
+  Leeva não tem canal próprio para o cliente final (WhatsApp Business API e SMS
+  são pagos; iFood está fora do combinado). O que está pronto: a página de
+  rastreamento pública e automática, o link sempre disponível para o
+  restaurante repassar, e todo o encanamento para o envio automático disparar
+  no segundo em que `WHATSAPP_TOKEN`/`TWILIO_*` forem configurados. Não inventei
+  um "canal fake" — as notificações externas ficam com status `skipped` e o
+  motivo, exatamente como o resto do sistema já faz.
+- A detecção de "pedido chegando" (`delivery.nearby`) por proximidade GPS ficou
+  de fora — exige um watcher de localização com histerese; anotado como
+  melhoria futura. Os outros 4 marcos (confirmado, a caminho, saiu, entregue)
+  estão cobertos.

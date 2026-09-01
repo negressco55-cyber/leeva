@@ -232,6 +232,18 @@ export async function queueCustomerNotification(
     .eq('id', args.orderId)
     .maybeSingle();
 
+  // link de rastreamento — sempre existe, e vai junto da notificação
+  let trackUrl: string | null = null;
+  try {
+    const { ensureTrackingToken, trackingUrl } = await import('./tracking');
+    const token = await ensureTrackingToken(db, args.orderId);
+    if (token) trackUrl = trackingUrl(token);
+  } catch {
+    /* rastreamento indisponível não bloqueia a notificação */
+  }
+
+  const bodyWithLink = trackUrl ? `${args.body}\nAcompanhe: ${trackUrl}` : args.body;
+
   await queueNotification(db, {
     restaurantId: args.restaurantId,
     orderId: args.orderId,
@@ -240,6 +252,7 @@ export async function queueCustomerNotification(
     template: args.template,
     title: args.title,
     body: args.body,
+    data: trackUrl ? { tracking_url: trackUrl } : undefined,
   });
 
   // canal externo preferencial: WhatsApp se configurado, senão SMS
@@ -255,7 +268,7 @@ export async function queueCustomerNotification(
       recipient: phone,
       template: args.template,
       title: args.title,
-      body: args.body,
+      body: bodyWithLink,
     });
   } else if (phone && sms.configured) {
     await queueNotification(db, {
@@ -265,7 +278,7 @@ export async function queueCustomerNotification(
       recipientType: 'customer',
       recipient: phone,
       template: args.template,
-      body: args.body,
+      body: bodyWithLink,
     });
   }
 }

@@ -22,6 +22,7 @@ import { getPayoutPolicy, computeDriverPayout, computeLogisticsFinance } from '.
 import { classifyOfferQuality } from './reputation';
 import { sendPushToMotoboy } from './push';
 import { planGroupForOrder, applyGroupPlan, dissolveGroup, type GroupPlan } from './grouping-dispatch';
+import { notifyForStatusChange } from './events';
 
 type DB = SupabaseClient<Database>;
 
@@ -708,6 +709,12 @@ export async function acceptOffer(db: DB, offerId: string, motoboyId: string) {
       actor_id: motoboyId,
       data: { via: 'auto_dispatch', grouped: orderIds.length > 1 },
     });
+    // avisa o cliente: "um entregador está a caminho"
+    try {
+      await notifyForStatusChange(db, { restaurantId: restaurant_id, orderId: oid, toStatus: 'assigned' });
+    } catch {
+      /* notificação nunca quebra o aceite */
+    }
   }
 
   return { ok: true as const, orderId: order_id };
