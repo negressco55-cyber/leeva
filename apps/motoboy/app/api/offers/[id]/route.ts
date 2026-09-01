@@ -1,10 +1,10 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, badRequest, businessError, serverError, UUID } from '@/lib/api';
 import { acceptOffer, declineOffer, dispatchTick } from '@leeva/shared/services';
 
 /** body: { action: 'accept' | 'decline', reason?: string } */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ctx = await getMotoboyContext();
+  const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   const { id } = await params;
   if (!UUID.test(id)) return badRequest('id inválido');

@@ -1,4 +1,4 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, badRequest, serverError } from '@/lib/api';
 import { recordDriverLocation } from '@leeva/shared/services';
 
@@ -9,7 +9,7 @@ import { recordDriverLocation } from '@leeva/shared/services';
  */
 export async function POST(req: Request) {
   try {
-    const ctx = await getMotoboyContext();
+    const ctx = await getMotoboyContextFromReq(req);
     if (!ctx) return unauthorized();
 
     const body = (await req.json().catch(() => ({}))) as {

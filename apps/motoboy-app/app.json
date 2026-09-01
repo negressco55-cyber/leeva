@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Levva Motoboy",
+    "slug": "levva-motoboy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#17181C",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "O Levva usa sua localização para te encontrar corridas próximas e enviar sua posição durante a entrega.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "O Levva usa sua localização para te encontrar corridas próximas e enviar sua posição durante a entrega."
+      }
+    },
+    "android": {
+      "package": "br.com.levva.motoboy",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#17181C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O Levva usa sua localização para te encontrar corridas próximas e enviar sua posição durante a entrega."
+        }
+      ]
+    ]
+  }
+}

@@ -1,11 +1,11 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, businessError, serverError } from '@/lib/api';
 import { checkDriverGate } from '@leeva/shared/services';
 
 /** Motoboy fica online (available) / offline. */
 export async function POST(req: Request) {
   try {
-    const ctx = await getMotoboyContext();
+    const ctx = await getMotoboyContextFromReq(req);
     if (!ctx) return unauthorized();
 
     const { online } = (await req.json().catch(() => ({}))) as { online?: boolean };

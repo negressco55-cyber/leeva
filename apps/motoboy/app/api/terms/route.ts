@@ -1,17 +1,17 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, badRequest, serverError } from '@/lib/api';
 import { getActiveTerms, acceptTerms } from '@leeva/shared/services';
 import { clientIp } from '@leeva/shared/services';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   return json((await getActiveTerms(adminDb())) ?? { version: 0, content: '' });
 }
 
 /** body: { version } */
 export async function POST(req: Request) {
-  const ctx = await getMotoboyContext();
+  const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   const b = (await req.json().catch(() => ({}))) as { version?: number };
   const active = await getActiveTerms(adminDb());

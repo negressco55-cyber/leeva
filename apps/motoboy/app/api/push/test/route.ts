@@ -1,10 +1,10 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, serverError } from '@/lib/api';
 import { sendPushToMotoboy } from '@leeva/shared/services';
 
 /** Dispara uma notificação de teste para confirmar que chegou no aparelho. */
-export async function POST() {
-  const ctx = await getMotoboyContext();
+export async function POST(req: Request) {
+  const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   try {
     const r = await sendPushToMotoboy(adminDb(), ctx.motoboyId, {

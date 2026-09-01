@@ -1,4 +1,4 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, forbidden, badRequest, businessError, serverError, UUID } from '@/lib/api';
 import { advanceOrderStatus, acceptDelivery } from '@leeva/shared/services';
 import type { OrderStatus } from '@leeva/shared';
@@ -9,7 +9,7 @@ import type { OrderStatus } from '@leeva/shared';
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const ctx = await getMotoboyContext();
+    const ctx = await getMotoboyContextFromReq(req);
     if (!ctx) return unauthorized();
     const { id } = await params;
     if (!UUID.test(id)) return badRequest('id inválido');

@@ -1,11 +1,11 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, serverError } from '@/lib/api';
 import { getDriverPerformance } from '@leeva/shared/services';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const ctx = await getMotoboyContext();
+export async function GET(req: Request) {
+  const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   try {
     const perf = await getDriverPerformance(adminDb(), ctx.motoboyId);

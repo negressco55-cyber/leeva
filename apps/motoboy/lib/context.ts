@@ -26,16 +26,36 @@ export async function getMotoboyContext(): Promise<MotoboyContext | null> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+  return motoboyContextForUser(user.id);
+}
 
-  const { data: m } = await supabase
+/**
+ * Igual ao `getMotoboyContext`, mas aceita também `Authorization: Bearer <token>`
+ * — usado pelo app nativo (Expo/React Native), que não tem cookies de sessão.
+ * Se não houver header Bearer, cai no fluxo por cookie.
+ */
+export async function getMotoboyContextFromReq(req: Request): Promise<MotoboyContext | null> {
+  const auth = req.headers.get('authorization') ?? req.headers.get('Authorization');
+  const token = auth?.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : null;
+  if (!token) return getMotoboyContext();
+
+  const admin = createLeevaAdminClient();
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user) return null;
+  return motoboyContextForUser(data.user.id);
+}
+
+async function motoboyContextForUser(userId: string): Promise<MotoboyContext | null> {
+  const db = createLeevaAdminClient();
+  const { data: m } = await db
     .from('motoboys')
     .select('id, restaurant_id, fleet, full_name, status, active, approval_status, approval_reason, terms_accepted_version')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle();
   if (!m || !m.active) return null;
 
   return {
-    userId: user.id,
+    userId,
     motoboyId: m.id,
     restaurantId: m.restaurant_id,
     fleet: (m.fleet ?? 'own') as 'own' | 'leeva',

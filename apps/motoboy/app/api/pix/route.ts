@@ -1,11 +1,11 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, badRequest, serverError } from '@/lib/api';
 import { setPixKey, getMotoboyPixInfo } from '@leeva/shared/services';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const ctx = await getMotoboyContext();
+export async function GET(req: Request) {
+  const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   try {
     return json(await getMotoboyPixInfo(adminDb(), ctx.motoboyId));
@@ -16,7 +16,7 @@ export async function GET() {
 
 /** body: { key, type } */
 export async function POST(req: Request) {
-  const ctx = await getMotoboyContext();
+  const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   const b = (await req.json().catch(() => ({}))) as { key?: string; type?: string };
   if (!b.key || !b.type) return badRequest('informe a chave e o tipo');

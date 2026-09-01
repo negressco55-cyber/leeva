@@ -1,9 +1,9 @@
-import { getMotoboyContext, adminDb } from '@/lib/context';
+import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, serverError } from '@/lib/api';
 
 /** Ofertas de entrega abertas endereçadas a este motoboy. */
-export async function GET() {
-  const ctx = await getMotoboyContext();
+export async function GET(req: Request) {
+  const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   try {
     const db = adminDb();
