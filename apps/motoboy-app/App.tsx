@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { PositionProvider } from './src/context/PositionContext';
 import { RideProvider } from './src/context/RideContext';
 import { registerForPush } from './src/lib/push';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -49,13 +50,15 @@ export default function App(): React.JSX.Element {
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         <AuthProvider>
-          <RideProvider>
-            <NavigationContainer>
-              <RootNavigator />
-              <OfertaOverlay />
-            </NavigationContainer>
-            <PushBootstrap />
-          </RideProvider>
+          <PositionProvider>
+            <RideProvider>
+              <NavigationContainer>
+                <RootNavigator />
+                <OfertaOverlay />
+              </NavigationContainer>
+              <PushBootstrap />
+            </RideProvider>
+          </PositionProvider>
         </AuthProvider>
         <StatusBar style="light" />
       </SafeAreaProvider>

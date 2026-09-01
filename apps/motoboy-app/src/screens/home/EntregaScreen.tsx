@@ -4,9 +4,10 @@ import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import { MapaCorrida } from '../../components/MapaCorrida';
+import { MapaEntrega } from '../../components/MapaEntrega';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { StatusBadge } from '../../components/StatusBadge';
+import { usePosition } from '../../context/PositionContext';
 import { useRide } from '../../context/RideContext';
 import type { AppStackParamList } from '../../navigation/types';
 import { theme } from '../../theme/theme';
@@ -23,7 +24,8 @@ const ACAO: Partial<Record<OrderStatus, string>> = {
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 
 export function EntregaScreen({ navigation }: Props): React.JSX.Element {
-  const { activeDelivery, advancing, advanceActive, position } = useRide();
+  const { activeDelivery, advancing, advanceActive } = useRide();
+  const { position } = usePosition();
 
   if (!activeDelivery) {
     return (
@@ -88,11 +90,11 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
       ) : null}
 
       {d.pickupLat != null && d.dropoffLat != null && (
-        <MapaCorrida
-          latColeta={d.pickupLat}
-          lngColeta={d.pickupLng as number}
-          latEntrega={d.dropoffLat}
-          lngEntrega={d.dropoffLng as number}
+        <MapaEntrega
+          pickupLat={d.pickupLat}
+          pickupLng={d.pickupLng as number}
+          dropoffLat={d.dropoffLat}
+          dropoffLng={d.dropoffLng as number}
           motoboyLat={position?.latitude}
           motoboyLng={position?.longitude}
           style={styles.mapa}

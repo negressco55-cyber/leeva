@@ -49,6 +49,23 @@ Para o push nativo funcionar no build standalone (fora do Expo Go), o EAS
 pede o `google-services.json` do Firebase (FCM) — o assistente do
 `eas build` guia nisso.
 
+## Desempenho
+
+- **O Expo Go é lento** (roda o JS em modo desenvolvimento, sem as otimizações
+  do Hermes). Muito do "travamento" some no build de verdade
+  (`eas build`). Sempre avalie a fluidez num APK, não no Expo Go.
+- O mapa é **vetorial** (MapLibre GL + OpenFreeMap, dentro de uma WebView) —
+  visual atual e pan/zoom por GPU, sem chave de API. A biblioteca vem de um
+  CDN e fica em cache; a primeira abertura leva ~1–2 s pra carregar.
+- O estado de ofertas/entregas só re-renderiza a tela quando muda de verdade
+  (comparação por id/status), e o GPS fica num contexto separado pra não
+  fazer a tela toda repintar a cada leitura.
+- A busca no servidor desacelera sozinha quando o app está em segundo plano.
+
+Se quiser o mapa **100% nativo** (Google Maps SDK) no futuro: dá pra trocar
+por `expo-maps`, mas aí precisa de uma chave do Google Cloud (conta com
+cartão). O mapa atual não precisa de nada disso.
+
 ## Configuração no backend
 
 As rotas `/api/*` do `apps/motoboy` aceitam `Authorization: Bearer <token>`

@@ -1,15 +1,17 @@
 import * as Location from 'expo-location';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 
 import { advanceDelivery, getActiveDeliveries, getOffers, respondOffer } from '../api/entregas';
 import { sendLocation, setOnline } from '../api/motoboy';
 import { subscribeMotoboyRealtime, unsubscribeMotoboyRealtime } from '../api/realtime';
 import { NEXT_STATUS, type Delivery, type Offer } from '../types';
 import { useAuth } from './AuthContext';
+import { usePosition } from './PositionContext';
 
 const LOCATION_INTERVAL_MS = 10_000;
-const OFFERS_POLL_MS = 5_000;
+const POLL_ACTIVE_MS = 5_000;
+const POLL_BACKGROUND_MS = 20_000;
 
 interface RideContextValue {
   online: boolean;
@@ -17,30 +19,54 @@ interface RideContextValue {
   offer: Offer | null;
   activeDelivery: Delivery | null;
   advancing: boolean;
-  position: { latitude: number; longitude: number } | null;
   goOnline: () => Promise<void>;
   goOffline: () => Promise<void>;
   acceptOffer: () => Promise<void>;
   declineOffer: () => Promise<void>;
   advanceActive: () => Promise<void>;
-  reloadDeliveries: () => Promise<void>;
 }
 
 const RideContext = createContext<RideContextValue | undefined>(undefined);
 
+/** Duas ofertas são "a mesma" se têm o mesmo id e validade — evita re-render. */
+function sameOffer(a: Offer | null, b: Offer | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.offerId === b.offerId && a.expiresAt === b.expiresAt;
+}
+function sameDelivery(a: Delivery | null, b: Delivery | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.id === b.id && a.status === b.status && a.groupSequence === b.groupSequence;
+}
+
 export function RideProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { isAuthenticated, me, refreshMe } = useAuth();
+  const { setPosition } = usePosition();
 
   const [online, setOnlineState] = useState(false);
   const [togglingOnline, setToggling] = useState(false);
-  const [offer, setOffer] = useState<Offer | null>(null);
-  const [activeDelivery, setActive] = useState<Delivery | null>(null);
+  const [offer, setOfferState] = useState<Offer | null>(null);
+  const [activeDelivery, setActiveState] = useState<Delivery | null>(null);
   const [advancing, setAdvancing] = useState(false);
-  const [position, setPosition] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const lastSentRef = useRef(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onlineRef = useRef(false);
+  const hasActiveRef = useRef(false);
+
+  const setOffer = useCallback((next: Offer | null) => {
+    setOfferState((prev) => (sameOffer(prev, next) ? prev : next));
+  }, []);
+  const setActive = useCallback((next: Delivery | null) => {
+    hasActiveRef.current = next != null;
+    setActiveState((prev) => (sameDelivery(prev, next) ? prev : next));
+  }, []);
+
+  useEffect(() => {
+    onlineRef.current = online;
+  }, [online]);
 
   useEffect(() => {
     setOnlineState((me?.status ?? 'offline') !== 'offline');
@@ -54,7 +80,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
   const startWatch = useCallback(async () => {
     if (watchRef.current) return;
     watchRef.current = await Location.watchPositionAsync(
-      { accuracy: Location.LocationAccuracy.Balanced, timeInterval: LOCATION_INTERVAL_MS, distanceInterval: 25 },
+      { accuracy: Location.LocationAccuracy.Balanced, timeInterval: LOCATION_INTERVAL_MS, distanceInterval: 30 },
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setPosition({ latitude, longitude });
@@ -64,7 +90,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
         sendLocation(latitude, longitude).catch(() => {});
       },
     );
-  }, []);
+  }, [setPosition]);
 
   const loadOffers = useCallback(async () => {
     try {
@@ -76,7 +102,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     } catch {
       /* rede — próximo ciclo */
     }
-  }, []);
+  }, [setOffer]);
 
   const reloadDeliveries = useCallback(async () => {
     try {
@@ -85,46 +111,56 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     } catch {
       /* ignora */
     }
-  }, []);
+  }, [setActive]);
 
-  // loop enquanto online ou com entrega ativa
-  useEffect(() => {
-    const running = isAuthenticated && (online || activeDelivery != null);
-    if (!running) {
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = null;
-      return;
-    }
+  const tick = useCallback(() => {
+    if (!onlineRef.current && !hasActiveRef.current) return;
     void loadOffers();
     void reloadDeliveries();
-    pollRef.current = setInterval(() => {
-      void loadOffers();
-      void reloadDeliveries();
-    }, OFFERS_POLL_MS);
+  }, [loadOffers, reloadDeliveries]);
+
+  // UM único loop, criado uma vez enquanto autenticado. Sem depender de
+  // `activeDelivery`/`online` (que mudam ref) — usa refs pra decidir dentro.
+  // Ajusta a frequência conforme o app está em primeiro plano ou não.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const schedule = (ms: number) => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(tick, ms);
+    };
+    tick();
+    schedule(AppState.currentState === 'active' ? POLL_ACTIVE_MS : POLL_BACKGROUND_MS);
+
+    const appSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        tick();
+        schedule(POLL_ACTIVE_MS);
+      } else {
+        schedule(POLL_BACKGROUND_MS);
+      }
+    });
+
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
+      appSub.remove();
     };
-  }, [isAuthenticated, online, activeDelivery, loadOffers, reloadDeliveries]);
+  }, [isAuthenticated, tick]);
 
   // realtime + GPS enquanto online
   useEffect(() => {
     if (!isAuthenticated || !me?.motoboyId) return;
     if (online) {
-      subscribeMotoboyRealtime(me.motoboyId, () => {
-        void loadOffers();
-        void reloadDeliveries();
-      });
+      subscribeMotoboyRealtime(me.motoboyId, tick);
       void startWatch();
     } else {
       unsubscribeMotoboyRealtime();
       stopWatch();
       setOffer(null);
     }
-    return () => {
-      unsubscribeMotoboyRealtime();
-    };
-  }, [isAuthenticated, online, me?.motoboyId, loadOffers, reloadDeliveries, startWatch, stopWatch]);
+    return () => unsubscribeMotoboyRealtime();
+  }, [isAuthenticated, online, me?.motoboyId, tick, startWatch, stopWatch, setOffer]);
 
   const goOnline = useCallback(async () => {
     if (me?.approvalStatus !== 'approved') {
@@ -154,7 +190,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     } finally {
       setToggling(false);
     }
-  }, [me, refreshMe, startWatch]);
+  }, [me, refreshMe, startWatch, setPosition]);
 
   const goOffline = useCallback(async () => {
     setToggling(true);
@@ -171,7 +207,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     } finally {
       setToggling(false);
     }
-  }, [refreshMe, stopWatch]);
+  }, [refreshMe, stopWatch, setOffer, setPosition]);
 
   const acceptOffer = useCallback(async () => {
     if (!offer) return;
@@ -184,7 +220,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     } catch (e) {
       Alert.alert('Oferta indisponível', (e as Error).message || 'Essa entrega já foi para outro motoboy.');
     }
-  }, [offer, reloadDeliveries, refreshMe]);
+  }, [offer, reloadDeliveries, refreshMe, setOffer]);
 
   const declineOffer = useCallback(async () => {
     if (!offer) return;
@@ -195,7 +231,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     } catch {
       /* ignora */
     }
-  }, [offer]);
+  }, [offer, setOffer]);
 
   const advanceActive = useCallback(async () => {
     if (!activeDelivery) return;
@@ -220,9 +256,8 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       setOnlineState(false);
       setOffer(null);
       setActive(null);
-      setPosition(null);
     }
-  }, [isAuthenticated, stopWatch]);
+  }, [isAuthenticated, stopWatch, setOffer, setActive]);
 
   const value = useMemo<RideContextValue>(
     () => ({
@@ -231,15 +266,13 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       offer,
       activeDelivery,
       advancing,
-      position,
       goOnline,
       goOffline,
       acceptOffer,
       declineOffer,
       advanceActive,
-      reloadDeliveries,
     }),
-    [online, togglingOnline, offer, activeDelivery, advancing, position, goOnline, goOffline, acceptOffer, declineOffer, advanceActive, reloadDeliveries],
+    [online, togglingOnline, offer, activeDelivery, advancing, goOnline, goOffline, acceptOffer, declineOffer, advanceActive],
   );
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>;

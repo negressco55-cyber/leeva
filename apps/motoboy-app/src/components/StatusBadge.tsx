@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { STATUS_LABEL, corStatus, theme } from '../theme/theme';
 
-export function StatusBadge({ status }: { status: string }): React.JSX.Element {
+export const StatusBadge = React.memo(function StatusBadge({ status }: { status: string }): React.JSX.Element {
   const cor = corStatus(status);
   return (
     <View style={[styles.badge, { backgroundColor: `${cor}22` }]}>
@@ -11,7 +11,7 @@ export function StatusBadge({ status }: { status: string }): React.JSX.Element {
       <Text style={[styles.label, { color: cor }]}>{STATUS_LABEL[status] ?? status}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   badge: {

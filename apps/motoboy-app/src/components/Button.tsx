@@ -22,7 +22,7 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function Button({ label, onPress, variant = 'primary', disabled, loading, style }: ButtonProps): React.JSX.Element {
+export const Button = React.memo(function Button({ label, onPress, variant = 'primary', disabled, loading, style }: ButtonProps): React.JSX.Element {
   const isDisabled = disabled || loading;
 
   return (
@@ -44,7 +44,7 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
       )}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   base: {

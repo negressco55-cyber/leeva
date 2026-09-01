@@ -70,6 +70,9 @@ export function GanhosScreen(): React.JSX.Element {
             data={items}
             keyExtractor={(i) => i.id}
             contentContainerStyle={{ paddingBottom: theme.spacing.xl }}
+            initialNumToRender={8}
+            windowSize={7}
+            removeClippedSubviews
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
             ListEmptyComponent={<Text style={styles.empty}>Nenhuma entrega ainda.</Text>}
             renderItem={({ item }) => (

@@ -37,7 +37,7 @@ export function OfertaOverlay(): React.JSX.Element | null {
   }
 
   return (
-    <Modal visible animationType="slide" presentationStyle="fullScreen">
+    <Modal visible animationType="slide" statusBarTranslucent onRequestClose={() => {}}>
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.eyebrow}>{grouped ? `Nova rota — ${offer.routeStops!.length} entregas` : 'Nova entrega'}</Text>
