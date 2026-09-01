@@ -91,6 +91,25 @@ export async function addCredit(
   return Number(data);
 }
 
+/**
+ * Ajuste de crédito com valor COM SINAL (positivo devolve, negativo cobra).
+ * Piso em zero. Usado pelo agrupamento de entregas (Fase 5 Bloco C).
+ */
+export async function adjustCredit(
+  db: DB,
+  restaurantId: string,
+  amount: number,
+  description: string,
+): Promise<number> {
+  const { data, error } = await db.rpc('credit_adjust', {
+    p_restaurant_id: restaurantId,
+    p_amount: amount,
+    p_description: description,
+  });
+  if (error) throw error;
+  return Number(data);
+}
+
 /** Consome crédito para um pedido. Atômico: só debita se houver saldo. */
 export async function consumeCreditForOrder(
   db: DB,

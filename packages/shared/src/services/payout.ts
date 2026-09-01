@@ -21,6 +21,9 @@ export const DEFAULT_PAYOUT_CONFIG: PayoutConfig = {
   peak_bonus: 0,
   peak_hours: [[18, 21]],
   min_payout: 6,
+  group_stop_min: 3.5,
+  group_radius_km: 1.5,
+  group_max_stops: 3,
 };
 
 /** Margem default do Leeva por entrega quando o restaurante não tem plano. */

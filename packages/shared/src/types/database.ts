@@ -342,6 +342,8 @@ export type Database = {
           distance_pickup_km: number | null
           distance_total_km: number | null
           expires_at: string
+          group_order_ids: string[] | null
+          group_plan: Json | null
           id: string
           motoboy_id: string
           offered_at: string
@@ -364,6 +366,8 @@ export type Database = {
           distance_pickup_km?: number | null
           distance_total_km?: number | null
           expires_at?: string
+          group_order_ids?: string[] | null
+          group_plan?: Json | null
           id?: string
           motoboy_id: string
           offered_at?: string
@@ -386,6 +390,8 @@ export type Database = {
           distance_pickup_km?: number | null
           distance_total_km?: number | null
           expires_at?: string
+          group_order_ids?: string[] | null
+          group_plan?: Json | null
           id?: string
           motoboy_id?: string
           offered_at?: string
@@ -1232,6 +1238,8 @@ export type Database = {
           eta_min: number | null
           external_id: string | null
           group_id: string | null
+          group_lead: boolean
+          group_sequence: number | null
           id: string
           in_route_at: string | null
           latitude: number | null
@@ -1277,6 +1285,8 @@ export type Database = {
           eta_min?: number | null
           external_id?: string | null
           group_id?: string | null
+          group_lead?: boolean
+          group_sequence?: number | null
           id?: string
           in_route_at?: string | null
           latitude?: number | null
@@ -1322,6 +1332,8 @@ export type Database = {
           eta_min?: number | null
           external_id?: string | null
           group_id?: string | null
+          group_lead?: boolean
+          group_sequence?: number | null
           id?: string
           in_route_at?: string | null
           latitude?: number | null
@@ -1878,6 +1890,14 @@ export type Database = {
           p_description: string
           p_external_ref?: string
           p_kind: Database["public"]["Enums"]["credit_movement"]
+          p_restaurant_id: string
+        }
+        Returns: number
+      }
+      credit_adjust: {
+        Args: {
+          p_amount: number
+          p_description: string
           p_restaurant_id: string
         }
         Returns: number

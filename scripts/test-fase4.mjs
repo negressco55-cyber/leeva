@@ -54,6 +54,16 @@ async function main() {
     .single();
   cleanup.push(() => db.from('restaurants').delete().eq('id', r.id));
 
+  // a Fase 4 não testa agrupamento — desliga p/ este restaurante (senão pedidos
+  // no mesmo destino são agrupados e mexem no crédito no meio dos testes)
+  await db.from('payout_policies').insert({
+    restaurant_id: r.id,
+    name: '[F4] sem agrupamento',
+    active: true,
+    config: { base: 5, per_km: 1.5, free_km: 2, min_payout: 6, group_max_stops: 1 },
+  });
+  cleanup.push(() => db.from('payout_policies').delete().eq('restaurant_id', r.id));
+
   const mkDriver = async (extra = {}) => {
     const { data } = await db
       .from('motoboys')

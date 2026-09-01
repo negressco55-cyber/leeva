@@ -14,6 +14,12 @@ export async function POST(req: Request) {
   for (const k of ['base', 'per_km', 'free_km', 'min_payout']) {
     if (!Number.isFinite(num(k)) || num(k) < 0) return badRequest(`valor inválido: ${k}`);
   }
+  const GROUP_KEYS = ['group_stop_min', 'group_radius_km', 'group_max_stops'] as const;
+  for (const k of GROUP_KEYS) {
+    if (b[k] !== undefined && (!Number.isFinite(num(k)) || num(k) < 0)) {
+      return badRequest(`valor inválido: ${k}`);
+    }
+  }
 
   try {
     const db = adminDb();
@@ -22,13 +28,16 @@ export async function POST(req: Request) {
       .select('id, config')
       .is('restaurant_id', null)
       .maybeSingle();
-    const merged = {
+    const merged: Record<string, unknown> = {
       ...((pol?.config as object) ?? {}),
       base: num('base'),
       per_km: num('per_km'),
       free_km: num('free_km'),
       min_payout: num('min_payout'),
     };
+    for (const k of GROUP_KEYS) {
+      if (b[k] !== undefined) merged[k] = k === 'group_max_stops' ? Math.round(num(k)) : num(k);
+    }
     if (pol) {
       await db.from('payout_policies').update({ config: merged as never, updated_at: new Date().toISOString() }).eq('id', pol.id);
     } else {

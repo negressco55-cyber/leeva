@@ -9,7 +9,7 @@ export async function GET() {
     const db = adminDb();
     const { data: offers } = await db
       .from('dispatch_attempts')
-      .select('id, order_id, score, offered_at, expires_at, quality, quality_score, counts_for_acceptance, payout_estimate, distance_pickup_km, distance_total_km')
+      .select('id, order_id, score, offered_at, expires_at, quality, quality_score, counts_for_acceptance, payout_estimate, distance_pickup_km, distance_total_km, group_order_ids, group_plan')
       .eq('motoboy_id', ctx.motoboyId)
       .is('responded_at', null)
       .gt('expires_at', new Date().toISOString())
@@ -47,7 +47,16 @@ export async function GET() {
           paymentStatus: o.payment_status,
           orderAmount: Number(o.order_amount),
           notes: o.notes,
-          grouped: !!o.group_id,
+          grouped: !!o.group_id || !!off.group_order_ids?.length,
+          routeStops: Array.isArray(off.group_plan)
+            ? (off.group_plan as Array<Record<string, unknown>>).map((s) => ({
+                seq: Number(s.seq),
+                address: String(s.address ?? ''),
+                region: (s.region as string | null) ?? null,
+                payout: Number(s.payout),
+              }))
+            : null,
+          routeTotalKm: off.distance_total_km != null ? Number(off.distance_total_km) : null,
         };
       })
       .filter(Boolean);

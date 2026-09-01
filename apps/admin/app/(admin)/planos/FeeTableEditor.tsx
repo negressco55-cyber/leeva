@@ -4,7 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiPost } from '../_lib/client';
 
-type Cfg = { base: number; per_km: number; free_km: number; min_payout: number };
+type Cfg = {
+  base: number;
+  per_km: number;
+  free_km: number;
+  min_payout: number;
+  group_stop_min: number;
+  group_radius_km: number;
+  group_max_stops: number;
+};
 
 export function FeeTableEditor({ initial }: { initial: Cfg }) {
   const router = useRouter();
@@ -56,6 +64,24 @@ export function FeeTableEditor({ initial }: { initial: Cfg }) {
       </div>
       <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
         Simulação: 2 km → <b>R$ {sim(2).toFixed(2)}</b> · 3 km → <b>R$ {sim(3).toFixed(2)}</b> · 5 km → <b>R$ {sim(5).toFixed(2)}</b>
+      </div>
+
+      <div className="card-title" style={{ marginTop: 18 }}>Agrupamento de entregas</div>
+      <p className="muted" style={{ fontSize: 12 }}>
+        Quando 2+ pedidos do mesmo restaurante têm destinos próximos, o despacho oferece uma rota única.
+        A 1ª parada paga a tabela cheia; cada parada extra paga a distância entre uma parada e a
+        seguinte (× valor por km), com um piso garantido.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
+        <label>Piso por parada extra (R$)
+          <input className="input" type="number" step="0.01" value={c.group_stop_min} onChange={(e) => setC({ ...c, group_stop_min: n(e.target.value) })} />
+        </label>
+        <label>Raio p/ agrupar (km)
+          <input className="input" type="number" step="0.1" value={c.group_radius_km} onChange={(e) => setC({ ...c, group_radius_km: n(e.target.value) })} />
+        </label>
+        <label>Paradas por rota (máx.) — 1 desliga
+          <input className="input" type="number" step="1" value={c.group_max_stops} onChange={(e) => setC({ ...c, group_max_stops: n(e.target.value) })} />
+        </label>
       </div>
       {msg && <div className="op-alert ok" style={{ marginTop: 8 }}>{msg}</div>}
       <button className="btn" onClick={save} disabled={saving} style={{ marginTop: 10 }}>

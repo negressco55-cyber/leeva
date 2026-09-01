@@ -21,6 +21,7 @@ import { getRoutingService } from './routing';
 import { getPayoutPolicy, computeDriverPayout, computeLogisticsFinance } from './payout';
 import { classifyOfferQuality } from './reputation';
 import { sendPushToMotoboy } from './push';
+import { planGroupForOrder, applyGroupPlan, dissolveGroup, type GroupPlan } from './grouping-dispatch';
 
 type DB = SupabaseClient<Database>;
 
@@ -282,7 +283,7 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
   const nowIso = new Date().toISOString();
   let expQ = db
     .from('dispatch_attempts')
-    .select('id, order_id, restaurant_id, motoboy_id')
+    .select('id, order_id, restaurant_id, motoboy_id, group_order_ids')
     .is('responded_at', null)
     .lt('expires_at', nowIso);
   if (restaurantId) expQ = expQ.eq('restaurant_id', restaurantId);
@@ -297,18 +298,24 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       .select('id');
     if (closed?.length) {
       res.expired++;
-      await db
-        .from('orders')
-        .update({ dispatch_state: 'searching' })
-        .eq('id', a.order_id)
-        .eq('dispatch_state', 'offered');
+      if (a.group_order_ids?.length) {
+        // rota agrupada sem resposta → dissolve; cada pedido volta ao individual
+        const { data: lead } = await db.from('orders').select('group_id').eq('id', a.order_id).maybeSingle();
+        if (lead?.group_id) await dissolveGroup(db, lead.group_id, { reason: 'sem resposta no tempo' });
+      } else {
+        await db
+          .from('orders')
+          .update({ dispatch_state: 'searching' })
+          .eq('id', a.order_id)
+          .eq('dispatch_state', 'offered');
+      }
     }
   }
 
   // 2. pedidos que precisam de despacho
   let pendQ = db
     .from('orders')
-    .select('id, restaurant_id, dispatch_attempts')
+    .select('id, restaurant_id, dispatch_attempts, group_id, group_lead')
     .in('status', ['waiting_dispatch', 'preparing', 'ready'])
     .is('motoboy_id', null)
     .in('dispatch_state', ['none', 'searching'])
@@ -319,8 +326,14 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
 
   // carga acumulada dentro deste tick (balanceamento greedy)
   const tickLoad = new Map<string, number>();
+  // pedidos absorvidos por uma rota agrupada NESTE tick (não ofertar de novo)
+  const groupedThisTick = new Set<string>();
 
   for (const o of pending ?? []) {
+    // pedido já agrupado que NÃO é o lead: quem despacha é a oferta do lead
+    if (o.group_id && !o.group_lead) continue;
+    if (groupedThisTick.has(o.id)) continue;
+
     // config do restaurante
     const { data: rst } = await db
       .from('restaurants')
@@ -381,6 +394,34 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
     // recusar oferta "poor" NUNCA penaliza; só excellent/good contam p/ aceitação
     const quality = await classifyOfferForCandidate(db, o.id, o.restaurant_id, best);
 
+    // --- AGRUPAMENTO: tenta montar uma rota com pedidos vizinhos ---
+    // (só se este pedido ainda não está em grupo)
+    let groupPlan: GroupPlan | null = null;
+    if (!o.group_id) {
+      try {
+        const plan = await planGroupForOrder(db, o.id);
+        if (plan && plan.stops.length >= 2) {
+          await applyGroupPlan(db, plan);
+          groupPlan = plan;
+          for (const id of plan.orderIds) groupedThisTick.add(id);
+          // as outras paradas saem do despacho individual
+          await db
+            .from('orders')
+            .update({ dispatch_state: 'offered' })
+            .in('id', plan.orderIds.filter((id) => id !== o.id));
+        }
+      } catch (e) {
+        res.details.push(`#${o.id.slice(0, 6)}: agrupamento falhou (${(e as Error).message})`);
+      }
+    }
+
+    const offerPayout = groupPlan ? groupPlan.totalPayout : quality.payout;
+    const offerTotalKm = groupPlan
+      ? groupPlan.totalDistanceKm
+      : quality.distanceTotalKm != null
+        ? round(quality.distanceTotalKm)
+        : null;
+
     // cria a oferta (unique index garante 1 aberta por pedido)
     const expiresAt = new Date(Date.now() + cfg.offer_timeout_seconds * 1000).toISOString();
     const { error: offErr } = await db.from('dispatch_attempts').insert({
@@ -395,9 +436,11 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       quality_score: quality.score,
       quality_factors: quality.factors,
       counts_for_acceptance: quality.countsForAcceptance,
-      payout_estimate: quality.payout,
+      payout_estimate: offerPayout,
       distance_pickup_km: best.distanceToPickupKm != null ? round(best.distanceToPickupKm) : null,
-      distance_total_km: quality.distanceTotalKm != null ? round(quality.distanceTotalKm) : null,
+      distance_total_km: offerTotalKm,
+      group_order_ids: groupPlan ? groupPlan.orderIds : null,
+      group_plan: groupPlan ? (groupPlan.stops as unknown as Database['public']['Tables']['dispatch_attempts']['Insert']['group_plan']) : null,
     });
     if (offErr) {
       if (offErr.code === '23505') continue; // já há oferta aberta
@@ -411,7 +454,8 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       .eq('id', o.id);
     tickLoad.set(best.motoboyId, (tickLoad.get(best.motoboyId) ?? 0) + 1);
     res.offered++;
-    res.details.push(`#${o.id.slice(0, 6)} → ${best.name} (${best.score} pts)`);
+    const groupTag = groupPlan ? ` [rota ${groupPlan.stops.length} paradas]` : '';
+    res.details.push(`#${o.id.slice(0, 6)} → ${best.name} (${best.score} pts)${groupTag}`);
 
     // notifica o motoboy — "você é o melhor candidato" (oferta prioritária),
     // mas ele PODE recusar; se a oferta for ruim, a recusa não prejudica.
@@ -419,6 +463,9 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       quality.quality === 'poor'
         ? 'Oferta pouco vantajosa — recusar não afeta sua reputação.'
         : 'Você é o melhor candidato para esta entrega.';
+    const offerTitle = groupPlan
+      ? `Nova rota — ${groupPlan.stops.length} entregas`
+      : 'Nova entrega disponível';
     await db.from('notifications').insert({
       restaurant_id: o.restaurant_id,
       order_id: o.id,
@@ -426,11 +473,11 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       recipient_type: 'motoboy',
       recipient: best.motoboyId,
       template: 'motoboy.offer',
-      title: 'Nova entrega disponível',
+      title: offerTitle,
       body: `${priorityLine} Aceite antes que expire.`,
       status: 'sent',
       sent_at: new Date().toISOString(),
-      data: { order_id: o.id, quality: quality.quality },
+      data: { order_id: o.id, quality: quality.quality, grouped: !!groupPlan },
     });
 
     // Web Push (se o motoboy autorizou) — chega mesmo com o app fechado.
@@ -441,9 +488,9 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       .maybeSingle();
     if (pushM?.push_enabled) {
       const payoutTxt =
-        quality.payout != null ? ` — você recebe R$ ${quality.payout.toFixed(2).replace('.', ',')}` : '';
+        offerPayout != null ? ` — você recebe R$ ${Number(offerPayout).toFixed(2).replace('.', ',')}` : '';
       void sendPushToMotoboy(db, best.motoboyId, {
-        title: 'Nova entrega disponível',
+        title: offerTitle,
         body: `${priorityLine}${payoutTxt}. Aceite antes que expire.`,
         url: '/status',
         tag: 'offer',
@@ -632,15 +679,16 @@ export async function acceptOffer(db: DB, offerId: string, motoboyId: string) {
     .eq('id', offerId)
     .eq('motoboy_id', motoboyId)
     .is('responded_at', null)
-    .select('order_id, restaurant_id');
+    .select('order_id, restaurant_id, group_order_ids');
   if (!closed?.length) return { ok: false as const, error: 'oferta expirada ou já respondida' };
 
-  const { order_id, restaurant_id } = closed[0]!;
+  const { order_id, restaurant_id, group_order_ids } = closed[0]!;
+  const orderIds = group_order_ids?.length ? group_order_ids : [order_id];
 
   const { data: assigned } = await db
     .from('orders')
     .update({ motoboy_id: motoboyId, status: 'assigned', dispatch_state: 'assigned' })
-    .eq('id', order_id)
+    .in('id', orderIds)
     .is('motoboy_id', null)
     .select('id');
   if (!assigned?.length) {
@@ -650,16 +698,17 @@ export async function acceptOffer(db: DB, offerId: string, motoboyId: string) {
   }
 
   await db.from('motoboys').update({ status: 'on_delivery' }).eq('id', motoboyId);
-  await finalizeLogisticsForOrder(db, order_id, restaurant_id);
-
-  await db.from('order_events').insert({
-    restaurant_id,
-    order_id,
-    type: 'delivery.accepted',
-    actor_type: 'motoboy',
-    actor_id: motoboyId,
-    data: { via: 'auto_dispatch' },
-  });
+  for (const oid of assigned.map((a) => a.id)) {
+    await finalizeLogisticsForOrder(db, oid, restaurant_id);
+    await db.from('order_events').insert({
+      restaurant_id,
+      order_id: oid,
+      type: 'delivery.accepted',
+      actor_type: 'motoboy',
+      actor_id: motoboyId,
+      data: { via: 'auto_dispatch', grouped: orderIds.length > 1 },
+    });
+  }
 
   return { ok: true as const, orderId: order_id };
 }
@@ -672,8 +721,23 @@ export async function declineOffer(db: DB, offerId: string, motoboyId: string, r
     .eq('id', offerId)
     .eq('motoboy_id', motoboyId)
     .is('responded_at', null)
-    .select('order_id');
+    .select('order_id, group_order_ids');
   if (!closed?.length) return { ok: false as const, error: 'oferta já respondida' };
+
+  // oferta agrupada recusada → DISSOLVE o grupo: cada pedido volta ao
+  // despacho individual (decisão em DECISOES-NOTURNAS.md).
+  if (closed[0]!.group_order_ids?.length) {
+    const { data: leadOrder } = await db
+      .from('orders')
+      .select('group_id')
+      .eq('id', closed[0]!.order_id)
+      .maybeSingle();
+    if (leadOrder?.group_id) {
+      await dissolveGroup(db, leadOrder.group_id, { reason: 'motoboy recusou a rota' });
+    }
+    return { ok: true as const };
+  }
+
   await db
     .from('orders')
     .update({ dispatch_state: 'searching' })

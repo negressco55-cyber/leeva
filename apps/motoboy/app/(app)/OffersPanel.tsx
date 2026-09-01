@@ -30,6 +30,8 @@ type Offer = {
   orderAmount: number;
   notes: string | null;
   grouped: boolean;
+  routeStops: { seq: number; address: string; region: string | null; payout: number }[] | null;
+  routeTotalKm: number | null;
 };
 
 const QUALITY_LABEL: Record<string, { text: string; color: string }> = {
@@ -122,7 +124,11 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
         return (
           <div key={o.offerId} className="offer-card">
             <div className="offer-head">
-              <strong>Nova entrega {o.grouped ? '(agrupada)' : ''}</strong>
+              <strong>
+                {o.routeStops && o.routeStops.length > 1
+                  ? `Nova rota — ${o.routeStops.length} entregas`
+                  : 'Nova entrega'}
+              </strong>
               <span className={`offer-timer ${secs <= 10 ? 'urgent' : ''}`}>{secs}s</span>
             </div>
             <div className="offer-body">
@@ -131,8 +137,31 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                   {QUALITY_LABEL[o.quality]!.text}
                 </div>
               )}
-              <div>{o.region ?? o.address}</div>
-              <div className="muted">{o.customerName} · {o.address}</div>
+
+              {o.routeStops && o.routeStops.length > 1 ? (
+                <div className="route-stops" style={{ display: 'grid', gap: 6 }}>
+                  {o.routeStops.map((s) => (
+                    <div
+                      key={s.seq}
+                      style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 14 }}
+                    >
+                      <span>
+                        <strong>{s.seq}ª</strong> {s.region ?? s.address}
+                      </span>
+                      <span>{formatCurrencyBRL(s.payout)}</span>
+                    </div>
+                  ))}
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {o.customerName} · 1ª parada: {o.address}
+                    {o.routeTotalKm != null ? ` · rota ~${o.routeTotalKm.toFixed(1)} km` : ''}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>{o.region ?? o.address}</div>
+                  <div className="muted">{o.customerName} · {o.address}</div>
+                </>
+              )}
               {(o.distancePickupKm != null || o.distanceTotalKm != null) && (
                 <div className="muted" style={{ fontSize: 13 }}>
                   {o.distancePickupKm != null ? `${o.distancePickupKm.toFixed(1)} km até a coleta` : ''}

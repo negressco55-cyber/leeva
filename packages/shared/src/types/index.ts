@@ -97,6 +97,10 @@ export type PayoutConfig = {
   peak_bonus: number;
   peak_hours: [number, number][];
   min_payout: number;
+  /** Agrupamento de entregas (Fase 5 Bloco C). Configurável no admin. */
+  group_stop_min?: number; // piso pago por parada adicional (default 3.50)
+  group_radius_km?: number; // raio p/ considerar destinos "no caminho" (default 1.5)
+  group_max_stops?: number; // paradas por rota, incl. a 1ª (default 3; <2 desliga)
 };
 
 /** Features de plano (plans.features). */
