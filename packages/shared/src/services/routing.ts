@@ -123,18 +123,78 @@ export class OsrmRoutingService implements RoutingService {
   }
 }
 
+/**
+ * Combina um provedor de rota real com o fallback em linha reta.
+ * Se o provedor real falha (rede, rate limit, ponto sem via), NÃO perde a
+ * estimativa — cai para Haversine × fator de rua. Cache curto em memória
+ * para não martelar o servidor OSRM público (que tem rate limit).
+ */
+export class HybridRoutingService implements RoutingService {
+  readonly provider: string;
+  readonly isEstimate = false; // pode variar por perna; ver leg.isEstimate
+  private fallback = new StraightLineRoutingService();
+  private cache = new Map<string, { at: number; leg: RouteLeg }>();
+  private ttlMs = 5 * 60_000;
+  private maxEntries = 500;
+
+  constructor(private real: RoutingService) {
+    this.provider = `${real.provider}+fallback`;
+  }
+
+  private key(from: LatLng, to: LatLng): string {
+    const r = (n: number) => n.toFixed(4);
+    return `${r(from.latitude)},${r(from.longitude)}>${r(to.latitude)},${r(to.longitude)}`;
+  }
+
+  async leg(from: LatLng, to: LatLng): Promise<RouteLeg | null> {
+    const k = this.key(from, to);
+    const hit = this.cache.get(k);
+    if (hit && Date.now() - hit.at < this.ttlMs) return hit.leg;
+
+    let leg: RouteLeg | null = null;
+    try {
+      leg = await this.real.leg(from, to);
+    } catch {
+      leg = null;
+    }
+    if (!leg) leg = await this.fallback.leg(from, to);
+    if (!leg) return null;
+
+    if (this.cache.size >= this.maxEntries) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest) this.cache.delete(oldest);
+    }
+    this.cache.set(k, { at: Date.now(), leg });
+    return leg;
+  }
+
+  async route(points: LatLng[]): Promise<RoutePlan | null> {
+    if (points.length < 2) return null;
+    try {
+      const plan = await this.real.route(points);
+      if (plan) return plan;
+    } catch {
+      /* cai para o fallback abaixo */
+    }
+    return this.fallback.route(points);
+  }
+}
+
 let cached: RoutingService | null = null;
 
 /**
  * Escolhe o RoutingService conforme o ambiente. Cai para linha reta quando
  * nenhum provedor estiver configurado — sempre devolve algo utilizável.
+ *
+ * OSRM_BASE_URL define o servidor de rota real (ex.: uma instância própria,
+ * ou https://router.project-osrm.org para testes — esse tem rate limit e
+ * não deve ser usado em produção de verdade).
  */
 export function getRoutingService(): RoutingService {
   if (cached) return cached;
   const osrm = process.env.OSRM_BASE_URL;
-  // Google/Mapbox: PREPARADO — quando implementados, plugar aqui.
   if (osrm) {
-    cached = new OsrmRoutingService(osrm);
+    cached = new HybridRoutingService(new OsrmRoutingService(osrm));
   } else {
     cached = new StraightLineRoutingService();
   }

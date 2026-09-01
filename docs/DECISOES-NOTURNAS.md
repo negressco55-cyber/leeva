@@ -132,3 +132,32 @@ página pública `/track/[token]` com atualização ao vivo, API com rate limit,
   de fora — exige um watcher de localização com histerese; anotado como
   melhoria futura. Os outros 4 marcos (confirmado, a caminho, saiu, entregue)
   estão cobertos.
+
+---
+
+## Bloco 5 — Rota real (OSRM) no lugar da linha reta ✅
+
+**Estado encontrado:** `OsrmRoutingService` já estava escrito (PREPARADO),
+só faltava ligar. Os cálculos de distância já tratavam `null` do provedor
+caindo para Haversine × 1,3 — então a troca é segura.
+
+**Feito:**
+- `HybridRoutingService`: envolve o OSRM com fallback automático para linha
+  reta (se o OSRM falha por rede/rate-limit/ponto sem via, não perde a
+  estimativa) + cache curto em memória (5 min, 500 pernas) para não martelar
+  o servidor OSRM.
+- `OSRM_BASE_URL` = `https://router.project-osrm.org` nos 3 apps da Vercel e
+  no `.env.local`.
+- Testado ao vivo: restaurante → Bessa deu **4,95 km reais** contra ~1,7 km
+  da linha reta ×1,3 (tem rio/ponte no caminho) — a diferença é exatamente
+  o que justifica a rota real.
+- Testes: `routing.test.ts` +4 (usa real, cai para fallback, cacheia).
+
+**Decisão / aviso:**
+- Usei o **servidor OSRM público** (`router.project-osrm.org`). Ele tem rate
+  limit e os termos dele desaconselham produção pesada. Para volume real, subir
+  uma instância própria de OSRM (Docker + extrato do OpenStreetMap do Nordeste)
+  e trocar só a env `OSRM_BASE_URL`. O fallback garante que, se o público
+  bloquear, o sistema continua funcionando na estimativa. Reversível: basta
+  apagar a env.
+- Não liguei Google Maps / Mapbox (pagos, precisam de chave e cartão).
