@@ -3,7 +3,7 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
-import { CorridaAndamentoScreen } from '../screens/home/CorridaAndamentoScreen';
+import { EntregaScreen } from '../screens/home/EntregaScreen';
 import { theme } from '../theme/theme';
 import { AuthNavigator } from './AuthNavigator';
 import { MainTabs } from './MainTabs';
@@ -16,10 +16,10 @@ function AppStack(): React.JSX.Element {
     <Stack.Navigator screenOptions={{ contentStyle: { backgroundColor: theme.colors.background } }}>
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <Stack.Screen
-        name="CorridaAndamento"
-        component={CorridaAndamentoScreen}
+        name="Entrega"
+        component={EntregaScreen}
         options={{
-          title: 'Corrida',
+          title: 'Entrega',
           presentation: 'fullScreenModal',
           headerStyle: { backgroundColor: theme.colors.surface },
           headerTintColor: theme.colors.text,
@@ -35,20 +35,14 @@ export function RootNavigator(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.center}>
         <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
-
   return isAuthenticated ? <AppStack /> : <AuthNavigator />;
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  center: { flex: 1, backgroundColor: theme.colors.background, alignItems: 'center', justifyContent: 'center' },
 });

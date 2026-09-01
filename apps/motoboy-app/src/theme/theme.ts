@@ -1,48 +1,43 @@
 /**
- * Tema visual do Levva Motoboy — baseado em docs/brand-guide.md
- * Grafite (fundo) + laranja (ação) + amarelo (destaque/disponível) + verde (sucesso) + vermelho (alerta)
- * Tipografia: Space Grotesk (títulos) + Inter (corpo)
+ * Tema do app nativo do motoboy. Alinhado ao Sistema de Design do Leeva
+ * (docs/DESIGN-SYSTEM.md) na versão ESCURA — deliberado: o entregador usa
+ * na rua, muitas vezes à noite, e tela escura poupa bateria.
+ * Cor de marca: verde-pinho (não laranja).
  */
 
 export const colors = {
-  grafite: '#17181C',
-  grafiteClaro: '#1F2126',
-  laranja: '#FF5A1F',
-  amarelo: '#FFC93C',
-  branco: '#F5F5F3',
-  chumbo: '#3A3B42',
-  verde: '#1FAA5A',
-  vermelho: '#E5484D',
+  bg: '#141513',
+  surface: '#1c1e1b',
+  surface2: '#242621',
+  border: '#31332e',
+  borderStrong: '#3d3f39',
+  text: '#e9e9e4',
+  textSecondary: '#a3a39a',
+  brand: '#4fae93',
+  brandHover: '#5cbfa2',
+  onBrand: '#10231d',
+  ok: '#63b98a',
+  warn: '#d3a548',
+  danger: '#e0685f',
 } as const;
 
 export const theme = {
   colors: {
-    background: colors.grafite,
-    surface: colors.grafiteClaro,
-    border: colors.chumbo,
-    text: colors.branco,
-    textSecondary: '#B8B9BE',
-    primary: colors.laranja,
-    accent: colors.amarelo,
-    success: colors.verde,
-    danger: colors.vermelho,
-    onPrimary: colors.grafite,
-    onAccent: colors.grafite,
+    background: colors.bg,
+    surface: colors.surface,
+    surfaceAlt: colors.surface2,
+    border: colors.border,
+    text: colors.text,
+    textSecondary: colors.textSecondary,
+    primary: colors.brand,
+    accent: colors.warn,
+    success: colors.ok,
+    danger: colors.danger,
+    onPrimary: colors.onBrand,
+    onAccent: colors.bg,
   },
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32,
-    xxl: 48,
-  },
-  radius: {
-    sm: 8,
-    md: 14,
-    lg: 20,
-    pill: 999,
-  },
+  spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 },
+  radius: { sm: 8, md: 12, lg: 16, pill: 999 },
   fonts: {
     heading: 'SpaceGrotesk_700Bold',
     headingSemiBold: 'SpaceGrotesk_600SemiBold',
@@ -56,21 +51,25 @@ export const theme = {
 
 export type Theme = typeof theme;
 
-/** Cor de destaque por status de corrida, usada em badges e barras de progresso. */
-export function corStatusCorrida(status: string): string {
+export function corStatus(status: string): string {
   switch (status) {
-    case 'PROCURANDO_MOTOBOY':
-      return theme.colors.accent;
-    case 'ACEITA':
-    case 'A_CAMINHO_COLETA':
-    case 'COLETADO':
-    case 'A_CAMINHO_ENTREGA':
+    case 'assigned':
+    case 'picked_up':
+    case 'in_route':
       return theme.colors.primary;
-    case 'ENTREGUE':
+    case 'delivered':
       return theme.colors.success;
-    case 'CANCELADA':
+    case 'cancelled':
       return theme.colors.danger;
     default:
       return theme.colors.textSecondary;
   }
 }
+
+export const STATUS_LABEL: Record<string, string> = {
+  assigned: 'A caminho da coleta',
+  picked_up: 'Pedido coletado',
+  in_route: 'Em entrega',
+  delivered: 'Entregue',
+  cancelled: 'Cancelada',
+};

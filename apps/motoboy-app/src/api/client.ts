@@ -1,86 +1,59 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-
-import type { RefreshResponse } from '../types';
-
 /**
- * Base URL configurável via EXPO_PUBLIC_API_URL (.env). Metro/Expo expõe
- * automaticamente qualquer variável prefixada com EXPO_PUBLIC_ em process.env.
+ * Chamadas às rotas /api do painel do motoboy (Next.js) usando o access
+ * token do Supabase como Bearer. O backend valida via getMotoboyContextFromReq.
  */
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3333';
+import { API_URL, supabase } from '../lib/supabase';
 
-export const apiClient = axios.create({
-  baseURL: API_URL,
-  timeout: 15000,
-});
-
-// Tokens mantidos em memória (fonte da verdade fica no AuthContext + AsyncStorage;
-// aqui guardamos só uma cópia rápida para os interceptors não dependerem de I/O assíncrono).
-let currentAccessToken: string | null = null;
-let currentRefreshToken: string | null = null;
-let onAuthFailure: (() => void) | null = null;
-let refreshPromise: Promise<string | null> | null = null;
-
-export function setAccessToken(token: string | null): void {
-  currentAccessToken = token;
-}
-
-export function setRefreshToken(token: string | null): void {
-  currentRefreshToken = token;
-}
-
-/** Registrado pelo AuthContext: chamado quando o refresh falha (força logout). */
-export function setOnAuthFailure(callback: (() => void) | null): void {
-  onAuthFailure = callback;
-}
-
-apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (currentAccessToken) {
-    config.headers.set('Authorization', `Bearer ${currentAccessToken}`);
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
   }
-  return config;
-});
-
-interface RetriableConfig extends InternalAxiosRequestConfig {
-  _retry?: boolean;
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  if (!currentRefreshToken) return null;
-
-  if (!refreshPromise) {
-    refreshPromise = axios
-      .post<RefreshResponse>(`${API_URL}/auth/refresh`, { refreshToken: currentRefreshToken })
-      .then((response) => {
-        currentAccessToken = response.data.accessToken;
-        return response.data.accessToken;
-      })
-      .catch(() => null)
-      .finally(() => {
-        refreshPromise = null;
-      });
-  }
-
-  return refreshPromise;
+async function authHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as RetriableConfig | undefined;
-    const status = error.response?.status;
+export async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: { ...(await authHeader()) },
+  });
+  return handle<T>(res);
+}
 
-    if (status === 401 && originalRequest && !originalRequest._retry && !originalRequest.url?.includes('/auth/')) {
-      originalRequest._retry = true;
-      const newToken = await refreshAccessToken();
+export async function apiSend<T>(
+  path: string,
+  method: 'POST' | 'PATCH' | 'DELETE',
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      'content-type': 'application/json',
+      ...(await authHeader()),
+    },
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  return handle<T>(res);
+}
 
-      if (newToken) {
-        originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
-        return apiClient(originalRequest);
-      }
-
-      onAuthFailure?.();
-    }
-
-    return Promise.reject(error);
+async function handle<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  let json: unknown = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    /* resposta não-JSON */
   }
-);
+  if (!res.ok) {
+    const msg =
+      (json as { error?: string } | null)?.error ??
+      (res.status === 401 ? 'Sessão expirada. Entre de novo.' : 'Erro na comunicação com o servidor.');
+    throw new ApiError(msg, res.status);
+  }
+  return json as T;
+}

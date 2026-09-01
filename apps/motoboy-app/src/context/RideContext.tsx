@@ -2,301 +2,251 @@ import * as Location from 'expo-location';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
-import { aceitarCorrida, atualizarStatusCorrida } from '../api/corridas';
-import { updateDisponibilidade, updateLocalizacao } from '../api/motoboy';
-import { connectSocket, disconnectSocket, getSocket, joinMotoboyRoom } from '../api/socket';
-import type { Corrida, SocketEventCorridaNova, StatusCorrida } from '../types';
-import { SEQUENCIA_STATUS_MOTOBOY } from '../types';
+import { advanceDelivery, getActiveDeliveries, getOffers, respondOffer } from '../api/entregas';
+import { sendLocation, setOnline } from '../api/motoboy';
+import { subscribeMotoboyRealtime, unsubscribeMotoboyRealtime } from '../api/realtime';
+import { NEXT_STATUS, type Delivery, type Offer } from '../types';
 import { useAuth } from './AuthContext';
 
-const ENVIO_LOCALIZACAO_INTERVALO_MS = 10000;
+const LOCATION_INTERVAL_MS = 10_000;
+const OFFERS_POLL_MS = 5_000;
 
 interface RideContextValue {
-  disponivel: boolean;
-  alternandoDisponibilidade: boolean;
-  ofertaCorrida: SocketEventCorridaNova | null;
-  corridaAtiva: Corrida | null;
-  atualizandoStatus: boolean;
-  /** Última posição de GPS do motoboy — alimenta o mapa embutido; `null` até a primeira leitura. */
-  posicaoAtual: { latitude: number; longitude: number } | null;
-  ligarDisponibilidade: () => Promise<void>;
-  desligarDisponibilidade: () => Promise<void>;
-  aceitarOferta: () => Promise<void>;
-  recusarOferta: () => void;
-  proximoStatus: (statusAtual: StatusCorrida) => StatusCorrida | null;
-  avancarStatusCorrida: (codigoConfirmacao?: string) => Promise<void>;
-  finalizarCorridaAtiva: () => void;
+  online: boolean;
+  togglingOnline: boolean;
+  offer: Offer | null;
+  activeDelivery: Delivery | null;
+  advancing: boolean;
+  position: { latitude: number; longitude: number } | null;
+  goOnline: () => Promise<void>;
+  goOffline: () => Promise<void>;
+  acceptOffer: () => Promise<void>;
+  declineOffer: () => Promise<void>;
+  advanceActive: () => Promise<void>;
+  reloadDeliveries: () => Promise<void>;
 }
 
 const RideContext = createContext<RideContextValue | undefined>(undefined);
 
 export function RideProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const { accessToken, motoboy, setMotoboy, isAuthenticated } = useAuth();
+  const { isAuthenticated, me, refreshMe } = useAuth();
 
-  const [disponivel, setDisponivel] = useState(false);
-  const [alternandoDisponibilidade, setAlternandoDisponibilidade] = useState(false);
-  const [ofertaCorrida, setOfertaCorrida] = useState<SocketEventCorridaNova | null>(null);
-  const [corridaAtiva, setCorridaAtiva] = useState<Corrida | null>(null);
-  const [atualizandoStatus, setAtualizandoStatus] = useState(false);
-  const [posicaoAtual, setPosicaoAtual] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [online, setOnlineState] = useState(false);
+  const [togglingOnline, setToggling] = useState(false);
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [activeDelivery, setActive] = useState<Delivery | null>(null);
+  const [advancing, setAdvancing] = useState(false);
+  const [position, setPosition] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const watchSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
-  const lastSentAtRef = useRef<number>(0);
-  const motoboyIdRef = useRef<string | null>(null);
-  const corridaAtivaRef = useRef<Corrida | null>(null);
-
-  useEffect(() => {
-    motoboyIdRef.current = motoboy?.id ?? null;
-  }, [motoboy?.id]);
+  const watchRef = useRef<Location.LocationSubscription | null>(null);
+  const lastSentRef = useRef(0);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    corridaAtivaRef.current = corridaAtiva;
-  }, [corridaAtiva]);
+    setOnlineState((me?.status ?? 'offline') !== 'offline');
+  }, [me?.status]);
 
-  useEffect(() => {
-    setDisponivel(motoboy?.disponivel ?? false);
-  }, [motoboy?.disponivel]);
-
-  const pararRastreamento = useCallback(() => {
-    watchSubscriptionRef.current?.remove();
-    watchSubscriptionRef.current = null;
+  const stopWatch = useCallback(() => {
+    watchRef.current?.remove();
+    watchRef.current = null;
   }, []);
 
-  const iniciarRastreamento = useCallback(async () => {
-    const subscription = await Location.watchPositionAsync(
-      {
-        accuracy: Location.LocationAccuracy.Balanced,
-        timeInterval: ENVIO_LOCALIZACAO_INTERVALO_MS,
-        distanceInterval: 25,
-      },
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        // Atualiza o mapa embutido a cada leitura de GPS, independente do
-        // throttle de envio ao backend logo abaixo (esse throttle é só pra
-        // não sobrecarregar a API/socket, não precisa se aplicar à UI local).
-        setPosicaoAtual({ latitude, longitude });
-
+  const startWatch = useCallback(async () => {
+    if (watchRef.current) return;
+    watchRef.current = await Location.watchPositionAsync(
+      { accuracy: Location.LocationAccuracy.Balanced, timeInterval: LOCATION_INTERVAL_MS, distanceInterval: 25 },
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setPosition({ latitude, longitude });
         const now = Date.now();
-        if (now - lastSentAtRef.current < ENVIO_LOCALIZACAO_INTERVALO_MS - 500) return;
-        lastSentAtRef.current = now;
-
-        updateLocalizacao(latitude, longitude).catch(() => {
-          // Falha silenciosa: próxima leitura de posição tenta de novo.
-        });
-
-        const id = motoboyIdRef.current;
-        if (id) joinMotoboyRoom(id, latitude, longitude);
-      }
+        if (now - lastSentRef.current < LOCATION_INTERVAL_MS - 500) return;
+        lastSentRef.current = now;
+        sendLocation(latitude, longitude).catch(() => {});
+      },
     );
-
-    watchSubscriptionRef.current = subscription;
   }, []);
 
-  // Listener do evento corrida:nova sempre que o socket estiver conectado.
+  const loadOffers = useCallback(async () => {
+    try {
+      const offers = await getOffers();
+      const active = offers
+        .filter((o) => new Date(o.expiresAt).getTime() > Date.now())
+        .sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime());
+      setOffer(active[0] ?? null);
+    } catch {
+      /* rede — próximo ciclo */
+    }
+  }, []);
+
+  const reloadDeliveries = useCallback(async () => {
+    try {
+      const list = await getActiveDeliveries();
+      setActive(list[0] ?? null);
+    } catch {
+      /* ignora */
+    }
+  }, []);
+
+  // loop enquanto online ou com entrega ativa
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
-
-    const handleCorridaNova = (payload: SocketEventCorridaNova): void => {
-      if (corridaAtivaRef.current) return;
-      setOfertaCorrida((atual) => atual ?? payload);
-    };
-
-    socket.on('corrida:nova', handleCorridaNova);
-    return () => {
-      socket.off('corrida:nova', handleCorridaNova);
-    };
-  }, [disponivel]);
-
-  // Conecta socket + geolocalização — separado do PATCH de disponibilidade
-  // porque também precisa rodar quando o app ABRE já disponível (backend
-  // com disponivel=true de uma sessão anterior que fechou sem desligar):
-  // sem isso o motoboy fica "disponível" só na tela, sem socket conectado
-  // nem localização atualizada — invisível de verdade pro matching.
-  const ativarConexaoEDisponibilidade = useCallback(
-    async (latitude: number, longitude: number) => {
-      if (accessToken) {
-        connectSocket(accessToken);
-      }
-      const id = motoboyIdRef.current;
-      if (id) {
-        joinMotoboyRoom(id, latitude, longitude);
-      }
-      setPosicaoAtual({ latitude, longitude });
-      lastSentAtRef.current = Date.now();
-      await updateLocalizacao(latitude, longitude);
-      await iniciarRastreamento();
-    },
-    [accessToken, iniciarRastreamento]
-  );
-
-  const ligarDisponibilidade = useCallback(async () => {
-    if (motoboy?.statusAprovacao !== 'APROVADO') {
-      Alert.alert('Cadastro em análise', 'Seu cadastro ainda está em análise. Você poderá ficar disponível assim que for aprovado.');
+    const running = isAuthenticated && (online || activeDelivery != null);
+    if (!running) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
       return;
     }
+    void loadOffers();
+    void reloadDeliveries();
+    pollRef.current = setInterval(() => {
+      void loadOffers();
+      void reloadDeliveries();
+    }, OFFERS_POLL_MS);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
+  }, [isAuthenticated, online, activeDelivery, loadOffers, reloadDeliveries]);
 
-    setAlternandoDisponibilidade(true);
+  // realtime + GPS enquanto online
+  useEffect(() => {
+    if (!isAuthenticated || !me?.motoboyId) return;
+    if (online) {
+      subscribeMotoboyRealtime(me.motoboyId, () => {
+        void loadOffers();
+        void reloadDeliveries();
+      });
+      void startWatch();
+    } else {
+      unsubscribeMotoboyRealtime();
+      stopWatch();
+      setOffer(null);
+    }
+    return () => {
+      unsubscribeMotoboyRealtime();
+    };
+  }, [isAuthenticated, online, me?.motoboyId, loadOffers, reloadDeliveries, startWatch, stopWatch]);
+
+  const goOnline = useCallback(async () => {
+    if (me?.approvalStatus !== 'approved') {
+      Alert.alert('Cadastro em análise', 'Você poderá ficar disponível quando o cadastro for aprovado.');
+      return;
+    }
+    if (me?.terms) {
+      Alert.alert('Termos de uso', 'Aceite os termos de uso na tela de Perfil antes de ficar disponível.');
+      return;
+    }
+    setToggling(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permissão necessária', 'Ative a permissão de localização para ficar disponível e receber corridas.');
+        Alert.alert('Permissão necessária', 'Ative a localização para ficar disponível e receber entregas.');
         return;
       }
-
-      const updated = await updateDisponibilidade(true);
-      setMotoboy(updated);
-      setDisponivel(true);
-
-      const initialPosition = await Location.getCurrentPositionAsync({});
-      await ativarConexaoEDisponibilidade(initialPosition.coords.latitude, initialPosition.coords.longitude);
-    } catch (error) {
-      Alert.alert('Não foi possível ficar disponível', 'Tente novamente em instantes.');
+      await setOnline(true);
+      setOnlineState(true);
+      await refreshMe();
+      const pos = await Location.getCurrentPositionAsync({});
+      setPosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      await sendLocation(pos.coords.latitude, pos.coords.longitude).catch(() => {});
+      await startWatch();
+    } catch (e) {
+      Alert.alert('Não deu para ficar disponível', (e as Error).message || 'Tente de novo.');
     } finally {
-      setAlternandoDisponibilidade(false);
+      setToggling(false);
     }
-  }, [motoboy, setMotoboy, ativarConexaoEDisponibilidade]);
+  }, [me, refreshMe, startWatch]);
 
-  // Retoma automaticamente a conexão se o app abrir com o motoboy já
-  // marcado como disponível no backend (app fechado e reaberto etc.) —
-  // só uma vez por sessão do app.
-  const retomadaFeitaRef = useRef(false);
-  useEffect(() => {
-    if (!isAuthenticated || retomadaFeitaRef.current) return;
-    if (motoboy?.disponivel !== true || watchSubscriptionRef.current !== null) return;
-
-    retomadaFeitaRef.current = true;
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const position = await Location.getCurrentPositionAsync({});
-        await ativarConexaoEDisponibilidade(position.coords.latitude, position.coords.longitude);
-      } catch {
-        // Sem permissão/posição disponível nesse retomar automático — o
-        // motoboy precisa desligar/ligar manualmente pra tentar de novo.
-      }
-    })();
-  }, [isAuthenticated, motoboy?.disponivel, ativarConexaoEDisponibilidade]);
-
-  const desligarDisponibilidade = useCallback(async () => {
-    setAlternandoDisponibilidade(true);
+  const goOffline = useCallback(async () => {
+    setToggling(true);
     try {
-      const updated = await updateDisponibilidade(false);
-      setMotoboy(updated);
-      setDisponivel(false);
-      pararRastreamento();
-      disconnectSocket();
-      setOfertaCorrida(null);
-      setPosicaoAtual(null);
-    } catch (error) {
-      Alert.alert('Não foi possível atualizar', 'Tente novamente em instantes.');
+      await setOnline(false);
+      setOnlineState(false);
+      stopWatch();
+      unsubscribeMotoboyRealtime();
+      setOffer(null);
+      setPosition(null);
+      await refreshMe();
+    } catch (e) {
+      Alert.alert('Não deu para atualizar', (e as Error).message || 'Finalize suas entregas primeiro.');
     } finally {
-      setAlternandoDisponibilidade(false);
+      setToggling(false);
     }
-  }, [setMotoboy, pararRastreamento]);
+  }, [refreshMe, stopWatch]);
 
-  const aceitarOferta = useCallback(async () => {
-    if (!ofertaCorrida) return;
+  const acceptOffer = useCallback(async () => {
+    if (!offer) return;
+    const current = offer;
+    setOffer(null);
     try {
-      const corrida = await aceitarCorrida(ofertaCorrida.corridaId);
-      setCorridaAtiva(corrida);
-      setOfertaCorrida(null);
-    } catch (error) {
-      Alert.alert('Corrida indisponível', 'Essa corrida já foi aceita por outro motoboy.');
-      setOfertaCorrida(null);
+      await respondOffer(current.offerId, 'accept');
+      await reloadDeliveries();
+      await refreshMe();
+    } catch (e) {
+      Alert.alert('Oferta indisponível', (e as Error).message || 'Essa entrega já foi para outro motoboy.');
     }
-  }, [ofertaCorrida]);
+  }, [offer, reloadDeliveries, refreshMe]);
 
-  const recusarOferta = useCallback(() => {
-    setOfertaCorrida(null);
-  }, []);
+  const declineOffer = useCallback(async () => {
+    if (!offer) return;
+    const current = offer;
+    setOffer(null);
+    try {
+      await respondOffer(current.offerId, 'decline');
+    } catch {
+      /* ignora */
+    }
+  }, [offer]);
 
-  const proximoStatus = useCallback((statusAtual: StatusCorrida): StatusCorrida | null => {
-    const index = SEQUENCIA_STATUS_MOTOBOY.indexOf(statusAtual);
-    if (index === -1 || index === SEQUENCIA_STATUS_MOTOBOY.length - 1) return null;
-    return SEQUENCIA_STATUS_MOTOBOY[index + 1];
-  }, []);
+  const advanceActive = useCallback(async () => {
+    if (!activeDelivery) return;
+    const next = NEXT_STATUS[activeDelivery.status];
+    if (!next) return;
+    setAdvancing(true);
+    try {
+      await advanceDelivery(activeDelivery.id, next);
+      await reloadDeliveries();
+      if (next === 'delivered') await refreshMe();
+    } catch (e) {
+      Alert.alert('Não deu para atualizar', (e as Error).message || 'Tente de novo.');
+    } finally {
+      setAdvancing(false);
+    }
+  }, [activeDelivery, reloadDeliveries, refreshMe]);
 
-  const avancarStatusCorrida = useCallback(
-    async (codigoConfirmacao?: string) => {
-      if (!corridaAtiva) return;
-      const proximo = proximoStatus(corridaAtiva.status);
-      if (!proximo) return;
-
-      setAtualizandoStatus(true);
-      try {
-        const atualizada = await atualizarStatusCorrida(corridaAtiva.id, proximo, codigoConfirmacao);
-        setCorridaAtiva(atualizada);
-      } catch (error) {
-        // Erro de código de confirmação (400) tem mensagem específica do backend
-        // — a tela de entrega mostra esse texto e mantém o campo aberto pra
-        // tentar de novo, por isso relançamos em vez de só engolir com Alert.
-        const mensagemBackend = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
-        if (proximo === 'ENTREGUE') {
-          throw new Error(mensagemBackend ?? 'Não foi possível confirmar a entrega.');
-        }
-        Alert.alert('Não foi possível atualizar o status', mensagemBackend ?? 'Tente novamente em instantes.');
-      } finally {
-        setAtualizandoStatus(false);
-      }
-    },
-    [corridaAtiva, proximoStatus]
-  );
-
-  const finalizarCorridaAtiva = useCallback(() => {
-    setCorridaAtiva(null);
-  }, []);
-
-  // Ao deslogar, garante que o rastreamento pare.
   useEffect(() => {
     if (!isAuthenticated) {
-      pararRastreamento();
-      setDisponivel(false);
-      setOfertaCorrida(null);
-      setCorridaAtiva(null);
-      setPosicaoAtual(null);
+      stopWatch();
+      unsubscribeMotoboyRealtime();
+      setOnlineState(false);
+      setOffer(null);
+      setActive(null);
+      setPosition(null);
     }
-  }, [isAuthenticated, pararRastreamento]);
+  }, [isAuthenticated, stopWatch]);
 
   const value = useMemo<RideContextValue>(
     () => ({
-      disponivel,
-      alternandoDisponibilidade,
-      ofertaCorrida,
-      corridaAtiva,
-      atualizandoStatus,
-      posicaoAtual,
-      ligarDisponibilidade,
-      desligarDisponibilidade,
-      aceitarOferta,
-      recusarOferta,
-      proximoStatus,
-      avancarStatusCorrida,
-      finalizarCorridaAtiva,
+      online,
+      togglingOnline,
+      offer,
+      activeDelivery,
+      advancing,
+      position,
+      goOnline,
+      goOffline,
+      acceptOffer,
+      declineOffer,
+      advanceActive,
+      reloadDeliveries,
     }),
-    [
-      disponivel,
-      alternandoDisponibilidade,
-      ofertaCorrida,
-      corridaAtiva,
-      atualizandoStatus,
-      posicaoAtual,
-      ligarDisponibilidade,
-      desligarDisponibilidade,
-      aceitarOferta,
-      recusarOferta,
-      proximoStatus,
-      avancarStatusCorrida,
-      finalizarCorridaAtiva,
-    ]
+    [online, togglingOnline, offer, activeDelivery, advancing, position, goOnline, goOffline, acceptOffer, declineOffer, advanceActive, reloadDeliveries],
   );
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>;
 }
 
 export function useRide(): RideContextValue {
-  const context = useContext(RideContext);
-  if (!context) throw new Error('useRide precisa ser usado dentro de um RideProvider');
-  return context;
+  const ctx = useContext(RideContext);
+  if (!ctx) throw new Error('useRide precisa estar dentro de RideProvider');
+  return ctx;
 }

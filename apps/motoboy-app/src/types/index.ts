@@ -1,146 +1,119 @@
 /**
- * Tipos do domínio Levva, adaptados de packages/shared/src/types.ts
- * (o app mobile não está no workspace npm do monorepo, então os tipos
- * são copiados aqui em vez de importados do pacote @levva/shared).
+ * Tipos do domínio Leeva usados no app nativo. Espelham o JSON devolvido
+ * pelas rotas /api do painel do motoboy (não importados do @leeva/shared
+ * porque o app nativo fica fora do workspace npm do monorepo).
  */
 
-export type UserRole = 'EMPRESA' | 'MOTOBOY' | 'ADMIN';
+export type ApprovalStatus = 'pending_approval' | 'approved' | 'rejected';
 
-export type StatusAprovacaoMotoboy = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'BLOQUEADO';
+export type OrderStatus =
+  | 'waiting_dispatch'
+  | 'preparing'
+  | 'ready'
+  | 'assigned'
+  | 'picked_up'
+  | 'in_route'
+  | 'delivered'
+  | 'cancelled';
 
-export type StatusCorrida =
-  | 'SOLICITADA'
-  | 'PROCURANDO_MOTOBOY'
-  | 'ACEITA'
-  | 'A_CAMINHO_COLETA'
-  | 'COLETADO'
-  | 'A_CAMINHO_ENTREGA'
-  | 'ENTREGUE'
-  | 'CANCELADA';
+/** Transições que o motoboy dispara. */
+export const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  assigned: 'picked_up',
+  picked_up: 'in_route',
+  in_route: 'delivered',
+};
 
-/** Sequência de transições que o motoboy pode disparar via PATCH /corridas/:id/status */
-export const SEQUENCIA_STATUS_MOTOBOY: StatusCorrida[] = [
-  'ACEITA',
-  'A_CAMINHO_COLETA',
-  'COLETADO',
-  'A_CAMINHO_ENTREGA',
-  'ENTREGUE',
-];
+export interface MotoboyMe {
+  motoboyId: string;
+  fullName: string;
+  phone: string | null;
+  status: 'offline' | 'available' | 'on_delivery';
+  approvalStatus: ApprovalStatus;
+  approvalReason: string | null;
+  rating: number | null;
+  deliveriesCompleted: number;
+  deliveriesTotal: number;
+  pixKey: string | null;
+  pixKeyType: string | null;
+  city: string | null;
+  pushEnabled: boolean;
+  terms: { version: number; content: string } | null;
+}
 
-export interface User {
+export interface OfferStop {
+  seq: number;
+  address: string;
+  region: string | null;
+  payout: number;
+}
+
+export interface Offer {
+  offerId: string;
+  orderId: string;
+  orderNumber: number | null;
+  customerName: string;
+  address: string;
+  region: string | null;
+  expiresAt: string;
+  payout: number | null;
+  quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
+  countsForAcceptance: boolean;
+  distancePickupKm: number | null;
+  distanceTotalKm: number | null;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderAmount: number;
+  notes: string | null;
+  grouped: boolean;
+  routeStops: OfferStop[] | null;
+  routeTotalKm: number | null;
+}
+
+export interface Delivery {
   id: string;
-  email: string;
-  telefone: string;
-  role: UserRole;
+  orderNumber: number | null;
+  status: OrderStatus;
+  customerName: string;
+  customerPhone: string | null;
+  dropoffAddress: string;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  pickupName: string;
+  pickupAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  payout: number | null;
+  orderAmount: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  notes: string | null;
+  etaMin: number | null;
+  etaMax: number | null;
+  groupId: string | null;
+  groupSequence: number | null;
 }
 
-export interface Motoboy {
+export interface HistoricoItem {
   id: string;
-  nomeCompleto: string;
-  cpf: string;
-  cnh: string;
-  placaVeiculo: string;
-  fotoPerfilUrl?: string | null;
-  statusAprovacao: StatusAprovacaoMotoboy;
-  disponivel: boolean;
-  notaMedia: number;
-  totalCorridas: number;
+  orderNumber: number | null;
+  status: 'delivered' | 'cancelled';
+  customerName: string;
+  address: string;
+  payout: number;
+  createdAt: string;
+  finishedAt: string | null;
 }
 
-export interface Corrida {
-  id: string;
-  empresaId: string;
-  motoboyId?: string | null;
-  status: StatusCorrida;
-  enderecoColeta: string;
-  latColeta: number;
-  lngColeta: number;
-  enderecoEntrega: string;
-  latEntrega: number;
-  lngEntrega: number;
-  nomeDestinatario?: string | null;
-  telefoneDestinatario?: string | null;
-  observacoes?: string | null;
-  distanciaKm?: number | null;
-  // Rota real (seguindo rua), calculada via OSRM na criação da corrida —
-  // array de pontos [lat, lng] no formato que o Leaflet espera. Null em
-  // corridas antigas ou quando o OSRM estava fora do ar na criação
-  // (mapa embutido cai no fallback de linha reta entre coleta e entrega).
-  rotaGeometria?: Array<[number, number]> | null;
-  valorCorrida: string;
-  criadoEm: string;
-  aceitaEm?: string | null;
-  coletadoEm?: string | null;
-  entregueEm?: string | null;
-  empresa?: {
-    nomeFantasia: string;
-  } | null;
+export interface HistoricoResponse {
+  items: HistoricoItem[];
+  deliveredCount: number;
+  totalEarned: number;
 }
 
-/** Payload resumido do evento socket `corrida:nova` (motoboys disponíveis na região) */
-export interface SocketEventCorridaNova {
-  corridaId: string;
-  enderecoColeta: string;
-  enderecoEntrega: string;
-  valorCorrida: string;
-  distanciaKm: number;
-  latColeta: number;
-  lngColeta: number;
-}
-
-/** Payload do evento socket `corrida:tracking` (posição do motoboy, consumido pela empresa) */
-export interface SocketEventTracking {
-  corridaId: string;
-  lat: number;
-  lng: number;
-}
-
-/** Payload do evento socket `corrida:status` (mudança de status, consumido pela empresa) */
-export interface SocketEventStatus {
-  corridaId: string;
-  status: StatusCorrida;
-}
-
-// ---- Requests/responses de auth e perfis ----
-
-export interface LoginRequest {
-  email: string;
-  senha: string;
-}
-
-export interface RegisterMotoboyRequest {
-  email: string;
-  senha: string;
-  telefone: string;
-  nomeCompleto: string;
-  cpf: string;
-  cnh: string;
-  placaVeiculo: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  motoboy?: Motoboy;
-  accessToken: string;
-  refreshToken: string;
-}
-
-export interface RefreshResponse {
-  accessToken: string;
-}
-
-export interface MotoboyMeResponse extends Motoboy {}
-
-// Bate com o formato real devolvido por historicoCorridasMotoboy em
-// corrida.service.ts (backend) — items/ganhosTotais, não corridas/totalGanho.
-export interface HistoricoCorridasResponse {
-  items: Corrida[];
-  page: number;
-  pageSize: number;
-  total: number;
-  ganhosTotais: string;
-}
-
-export interface CorridasDisponiveisResponse {
-  corridas: Corrida[];
+export interface Performance {
+  reliabilityIndex: number;
+  acceptanceRate: number | null;
+  completionRate: number | null;
+  onTimeRate: number | null;
+  rating: number | null;
 }

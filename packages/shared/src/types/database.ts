@@ -1543,36 +1543,39 @@ export type Database = {
       }
       push_subscriptions: {
         Row: {
-          auth: string
+          auth: string | null
           created_at: string
           endpoint: string
           failure_count: number
           id: string
+          kind: string
           last_seen_at: string
           motoboy_id: string
-          p256dh: string
+          p256dh: string | null
           user_agent: string | null
         }
         Insert: {
-          auth: string
+          auth?: string | null
           created_at?: string
           endpoint: string
           failure_count?: number
           id?: string
+          kind?: string
           last_seen_at?: string
           motoboy_id: string
-          p256dh: string
+          p256dh?: string | null
           user_agent?: string | null
         }
         Update: {
-          auth?: string
+          auth?: string | null
           created_at?: string
           endpoint?: string
           failure_count?: number
           id?: string
+          kind?: string
           last_seen_at?: string
           motoboy_id?: string
-          p256dh?: string
+          p256dh?: string | null
           user_agent?: string | null
         }
         Relationships: [

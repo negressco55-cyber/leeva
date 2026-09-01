@@ -6,15 +6,25 @@ import {
 } from '@expo-google-fonts/space-grotesk';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AuthProvider } from './src/context/AuthContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { RideProvider } from './src/context/RideContext';
+import { registerForPush } from './src/lib/push';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { NovaCorridaOverlay } from './src/screens/home/NovaCorridaOverlay';
+import { OfertaOverlay } from './src/screens/home/OfertaOverlay';
 import { theme } from './src/theme/theme';
+
+function PushBootstrap(): null {
+  const { isAuthenticated } = useAuth();
+  useEffect(() => {
+    if (isAuthenticated) void registerForPush();
+  }, [isAuthenticated]);
+  return null;
+}
 
 export default function App(): React.JSX.Element {
   const [fontsLoaded] = useFonts({
@@ -36,25 +46,24 @@ export default function App(): React.JSX.Element {
   }
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <RideProvider>
-          <NavigationContainer>
-            <RootNavigator />
-            <NovaCorridaOverlay />
-          </NavigationContainer>
-        </RideProvider>
-      </AuthProvider>
-      <StatusBar style="light" />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.flex}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <RideProvider>
+            <NavigationContainer>
+              <RootNavigator />
+              <OfertaOverlay />
+            </NavigationContainer>
+            <PushBootstrap />
+          </RideProvider>
+        </AuthProvider>
+        <StatusBar style="light" />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  flex: { flex: 1 },
+  loading: { flex: 1, backgroundColor: theme.colors.background, alignItems: 'center', justifyContent: 'center' },
 });

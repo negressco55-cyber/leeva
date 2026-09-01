@@ -1,143 +1,93 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import * as authApi from '../api/auth';
-import { setAccessToken, setOnAuthFailure, setRefreshToken } from '../api/client';
-import { getMotoboyMe } from '../api/motoboy';
-import { disconnectSocket } from '../api/socket';
-import type { LoginRequest, Motoboy, RegisterMotoboyRequest, User } from '../types';
-
-const STORAGE_KEYS = {
-  accessToken: '@levva/accessToken',
-  refreshToken: '@levva/refreshToken',
-  user: '@levva/user',
-} as const;
+import { signIn, signOut } from '../api/auth';
+import { getMe } from '../api/motoboy';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import type { MotoboyMe } from '../types';
 
 interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
-  user: User | null;
-  motoboy: Motoboy | null;
-  accessToken: string | null;
-  login: (payload: LoginRequest) => Promise<void>;
-  register: (payload: RegisterMotoboyRequest) => Promise<void>;
+  configured: boolean;
+  me: MotoboyMe | null;
+  login: (email: string, senha: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshMotoboyProfile: () => Promise<void>;
-  setMotoboy: React.Dispatch<React.SetStateAction<Motoboy | null>>;
+  refreshMe: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
-  const [motoboy, setMotoboy] = useState<Motoboy | null>(null);
-  const [accessToken, setAccessTokenState] = useState<string | null>(null);
+  const [hasSession, setHasSession] = useState(false);
+  const [me, setMe] = useState<MotoboyMe | null>(null);
 
-  const logout = useCallback(async () => {
-    setAccessToken(null);
-    setRefreshToken(null);
-    disconnectSocket();
-    setUser(null);
-    setMotoboy(null);
-    setAccessTokenState(null);
-    await AsyncStorage.multiRemove([STORAGE_KEYS.accessToken, STORAGE_KEYS.refreshToken, STORAGE_KEYS.user]);
-  }, []);
-
-  useEffect(() => {
-    setOnAuthFailure(() => {
-      void logout();
-    });
-    return () => setOnAuthFailure(null);
-  }, [logout]);
-
-  const persistSession = useCallback(
-    async (nextUser: User, nextAccessToken: string, nextRefreshToken: string, nextMotoboy?: Motoboy) => {
-      setAccessToken(nextAccessToken);
-      setRefreshToken(nextRefreshToken);
-      setUser(nextUser);
-      setAccessTokenState(nextAccessToken);
-      if (nextMotoboy) setMotoboy(nextMotoboy);
-
-      await AsyncStorage.multiSet([
-        [STORAGE_KEYS.accessToken, nextAccessToken],
-        [STORAGE_KEYS.refreshToken, nextRefreshToken],
-        [STORAGE_KEYS.user, JSON.stringify(nextUser)],
-      ]);
-    },
-    []
-  );
-
-  const refreshMotoboyProfile = useCallback(async () => {
-    const profile = await getMotoboyMe();
-    setMotoboy(profile);
+  const refreshMe = useCallback(async () => {
+    try {
+      const profile = await getMe();
+      setMe(profile);
+    } catch {
+      // token inválido / motoboy não encontrado → trata como deslogado
+      setMe(null);
+      setHasSession(false);
+      await supabase.auth.signOut().catch(() => {});
+    }
   }, []);
 
   const login = useCallback(
-    async (payload: LoginRequest) => {
-      const response = await authApi.login(payload);
-      await persistSession(response.user, response.accessToken, response.refreshToken, response.motoboy);
-      await refreshMotoboyProfile();
+    async (email: string, senha: string) => {
+      await signIn(email.trim().toLowerCase(), senha);
+      setHasSession(true);
+      await refreshMe();
     },
-    [persistSession, refreshMotoboyProfile]
+    [refreshMe],
   );
 
-  const register = useCallback(
-    async (payload: RegisterMotoboyRequest) => {
-      const response = await authApi.registerMotoboy(payload);
-      await persistSession(response.user, response.accessToken, response.refreshToken, response.motoboy);
-      await refreshMotoboyProfile();
-    },
-    [persistSession, refreshMotoboyProfile]
-  );
-
-  // Bootstrap: restaura sessão salva no AsyncStorage ao abrir o app.
-  useEffect(() => {
-    (async () => {
-      try {
-        const [[, storedAccessToken], [, storedRefreshToken], [, storedUser]] = await AsyncStorage.multiGet([
-          STORAGE_KEYS.accessToken,
-          STORAGE_KEYS.refreshToken,
-          STORAGE_KEYS.user,
-        ]);
-
-        if (storedAccessToken && storedRefreshToken && storedUser) {
-          setAccessToken(storedAccessToken);
-          setRefreshToken(storedRefreshToken);
-          setUser(JSON.parse(storedUser) as User);
-          setAccessTokenState(storedAccessToken);
-          await refreshMotoboyProfile();
-        }
-      } catch {
-        // Sessão inválida/corrompida: segue para a tela de login.
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const logout = useCallback(async () => {
+    await signOut();
+    setHasSession(false);
+    setMe(null);
   }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setIsLoading(false);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setHasSession(true);
+        await refreshMe();
+      }
+      setIsLoading(false);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(Boolean(session));
+      if (!session) setMe(null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [refreshMe]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       isLoading,
-      isAuthenticated: Boolean(user && accessToken),
-      user,
-      motoboy,
-      accessToken,
+      isAuthenticated: hasSession && !!me,
+      configured: isSupabaseConfigured(),
+      me,
       login,
-      register,
       logout,
-      refreshMotoboyProfile,
-      setMotoboy,
+      refreshMe,
     }),
-    [isLoading, user, motoboy, accessToken, login, register, logout, refreshMotoboyProfile]
+    [isLoading, hasSession, me, login, logout, refreshMe],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth precisa ser usado dentro de um AuthProvider');
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth precisa estar dentro de AuthProvider');
+  return ctx;
 }

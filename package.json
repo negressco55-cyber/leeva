@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "description": "Leeva — sistema operacional de entregas para restaurantes",
   "workspaces": [
-    "apps/*",
+    "apps/restaurante",
+    "apps/motoboy",
+    "apps/admin",
     "packages/*"
   ],
   "scripts": {

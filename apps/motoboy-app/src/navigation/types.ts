@@ -2,18 +2,17 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type AuthStackParamList = {
   Login: undefined;
-  Cadastro: undefined;
 };
 
 export type MainTabParamList = {
-  Home: undefined;
-  Historico: undefined;
+  Inicio: undefined;
+  Ganhos: undefined;
   Perfil: undefined;
 };
 
 export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
-  CorridaAndamento: undefined;
+  Entrega: undefined;
 };
 
 declare global {

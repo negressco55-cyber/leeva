@@ -60,6 +60,28 @@ export async function savePushSubscription(db: DB, motoboyId: string, sub: PushS
   return { ok: true as const };
 }
 
+/** Registra (ou atualiza) um token de push do app nativo (Expo). */
+export async function saveExpoPushToken(db: DB, motoboyId: string, token: string) {
+  if (!token || !/^ExponentPushToken\[|^ExpoPushToken\[/.test(token)) {
+    return { ok: false as const, error: 'token Expo inválido' };
+  }
+  const { error } = await db.from('push_subscriptions').upsert(
+    {
+      motoboy_id: motoboyId,
+      endpoint: token,
+      kind: 'expo',
+      p256dh: null,
+      auth: null,
+      last_seen_at: new Date().toISOString(),
+      failure_count: 0,
+    },
+    { onConflict: 'endpoint' },
+  );
+  if (error) return { ok: false as const, error: error.message };
+  await db.from('motoboys').update({ push_enabled: true }).eq('id', motoboyId);
+  return { ok: true as const };
+}
+
 export async function deletePushSubscription(db: DB, motoboyId: string, endpoint: string) {
   await db.from('push_subscriptions').delete().eq('motoboy_id', motoboyId).eq('endpoint', endpoint);
   const { count } = await db
@@ -90,13 +112,17 @@ export async function sendPushToMotoboy(
   motoboyId: string,
   payload: PushPayload,
 ): Promise<{ ok: boolean; sent: number; removed: number; skipped?: boolean; error?: string }> {
-  if (!ensureConfigured()) return { ok: false, sent: 0, removed: 0, skipped: true, error: 'VAPID não configurado' };
-
   const { data: subs } = await db
     .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth, failure_count')
+    .select('id, endpoint, p256dh, auth, failure_count, kind')
     .eq('motoboy_id', motoboyId);
   if (!subs?.length) return { ok: false, sent: 0, removed: 0, error: 'sem dispositivos' };
+
+  const webSubs = subs.filter((s) => s.kind !== 'expo');
+  const expoSubs = subs.filter((s) => s.kind === 'expo');
+  if (!expoSubs.length && !ensureConfigured()) {
+    return { ok: false, sent: 0, removed: 0, skipped: true, error: 'VAPID não configurado' };
+  }
 
   const body = JSON.stringify({
     title: payload.title,
@@ -109,23 +135,65 @@ export async function sendPushToMotoboy(
 
   let sent = 0;
   let removed = 0;
-  for (const s of subs) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-        body,
-        { TTL: payload.urgent ? 60 : 600, urgency: payload.urgent ? 'high' : 'normal' },
-      );
-      sent++;
-      if (s.failure_count > 0) {
-        await db.from('push_subscriptions').update({ failure_count: 0, last_seen_at: new Date().toISOString() }).eq('id', s.id);
+
+  // --- Web Push (VAPID) ---
+  if (ensureConfigured()) {
+    for (const s of webSubs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh ?? '', auth: s.auth ?? '' } },
+          body,
+          { TTL: payload.urgent ? 60 : 600, urgency: payload.urgent ? 'high' : 'normal' },
+        );
+        sent++;
+        if (s.failure_count > 0) {
+          await db.from('push_subscriptions').update({ failure_count: 0, last_seen_at: new Date().toISOString() }).eq('id', s.id);
+        }
+      } catch (e) {
+        const status = (e as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await db.from('push_subscriptions').delete().eq('id', s.id);
+          removed++;
+        } else {
+          await db.from('push_subscriptions').update({ failure_count: s.failure_count + 1 }).eq('id', s.id);
+        }
       }
-    } catch (e) {
-      const status = (e as { statusCode?: number }).statusCode;
-      if (status === 404 || status === 410) {
-        await db.from('push_subscriptions').delete().eq('id', s.id);
-        removed++;
-      } else {
+    }
+  }
+
+  // --- Expo Push (app nativo) ---
+  if (expoSubs.length) {
+    try {
+      const messages = expoSubs.map((s) => ({
+        to: s.endpoint,
+        title: payload.title,
+        body: payload.body,
+        sound: 'default',
+        priority: payload.urgent ? 'high' : 'normal',
+        channelId: payload.tag === 'offer' ? 'ofertas' : undefined,
+        data: { url: payload.url ?? '/status', ...(payload.data ?? {}) },
+      }));
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(messages),
+        signal: AbortSignal.timeout(8000),
+      });
+      const out = (await res.json().catch(() => null)) as { data?: Array<{ status: string; details?: { error?: string } }> } | null;
+      const tickets = out?.data ?? [];
+      for (let i = 0; i < expoSubs.length; i++) {
+        const t = tickets[i];
+        if (t?.status === 'ok') {
+          sent++;
+        } else if (t?.details?.error === 'DeviceNotRegistered') {
+          await db.from('push_subscriptions').delete().eq('id', expoSubs[i]!.id);
+          removed++;
+        } else {
+          await db.from('push_subscriptions').update({ failure_count: expoSubs[i]!.failure_count + 1 }).eq('id', expoSubs[i]!.id);
+        }
+      }
+    } catch {
+      for (const s of expoSubs) {
         await db.from('push_subscriptions').update({ failure_count: s.failure_count + 1 }).eq('id', s.id);
       }
     }
