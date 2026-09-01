@@ -9,6 +9,9 @@ export type MotoboyContext = {
   fleet: 'own' | 'leeva';
   fullName: string;
   status: 'offline' | 'available' | 'on_delivery';
+  approvalStatus: 'pending_approval' | 'approved' | 'rejected';
+  approvalReason: string | null;
+  termsAcceptedVersion: number | null;
 };
 
 export async function requireMotoboyContext(): Promise<MotoboyContext> {
@@ -26,7 +29,7 @@ export async function getMotoboyContext(): Promise<MotoboyContext | null> {
 
   const { data: m } = await supabase
     .from('motoboys')
-    .select('id, restaurant_id, fleet, full_name, status, active')
+    .select('id, restaurant_id, fleet, full_name, status, active, approval_status, approval_reason, terms_accepted_version')
     .eq('user_id', user.id)
     .maybeSingle();
   if (!m || !m.active) return null;
@@ -38,6 +41,9 @@ export async function getMotoboyContext(): Promise<MotoboyContext | null> {
     fleet: (m.fleet ?? 'own') as 'own' | 'leeva',
     fullName: m.full_name,
     status: m.status,
+    approvalStatus: m.approval_status as 'pending_approval' | 'approved' | 'rejected',
+    approvalReason: m.approval_reason as string | null,
+    termsAcceptedVersion: m.terms_accepted_version as number | null,
   };
 }
 

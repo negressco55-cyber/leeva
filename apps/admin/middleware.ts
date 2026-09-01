@@ -7,6 +7,7 @@ export async function middleware(request: NextRequest) {
       '/visao-geral',
       '/operacao',
       '/restaurantes',
+      '/novos-motoboys',
       '/entregadores',
       '/repasses',
       '/financeiro',

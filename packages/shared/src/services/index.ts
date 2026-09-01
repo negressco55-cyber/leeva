@@ -33,3 +33,4 @@ export * from './apikeys';
 export * from './credits';
 export * from './asaas';
 export * from './driverpayouts';
+export * from './drivers';

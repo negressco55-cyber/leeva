@@ -22,6 +22,7 @@
     "test:fase3": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-fase3.mjs",
     "test:fase35": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-fase35.mjs",
     "test:fase4": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-fase4.mjs",
+    "test:fase5": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-fase5.mjs",
     "seed:fase3": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-fase3.mjs",
     "seed:admin": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-admin.mjs",
     "seed": "node --env-file=apps/restaurante/.env.local scripts/seed.mjs",

@@ -56,6 +56,7 @@ async function main() {
   const { data: mA } = await db.from('motoboys').insert({
     restaurant_id: rA.id, full_name: '[ITEST] Moto A', phone: '0001',
     status: 'available', current_latitude: -7.111, current_longitude: -34.841,
+    terms_accepted_version: 1,
   }).select('id').single();
 
   const manual = getOrderProvider('manual');

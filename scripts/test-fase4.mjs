@@ -70,6 +70,7 @@ async function main() {
         deliveries_total: 20,
         deliveries_completed: 19,
         deliveries_late: 1,
+        terms_accepted_version: 1,
         ...extra,
       })
       .select('id')
@@ -368,18 +369,24 @@ async function main() {
   cleanup.push(() => db.from('payout_batches').delete().in('motoboy_id', earnMotoboys));
 
   const completeDelivery = async () => {
-    // isola: só o novo motoboy fica disponível (evita a oferta ir p/ outro [F4] D)
+    // isola: só o novo motoboy disponível; nenhum outro pedido [F4] buscando
     await db.from('motoboys').update({ status: 'offline' }).ilike('full_name', '[F4]%');
+    await db.from('orders').update({ dispatch_state: 'none' }).eq('restaurant_id', r.id).in('dispatch_state', ['searching', 'offered']).is('motoboy_id', null);
     const dId = await mkDriver();
     earnMotoboys.push(dId);
     const o = await mkOrder();
-    await runDispatchTick(db, r.id);
-    const { data: offer } = await db
-      .from('dispatch_attempts')
-      .select('id, motoboy_id')
-      .eq('order_id', o.id)
-      .is('responded_at', null)
-      .maybeSingle();
+    let offer = null;
+    for (let i = 0; i < 4 && !offer; i++) {
+      await db.from('orders').update({ dispatch_state: 'searching', dispatch_attempts: 0 }).eq('id', o.id);
+      await runDispatchTick(db, r.id);
+      ({ data: offer } = await db
+        .from('dispatch_attempts')
+        .select('id, motoboy_id')
+        .eq('order_id', o.id)
+        .is('responded_at', null)
+        .maybeSingle());
+    }
+    if (!offer) throw new Error('nenhuma oferta criada após 4 tentativas');
     await acceptOffer(db, offer.id, offer.motoboy_id);
     await advanceOrderStatus(db, o.id, 'picked_up', { actorType: 'motoboy' });
     await advanceOrderStatus(db, o.id, 'in_route', { actorType: 'motoboy' });

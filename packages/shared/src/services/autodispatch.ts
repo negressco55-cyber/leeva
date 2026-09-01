@@ -106,6 +106,16 @@ export async function scoreCandidatesForOrder(
   const wantOwn = fleetMode === 'own' || fleetMode === 'hybrid';
   const wantLeeva = fleetMode === 'leeva' || fleetMode === 'hybrid';
 
+  // só motoboy APROVADO e com os termos vigentes aceitos entra no pool
+  const { data: terms } = await db
+    .from('terms_versions')
+    .select('version')
+    .eq('active', true)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const activeTermsVersion = terms?.version ?? 0;
+
   let q = db
     .from('motoboys')
     .select(
@@ -113,6 +123,8 @@ export async function scoreCandidatesForOrder(
     )
     .eq('active', true)
     .eq('blocked', false)
+    .eq('approval_status', 'approved')
+    .gte('terms_accepted_version', activeTermsVersion)
     .limit(200);
 
   const orParts: string[] = [];

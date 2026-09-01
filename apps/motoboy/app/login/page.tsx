@@ -32,7 +32,7 @@ export default function LoginPage() {
       </form>
 
       <p className="muted" style={{ marginTop: 16 }}>
-        Primeiro acesso? <Link href="/ativar">Ativar minha conta</Link>
+        Quer entregar pelo Leeva? <Link href="/quero-entregar">Cadastre-se aqui</Link>
       </p>
     </div>
   );

@@ -21,7 +21,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect('/onboarding');
   }
 
-  const showTeam = rst.fleet_mode === 'own' || rst.fleet_mode === 'hybrid';
+  // Fase 5: o restaurante não cadastra mais motoboy — todos vêm da rede Leeva
+  // (self-service + aprovação central). "Minha equipe" fica escondida.
+  const showTeam = false;
 
   return (
     <div className="app-shell">

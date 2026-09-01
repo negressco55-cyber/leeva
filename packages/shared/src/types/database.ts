@@ -630,6 +630,45 @@ export type Database = {
           },
         ]
       }
+      driver_terms_acceptance: {
+        Row: {
+          accepted_at: string
+          id: string
+          ip: string | null
+          motoboy_id: string
+          terms_version: number
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          ip?: string | null
+          motoboy_id: string
+          terms_version: number
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          ip?: string | null
+          motoboy_id?: string
+          terms_version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_terms_acceptance_motoboy_id_fkey"
+            columns: ["motoboy_id"]
+            isOneToOne: false
+            referencedRelation: "motoboys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_terms_acceptance_terms_version_fkey"
+            columns: ["terms_version"]
+            isOneToOne: false
+            referencedRelation: "terms_versions"
+            referencedColumns: ["version"]
+          },
+        ]
+      }
       error_events: {
         Row: {
           created_at: string
@@ -782,10 +821,16 @@ export type Database = {
         Row: {
           acceptance_rate: number
           active: boolean
+          approval_reason: string | null
+          approval_status: Database["public"]["Enums"]["driver_approval_status"]
+          approved_at: string | null
+          approved_by: string | null
           avg_delay_min: number
           blocked: boolean
           blocked_reason: string | null
+          city: string | null
           completion_rate_pct: number
+          cpf: string | null
           created_at: string
           current_latitude: number | null
           current_longitude: number | null
@@ -799,6 +844,7 @@ export type Database = {
           max_concurrent_deliveries: number
           offers_adequate: number
           offers_adequate_accepted: number
+          personal_doc_path: string | null
           phone: string
           pix_key: string | null
           pix_key_type: string | null
@@ -807,18 +853,27 @@ export type Database = {
           reliability_index: number
           reputation_updated_at: string | null
           restaurant_id: string | null
+          signup_source: string
           status: Database["public"]["Enums"]["motoboy_status"]
+          terms_accepted_version: number | null
           updated_at: string
           user_id: string | null
           vehicle: string | null
+          vehicle_doc_path: string | null
         }
         Insert: {
           acceptance_rate?: number
           active?: boolean
+          approval_reason?: string | null
+          approval_status?: Database["public"]["Enums"]["driver_approval_status"]
+          approved_at?: string | null
+          approved_by?: string | null
           avg_delay_min?: number
           blocked?: boolean
           blocked_reason?: string | null
+          city?: string | null
           completion_rate_pct?: number
+          cpf?: string | null
           created_at?: string
           current_latitude?: number | null
           current_longitude?: number | null
@@ -832,6 +887,7 @@ export type Database = {
           max_concurrent_deliveries?: number
           offers_adequate?: number
           offers_adequate_accepted?: number
+          personal_doc_path?: string | null
           phone: string
           pix_key?: string | null
           pix_key_type?: string | null
@@ -840,18 +896,27 @@ export type Database = {
           reliability_index?: number
           reputation_updated_at?: string | null
           restaurant_id?: string | null
+          signup_source?: string
           status?: Database["public"]["Enums"]["motoboy_status"]
+          terms_accepted_version?: number | null
           updated_at?: string
           user_id?: string | null
           vehicle?: string | null
+          vehicle_doc_path?: string | null
         }
         Update: {
           acceptance_rate?: number
           active?: boolean
+          approval_reason?: string | null
+          approval_status?: Database["public"]["Enums"]["driver_approval_status"]
+          approved_at?: string | null
+          approved_by?: string | null
           avg_delay_min?: number
           blocked?: boolean
           blocked_reason?: string | null
+          city?: string | null
           completion_rate_pct?: number
+          cpf?: string | null
           created_at?: string
           current_latitude?: number | null
           current_longitude?: number | null
@@ -865,6 +930,7 @@ export type Database = {
           max_concurrent_deliveries?: number
           offers_adequate?: number
           offers_adequate_accepted?: number
+          personal_doc_path?: string | null
           phone?: string
           pix_key?: string | null
           pix_key_type?: string | null
@@ -873,10 +939,13 @@ export type Database = {
           reliability_index?: number
           reputation_updated_at?: string | null
           restaurant_id?: string | null
+          signup_source?: string
           status?: Database["public"]["Enums"]["motoboy_status"]
+          terms_accepted_version?: number | null
           updated_at?: string
           user_id?: string | null
           vehicle?: string | null
+          vehicle_doc_path?: string | null
         }
         Relationships: [
           {
@@ -1596,6 +1665,30 @@ export type Database = {
           },
         ]
       }
+      terms_versions: {
+        Row: {
+          active: boolean
+          content: string
+          id: string
+          published_at: string
+          version: number
+        }
+        Insert: {
+          active?: boolean
+          content: string
+          id?: string
+          published_at?: string
+          version: number
+        }
+        Update: {
+          active?: boolean
+          content?: string
+          id?: string
+          published_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       tracking_tokens: {
         Row: {
           created_at: string
@@ -1702,6 +1795,10 @@ export type Database = {
         Args: { p_schedule?: string; p_secret: string; p_target_url: string }
         Returns: string
       }
+      configure_payout_cron: {
+        Args: { p_schedule?: string; p_target_url: string }
+        Returns: string
+      }
       credit_add: {
         Args: {
           p_amount: number
@@ -1755,6 +1852,7 @@ export type Database = {
       release_dispatch_lease: { Args: never; Returns: undefined }
       release_lock: { Args: { key: string }; Returns: boolean }
       trigger_dispatch_tick: { Args: never; Returns: undefined }
+      trigger_payout_closing: { Args: never; Returns: undefined }
       try_lock: { Args: { key: string }; Returns: boolean }
     }
     Enums: {
@@ -1783,6 +1881,7 @@ export type Database = {
         | "cancelled"
         | "expired"
       dispatch_state: "none" | "searching" | "offered" | "assigned" | "failed"
+      driver_approval_status: "pending_approval" | "approved" | "rejected"
       driver_fleet: "own" | "leeva"
       fleet_mode: "own" | "leeva" | "hybrid"
       incident_origin:
@@ -1987,6 +2086,7 @@ export const Constants = {
         "expired",
       ],
       dispatch_state: ["none", "searching", "offered", "assigned", "failed"],
+      driver_approval_status: ["pending_approval", "approved", "rejected"],
       driver_fleet: ["own", "leeva"],
       fleet_mode: ["own", "leeva", "hybrid"],
       incident_origin: [

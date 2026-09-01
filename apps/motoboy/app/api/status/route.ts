@@ -1,5 +1,6 @@
 import { getMotoboyContext, adminDb } from '@/lib/context';
 import { json, unauthorized, businessError, serverError } from '@/lib/api';
+import { checkDriverGate } from '@leeva/shared/services';
 
 /** Motoboy fica online (available) / offline. */
 export async function POST(req: Request) {
@@ -10,6 +11,12 @@ export async function POST(req: Request) {
     const { online } = (await req.json().catch(() => ({}))) as { online?: boolean };
     if (typeof online !== 'boolean') return json({ error: 'online (boolean) obrigatório' }, 400);
     const db = adminDb();
+
+    // aprovação + termos aceitos antes de ficar online
+    if (online) {
+      const gate = await checkDriverGate(db, ctx.motoboyId);
+      if (!gate.ok) return businessError(gate.message);
+    }
 
     // não deixa ficar offline com entrega ativa
     if (!online) {

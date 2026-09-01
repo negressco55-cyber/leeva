@@ -108,6 +108,7 @@ async function main() {
         deliveries_total: 30,
         deliveries_completed: 29,
         deliveries_late: 1,
+        terms_accepted_version: 1,
         ...extra,
       })
       .select('*')

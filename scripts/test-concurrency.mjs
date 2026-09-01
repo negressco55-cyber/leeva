@@ -29,7 +29,7 @@ const cleanup = [];
 async function main() {
   const { data: r } = await db.from('restaurants').insert({ name: '[CONC] R', latitude: -7.1, longitude: -34.8 }).select('id').single();
   cleanup.push(() => db.from('restaurants').delete().eq('id', r.id));
-  const mk = async (n) => (await db.from('motoboys').insert({ restaurant_id: r.id, full_name: `[CONC] ${n}`, phone: `c${n}`, status: 'available', current_latitude: -7.1, current_longitude: -34.8, max_concurrent_deliveries: 2 }).select('id').single()).data;
+  const mk = async (n) => (await db.from('motoboys').insert({ restaurant_id: r.id, full_name: `[CONC] ${n}`, phone: `c${n}`, status: 'available', current_latitude: -7.1, current_longitude: -34.8, max_concurrent_deliveries: 2, terms_accepted_version: 1 }).select('id').single()).data;
   const m1 = await mk('m1'), m2 = await mk('m2');
   const mkOrder = async (status = 'ready') => (await db.from('orders').insert({
     restaurant_id: r.id, customer_name: 'C', customer_address: 'Rua - Centro', latitude: -7.1, longitude: -34.8,

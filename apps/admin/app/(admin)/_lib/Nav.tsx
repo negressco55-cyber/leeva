@@ -7,6 +7,7 @@ const NAV = [
   { href: '/visao-geral', label: 'Visão geral', icon: '📊' },
   { href: '/operacao', label: 'Operação', icon: '🗺️' },
   { href: '/restaurantes', label: 'Restaurantes', icon: '🏪' },
+  { href: '/novos-motoboys', label: 'Novos motoboys', icon: '🆕' },
   { href: '/entregadores', label: 'Entregadores', icon: '🛵' },
   { href: '/repasses', label: 'Repasses', icon: '💸' },
   { href: '/financeiro', label: 'Financeiro', icon: '💰' },

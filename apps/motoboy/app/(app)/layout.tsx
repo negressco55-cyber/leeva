@@ -1,8 +1,10 @@
 import Link from 'next/link';
-import { requireMotoboyContext } from '@/lib/context';
+import { requireMotoboyContext, adminDb } from '@/lib/context';
+import { getActiveTerms, needsTermsAcceptance } from '@leeva/shared/services';
 import { logout } from '../login/actions';
 import LocationSender from './LocationSender';
 import OffersPanel from './OffersPanel';
+import { OnboardingGate } from './_lib/OnboardingGate';
 
 const TABS = [
   { href: '/status', label: 'Status' },
@@ -14,6 +16,14 @@ const TABS = [
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireMotoboyContext();
+
+  // GATE: aprovação + termos antes de usar o app
+  if (ctx.approvalStatus === 'pending_approval') return <OnboardingGate state="pending_approval" />;
+  if (ctx.approvalStatus === 'rejected')
+    return <OnboardingGate state="rejected" reason={ctx.approvalReason} />;
+  const terms = await getActiveTerms(adminDb());
+  if (terms && needsTermsAcceptance(ctx.termsAcceptedVersion, terms.version))
+    return <OnboardingGate state="terms" terms={terms} />;
 
   return (
     <div className="screen">
