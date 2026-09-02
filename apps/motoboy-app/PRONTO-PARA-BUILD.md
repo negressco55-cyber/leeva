@@ -21,32 +21,26 @@ eas login
 
 ---
 
-## 1. Ligar o projeto na Expo
+## 1. Projeto já está ligado ✅
+
+O Project ID **`5c851aad-66e2-4c2c-8f3f-c2fd80b620d9`** já está gravado em
+`app.config.js`. **Não precisa rodar `eas init`.** Se rodar, ele só vai
+confirmar que já está ligado.
+
+## 2. A chave do Supabase (uma vez só)
+
+O build precisa da chave **anon** do Supabase (é a chave pública, feita pra
+ficar no app — não é a `service_role`). Pegue em: painel do Supabase →
+**Project Settings → API** → campo **`anon` `public`** → copiar.
+
+Aí registre ela no EAS (fica guardada, encriptada, no seu projeto Expo):
 
 ```bash
-eas init
+eas env:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "COLE_A_CHAVE_AQUI" --environment preview --visibility sensitive
 ```
 
-Ele cria/associa um "projeto EAS" e mostra um **Project ID** (parecido com
-`a1b2c3d4-....`). **Copie esse ID** e faça UMA das duas coisas:
-
-- **Opção A (simples):** abra `app.config.js` e troque a linha
-  `projectId: process.env.EAS_PROJECT_ID || ''`
-  por `projectId: 'a1b2c3d4-....'` (o seu ID).
-- **Opção B:** deixe como está e sempre rode os comandos com
-  `EAS_PROJECT_ID=a1b2c3d4-.... eas build ...`
-
-## 2. Variáveis de ambiente
-
-Crie o arquivo `.env` (não vai pro git):
-
-```bash
-cp .env.example .env
-```
-
-Abra `.env` e preencha só a linha `EXPO_PUBLIC_SUPABASE_ANON_KEY=` — a chave
-**anon** do Supabase (Project Settings → API → `anon` `public`). As outras já
-vêm preenchidas. O EAS lê esse `.env` automaticamente no build.
+> Repita trocando `--environment preview` por `production` e por `development`
+> se for usar esses perfis também. Pra ver o que já cadastrou: `eas env:list`.
 
 ## 3. Firebase (pra push funcionar no APK)
 
@@ -93,16 +87,49 @@ e abra esse app instalado (não o Expo Go).
 
 ---
 
-## 5. Gerar o APK pra distribuir (instalar direto, sem loja)
+## 5. Gerar o APK de teste (perfil `preview`)
 
 ```bash
 eas build --profile preview --platform android
 ```
 
-~15 min. No fim, um link com o **APK**. Baixe no celular e instale (o Android
-vai pedir pra permitir "instalar de fontes desconhecidas" — normal).
+- Pergunta "Generate a new Android Keystore?" → responda **Y** (o EAS cria e
+  guarda a assinatura pra você).
+- O build roda na nuvem da Expo (~10–20 min). Pode fechar o terminal — o
+  progresso também fica em https://expo.dev (seu projeto → Builds).
 
-Esse APK é o que você manda pros motoboys testarem antes da Play Store.
+### Como baixar e instalar o APK no seu Android
+
+1. **Quando o build terminar**, o terminal mostra:
+   - um **link** (ex.: `https://expo.dev/artifacts/eas/xxxx.apk`) e
+   - um **QR code**.
+2. **No próprio celular Android**, abra a câmera e aponte pro QR code (ou abra
+   o link `expo.dev/accounts/.../projects/leeva-motoboy/builds` e toque no
+   build mais recente → **Install**).
+3. O navegador do celular baixa o arquivo `.apk`. Toque na notificação de
+   download quando terminar (ou abra em **Downloads**).
+4. O Android vai avisar: **"Por segurança, seu telefone não pode instalar apps
+   desconhecidos desta fonte"** → toque em **Configurações** → ative
+   **"Permitir desta fonte"** (para o Chrome ou o app de arquivos) → volte.
+5. Toque em **Instalar**. Pronto — o ícone "Leeva Motoboy" (verde) aparece na
+   tela.
+6. Da próxima vez que gerar um APK novo, é só baixar e instalar por cima —
+   ele atualiza o app.
+
+> Esse APK é o que você manda pros motoboys testarem (link direto ou
+> WhatsApp). Não precisa de Play Store pra isso.
+
+### O que testar no celular
+
+- [ ] Login (use uma conta de motoboy real; `alan@leeva.dev` / `leeva123`
+      serve pra ver as telas)
+- [ ] Ficar **online** (pede permissão de localização — aceite "Ao usar o app")
+- [ ] O mapa carrega na tela de entrega
+- [ ] Com uma entrega ativa: trave a tela / abra outro app por 1–2 min e
+      confirme que a **notificação fixa "entrega em andamento"** aparece e a
+      localização continua atualizando no painel do restaurante
+- [ ] Fechar o app com entrega ativa e reabrir → volta pro fluxo da entrega
+- [ ] Notificação push: **só funciona depois do Firebase** (`FIREBASE-SETUP.md`)
 
 ---
 
@@ -128,20 +155,27 @@ eas submit --profile production --platform android
 | Passo | Comando | Precisa de |
 |---|---|---|
 | Logar | `eas login` | conta Expo (grátis) |
-| Ligar projeto | `eas init` | — |
+| Chave Supabase | `eas env:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "..." --environment preview --visibility sensitive` | a chave anon |
 | Ver no celular | `npx expo start` + Expo Go | só o celular |
-| APK de teste | `eas build --profile preview -p android` | conta Expo |
+| **APK de teste** | `eas build --profile preview -p android` | conta Expo |
 | Push no APK | `FIREBASE-SETUP.md` + `eas credentials` | conta Google (grátis) |
 | Play Store | `eas build --profile production` + `eas submit` | conta Google Play (US$ 25) |
+
+O Project ID já está ligado (`app.config.js`) — `eas init` não é necessário.
 
 ---
 
 ## Se algo der errado
 
-- **"Invalid UUID appId"** no build → você não fez o passo 1 (`eas init`) ou
-  não colou o Project ID no `app.config.js`.
+- **"Invalid UUID appId" / "project not configured"** → não deveria acontecer,
+  o Project ID já está no `app.config.js`. Se aparecer, rode `eas init` e
+  confirme o projeto `leeva-motoboy`.
+- **Build reclama de `EXPO_PUBLIC_SUPABASE_ANON_KEY`** → você pulou o
+  `eas env:create` (passo 2). Rode-o e refaça o build.
 - **Push não chega no APK** → falta o `google-services.json` (passo 3) ou a
   chave FCM no `eas credentials` (fim do `FIREBASE-SETUP.md`).
-- **App abre e fecha** → provavelmente o `.env` sem a `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- **App abre e fecha na hora** → quase sempre é a chave anon faltando/errada.
 - **Mapa em branco** → o CDN do MapLibre demora na 1ª vez; espere ~3s. Se
   nunca carregar, o celular está sem internet.
+- **GPS em segundo plano não continua** → confira nos ajustes do Android que a
+  permissão de localização está em **"Permitir o tempo todo"** (não só "ao usar").
