@@ -21,6 +21,7 @@ export * from './autodispatch';
 export * from './payout';
 export * from './billing';
 export * from './map';
+export * from './address';
 export * from './heatmap';
 export * from './finance';
 export * from './mapdata';

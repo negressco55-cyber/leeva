@@ -37,6 +37,7 @@ export default function OnboardingFlow({
   const [lat, setLat] = useState(initial.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
   const [geoMsg, setGeoMsg] = useState<string | null>(null);
+  const [located, setLocated] = useState(initial.latitude != null && initial.longitude != null);
   const [fleetMode, setFleetMode] = useState<FleetMode>(initial.fleetMode);
   const [customerFee, setCustomerFee] = useState(String((initial.logistics.customer_fee as number) ?? 9.5));
   const [radius, setRadius] = useState(String((initial.logistics.service_radius_km as number) ?? 8));
@@ -46,6 +47,7 @@ export default function OnboardingFlow({
 
   async function geocode() {
     setGeoMsg('buscando…');
+    setLocated(false);
     try {
       const r = await apiGet<{ ok: boolean; latitude?: number; longitude?: number; label?: string }>(
         `/api/geocode?q=${encodeURIComponent(address)}`,
@@ -53,10 +55,13 @@ export default function OnboardingFlow({
       if (r.ok && r.latitude != null) {
         setLat(String(r.latitude));
         setLng(String(r.longitude));
-        setGeoMsg(r.label ?? 'localizado');
-      } else setGeoMsg('não encontrado — informe lat/lng');
+        setGeoMsg(`✓ ${r.label ?? 'endereço localizado'}`);
+        setLocated(true);
+      } else {
+        setGeoMsg('não encontrado — confira a rua, o número e o bairro');
+      }
     } catch {
-      setGeoMsg('falha');
+      setGeoMsg('serviço de mapas instável — tente de novo em instantes');
     }
   }
 
@@ -103,17 +108,28 @@ export default function OnboardingFlow({
         <div className="card" style={{ display: 'grid', gap: 10 }}>
           <div className="card-title">Dados do restaurante</div>
           <input className="input" placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className="input" placeholder="Endereço (ponto de coleta)" value={address} onChange={(e) => setAddress(e.target.value)} />
+          <input
+            className="input"
+            placeholder="Endereço (ponto de coleta) — rua, número, bairro"
+            value={address}
+            onChange={(e) => {
+              setAddress(e.target.value);
+              setLocated(false);
+              setGeoMsg(null);
+            }}
+          />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button className="btn sm" onClick={geocode} disabled={address.trim().length < 5}>📍 Localizar</button>
-            {geoMsg && <span className="muted" style={{ fontSize: 12 }}>{geoMsg}</span>}
+            {geoMsg && (
+              <span style={{ fontSize: 12, color: located ? 'var(--ok)' : 'var(--muted)' }}>{geoMsg}</span>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="input" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} style={{ flex: 1 }} />
-            <input className="input" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} style={{ flex: 1 }} />
-          </div>
-          <button className="btn primary" onClick={() => setStep(2)} disabled={!name.trim() || !address.trim()}>
-            Continuar
+          <button
+            className="btn primary"
+            onClick={() => setStep(2)}
+            disabled={!name.trim() || !address.trim() || !located}
+          >
+            {located ? 'Continuar' : 'Localize o endereço primeiro'}
           </button>
         </div>
       )}

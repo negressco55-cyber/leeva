@@ -1,6 +1,6 @@
 import { getApiContext, adminDb } from '@/lib/context';
 import { json, unauthorized, badRequest, serverError, tooManyRequests } from '@/lib/api';
-import { getMapProvider, checkRateLimit } from '@leeva/shared/services';
+import { getMapProvider, checkRateLimit, GeocoderUnavailableError } from '@leeva/shared/services';
 
 /** Geocoding de endereço → lat/lng (usado no formulário de nova entrega). */
 export async function GET(req: Request) {
@@ -21,9 +21,12 @@ export async function GET(req: Request) {
         ? { latitude: rst.latitude, longitude: rst.longitude }
         : undefined;
     const hit = await getMapProvider().geocode(q, near);
-    if (!hit) return json({ ok: false, error: 'endereço não encontrado' }, 200);
+    if (!hit) return json({ ok: false, error: 'endereço não encontrado', code: 'address_not_found' }, 200);
     return json({ ok: true, ...hit });
   } catch (e) {
+    if (e instanceof GeocoderUnavailableError) {
+      return json({ ok: false, error: 'serviço de mapas instável', code: 'geocoder_unavailable' }, 503);
+    }
     return serverError(e);
   }
 }

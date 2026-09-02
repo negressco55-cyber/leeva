@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiGet, apiPost } from '../_lib/client';
+import { apiGet, apiPost, ApiError } from '../_lib/client';
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -22,9 +22,12 @@ type FeePreview = {
   error?: string;
 };
 
+type GeoStatus = 'idle' | 'ok' | 'not_found' | 'unavailable';
+
 /**
- * Nova entrega — o restaurante informa só o endereço. O Leeva calcula a taxa
- * automaticamente (distância) e mostra ANTES de criar. Sem taxa surpresa.
+ * Nova entrega — o restaurante informa o endereço, que é localizado no mapa
+ * ANTES de criar. Endereço que não é encontrado não gera pedido. O Leeva
+ * calcula a taxa pela distância e mostra antes de confirmar.
  */
 export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [customerName, setCustomerName] = useState('');
@@ -33,7 +36,9 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [geoLabel, setGeoLabel] = useState<string | null>(null);
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
   const [geocoding, setGeocoding] = useState(false);
+  const [confirmManual, setConfirmManual] = useState(false);
   const [orderValue, setOrderValue] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
@@ -44,6 +49,18 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   const [showDetail, setShowDetail] = useState(false);
 
   const collectOnDelivery = paymentPendingOnDelivery(paymentMethod, paymentStatus);
+
+  // endereço localizado (geocodificado) OU instabilidade + confirmação manual
+  const located = geoStatus === 'ok';
+  const manualOk = geoStatus === 'unavailable' && confirmManual && !!lat && !!lng;
+  const addressReady = located || manualOk;
+
+  // qualquer edição do endereço invalida a localização anterior
+  useEffect(() => {
+    setGeoStatus('idle');
+    setGeoLabel(null);
+    setConfirmManual(false);
+  }, [address]);
 
   // pré-visualização da taxa sempre que a localização mudar
   useEffect(() => {
@@ -71,12 +88,16 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
       if (r.ok && r.latitude != null) {
         setLat(String(r.latitude));
         setLng(String(r.longitude));
-        setGeoLabel(r.label ?? 'Localizado');
+        setGeoLabel(r.label ?? 'Endereço localizado');
+        setGeoStatus('ok');
       } else {
-        setGeoLabel(r.error ?? 'não encontrado — informe lat/lng manualmente');
+        setGeoStatus('not_found');
+        setGeoLabel(null);
       }
     } catch {
-      setGeoLabel('falha na busca');
+      // falha de rede/serviço — instabilidade, não "endereço errado"
+      setGeoStatus('unavailable');
+      setGeoLabel(null);
     } finally {
       setGeocoding(false);
     }
@@ -92,6 +113,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
         address,
         latitude: lat ? Number(lat) : null,
         longitude: lng ? Number(lng) : null,
+        addressConfirmed: manualOk,
         total: collectOnDelivery && orderValue ? Number(orderValue) : 0,
         paymentMethod,
         paymentStatus,
@@ -100,7 +122,15 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
       });
       onCreated();
     } catch (e) {
-      setErr((e as Error).message);
+      if (e instanceof ApiError && e.code === 'geocoder_unavailable') {
+        setGeoStatus('unavailable');
+        setErr('O serviço de mapas está instável. Confira o endereço e marque a confirmação abaixo para prosseguir.');
+      } else if (e instanceof ApiError && e.code === 'address_not_found') {
+        setGeoStatus('not_found');
+        setErr('Não conseguimos localizar esse endereço. Revise a rua, o número e o bairro.');
+      } else {
+        setErr((e as Error).message);
+      }
     } finally {
       setBusy(false);
     }
@@ -114,23 +144,45 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
           <button className="btn sm" onClick={onClose}>✕</button>
         </div>
         <p className="muted" style={{ fontSize: 13 }}>
-          O Leeva calcula a taxa pela distância e encontra o entregador automaticamente.
+          O Leeva localiza o endereço, calcula a taxa pela distância e encontra o entregador automaticamente.
         </p>
 
         <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
           <input className="input" placeholder="Nome do cliente *" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
           <input className="input" placeholder="Telefone (WhatsApp) — para o rastreamento" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
-          <input className="input" placeholder="Endereço de entrega *" value={address} onChange={(e) => setAddress(e.target.value)} />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input className="input" placeholder="Endereço de entrega * (rua, número, bairro)" value={address} onChange={(e) => setAddress(e.target.value)} />
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="btn sm" onClick={geocode} disabled={geocoding || address.trim().length < 5}>
-              {geocoding ? 'Buscando…' : '📍 Localizar no mapa'}
+              {geocoding ? 'Localizando…' : '📍 Localizar no mapa'}
             </button>
-            {geoLabel && <span className="muted" style={{ fontSize: 12 }}>{geoLabel}</span>}
+            {located && (
+              <span style={{ fontSize: 12, color: 'var(--ok)' }}>✓ {geoLabel}</span>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="input" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} style={{ flex: 1 }} />
-            <input className="input" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} style={{ flex: 1 }} />
-          </div>
+
+          {geoStatus === 'not_found' && (
+            <div className="op-alert critical" style={{ marginBottom: 0 }}>
+              Não conseguimos localizar esse endereço. Confira a rua, o número e o bairro e tente de novo.
+            </div>
+          )}
+
+          {geoStatus === 'unavailable' && (
+            <div className="op-alert warning" style={{ marginBottom: 0 }}>
+              <div>O serviço de mapas está instável agora.</div>
+              <div style={{ marginTop: 6 }}>
+                Você pode informar a localização manualmente (latitude/longitude) e confirmar:
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                <input className="input" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} style={{ flex: 1 }} />
+                <input className="input" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} style={{ flex: 1 }} />
+              </div>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, fontSize: 13 }}>
+                <input type="checkbox" checked={confirmManual} onChange={(e) => setConfirmManual(e.target.checked)} />
+                Confirmo que este endereço e esta localização estão corretos.
+              </label>
+            </div>
+          )}
 
           {/* pré-visualização da taxa */}
           {fee?.ok && fee.total != null && (
@@ -165,9 +217,6 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
               )}
             </div>
           )}
-          {fee && !fee.ok && lat && lng && (
-            <div className="muted" style={{ fontSize: 12 }}>Não foi possível calcular a taxa: {fee.error}</div>
-          )}
 
           <div style={{ display: 'flex', gap: 8 }}>
             <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} style={{ flex: 1 }}>
@@ -197,12 +246,30 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
 
           {err && <div className="op-alert critical">{err}</div>}
 
+          {!addressReady && address.trim().length >= 5 && geoStatus === 'idle' && (
+            <div className="muted" style={{ fontSize: 12 }}>
+              Clique em “Localizar no mapa” para confirmar o endereço antes de criar.
+            </div>
+          )}
+
           <button
             className="btn primary"
             onClick={submit}
-            disabled={busy || !customerName.trim() || !address.trim() || (fee?.ok === true && fee.sufficient === false)}
+            disabled={
+              busy ||
+              !customerName.trim() ||
+              !address.trim() ||
+              !addressReady ||
+              (fee?.ok === true && fee.sufficient === false)
+            }
           >
-            {busy ? 'Criando…' : fee?.ok && fee.sufficient === false ? 'Saldo insuficiente' : 'Criar e buscar entregador'}
+            {busy
+              ? 'Criando…'
+              : fee?.ok && fee.sufficient === false
+                ? 'Saldo insuficiente'
+                : !addressReady
+                  ? 'Localize o endereço primeiro'
+                  : 'Criar e buscar entregador'}
           </button>
         </div>
       </div>

@@ -15,6 +15,8 @@ import type { Database } from '../types/database';
 import type { OrderSource, IntegrationProvider } from '../types';
 import { getOrderProvider } from '../integrations/registry';
 import { createOrderFromNormalized } from './orders';
+import { resolveAndApplyDeliveryLocation } from './address';
+import { isValidLatLng } from './geo';
 import { sha256Hex } from '../lib/crypto';
 
 type DB = SupabaseClient<Database>;
@@ -108,6 +110,17 @@ export async function processInboundWebhook(db: DB, input: WebhookInput): Promis
   if (!parsed.ok) {
     await db.from('integration_events').update({ status: 'failed', error: parsed.error }).eq('id', evt.id);
     return { status: 422, body: { error: parsed.error } };
+  }
+
+  // 4b. valida/geocodifica o endereço de entrega (exceto rascunho de WhatsApp,
+  //     que ainda passa por confirmação humana).
+  if (input.provider !== 'whatsapp') {
+    const hasCoords = isValidLatLng(parsed.order.address.latitude, parsed.order.address.longitude);
+    const loc = await resolveAndApplyDeliveryLocation(db, input.restaurantId, parsed.order, { confirmed: hasCoords });
+    if (!loc.ok) {
+      await db.from('integration_events').update({ status: 'failed', error: loc.reason }).eq('id', evt.id);
+      return { status: loc.reason === 'geocoder_unavailable' ? 503 : 422, body: { error: loc.reason } };
+    }
   }
 
   // 5. cria o pedido (idempotente também por source+external_id)

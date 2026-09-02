@@ -33,7 +33,7 @@ function clampMoney(v: unknown): number {
 export type CreateResult =
   | { ok: true; orderId: string; orderNumber: number; duplicate: false }
   | { ok: true; orderId: string; orderNumber: number; duplicate: true }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: 'address_not_found' | 'geocoder_unavailable' | 'insufficient_credit' };
 
 /**
  * Cria um pedido interno a partir de um NormalizedOrder.
@@ -63,6 +63,20 @@ export async function createOrderFromNormalized(
   const lat = isValidLatLng(n.address.latitude, n.address.longitude) ? n.address.latitude : null;
   const lng = lat != null ? n.address.longitude : null;
   const region = n.address.region ?? regionFromAddress(n.address.formatted);
+
+  // Rede de segurança: um pedido "pra valer" não entra sem localização de
+  // entrega. Sem coordenada não há distância, nem tarifa honesta, nem despacho
+  // — era exatamente por aqui que um endereço inventado gerava oferta.
+  // As rotas de API validam o endereço ANTES (services/address.ts) e chegam
+  // aqui já com a coordenada. Rascunhos de WhatsApp (confirmação humana
+  // pendente) são a única exceção.
+  if (!opts.requireConfirmation && lat == null) {
+    return {
+      ok: false,
+      error: 'Não conseguimos localizar o endereço de entrega. Confira a rua, o número e o bairro e tente de novo.',
+      code: 'address_not_found',
+    };
+  }
 
   // --- cliente (upsert por telefone; unique(restaurant_id, phone) evita corrida) ---
   let customerId: string | null = null;

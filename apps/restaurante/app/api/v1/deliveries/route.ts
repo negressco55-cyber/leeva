@@ -1,7 +1,16 @@
 import { adminDb } from '@/lib/context';
 import { json, badRequest, businessError, serverError, tooManyRequests } from '@/lib/api';
 import { getOrderProvider } from '@leeva/shared/integrations';
-import { createOrderFromNormalized, dispatchTick, checkRateLimit, captureError, resolveApiKey } from '@leeva/shared/services';
+import {
+  createOrderFromNormalized,
+  dispatchTick,
+  checkRateLimit,
+  captureError,
+  resolveApiKey,
+  resolveAndApplyDeliveryLocation,
+  deliveryLocationErrorMessage,
+} from '@leeva/shared/services';
+import { isValidLatLng } from '@leeva/shared/services';
 
 const MAX_BODY_BYTES = 128 * 1024;
 
@@ -46,6 +55,17 @@ export async function POST(req: Request) {
     const provider = getOrderProvider('api');
     const parsed = await provider.parse(body);
     if (!parsed.ok) return badRequest(parsed.error);
+
+    // valida/geocodifica o endereço de entrega. Sistema externo que já manda
+    // lat/lng é tratado como "confirmado" (geocodificou do lado dele).
+    const hasCoords = isValidLatLng(parsed.order.address.latitude, parsed.order.address.longitude);
+    const loc = await resolveAndApplyDeliveryLocation(db, restaurantId, parsed.order, { confirmed: hasCoords });
+    if (!loc.ok) {
+      return json(
+        { error: deliveryLocationErrorMessage(loc.reason), code: loc.reason },
+        loc.reason === 'geocoder_unavailable' ? 503 : 422,
+      );
+    }
 
     const result = await createOrderFromNormalized(db, restaurantId, parsed.order);
     if (!result.ok) return businessError(result.error);

@@ -344,3 +344,55 @@ ainda não está publicado em lugar nenhum).
    `eas env:create` está deprecado) no ambiente `preview`, visibilidade
    `sensitive`. A chave anon é pública por design, mas `sensitive` evita ela
    aparecer em logs de build.
+
+---
+
+## Validação de endereço + performance do painel (02/09, tarde)
+
+### Performance do painel do restaurante
+
+1. **`loading.tsx` no grupo `(app)`.** Não existia tela de carregamento em
+   lugar nenhum — o Next bloqueava a navegação até o server component resolver
+   todos os `await`, e a tela "congelava" a cada clique. Esqueleto instantâneo
+   resolve a percepção. Foi a causa nº 1 do "trava muito".
+2. **`requireRestaurantContext` / `getApiContext` com `React.cache()`.** Eram
+   chamados 2× por navegação (layout + página) → 2 `auth.getUser()` (ida e
+   volta à Supabase). `cache()` deduplica na mesma request.
+3. **Polling só com a aba visível, a 20s** (Visão geral + Mapa; era 12s
+   sempre). Relógio da Visão geral isolado em `<Clock/>` — antes re-renderizava
+   o mapa inteiro a cada segundo.
+4. **Removido `DashboardLive.tsx`** — componente morto, não importado, com
+   links quebrados (`/despacho`, `/motoboys`).
+
+### Bug: endereço inventado gerava pedido + tarifa + oferta
+
+**Encontrado em teste:** "rua aaaaa, número aaaaa" criava pedido normalmente.
+Causa: nada geocodificava o endereço; sem coordenada, a tarifa caía no piso
+(`base`/`min_payout`) e o despacho seguia.
+
+5. **Novo `services/address.ts` — `resolveDeliveryLocation` / `resolvePickupLocation`.**
+   Geocodifica o endereço antes de criar o pedido. Três desfechos:
+   - **localizado** (perto do restaurante, precisão de rua ou melhor) → segue
+     com a coordenada do geocoder (ignora lat/lng que o cliente mandou — mata
+     o vetor "digitar lat/lng falsa");
+   - **não encontrado** (ou match ruim: longe demais / só nível cidade) →
+     **bloqueia** com "Não conseguimos localizar esse endereço…";
+   - **geocoder instável** (rede/timeout/5xx/429 — agora `GeocoderUnavailableError`,
+     distinto de "não encontrado") → **não bloqueia à toa**: pede uma
+     confirmação manual do restaurante (checkbox + lat/lng). Sem confirmação,
+     responde 503 "serviço de mapas instável, tente de novo".
+6. **Aplicado em todos os pontos de entrada:** `/api/orders` (manual),
+   `/api/v1/deliveries`, `/api/integrations/orders`, pipeline de webhooks
+   (menos rascunho de WhatsApp, que ainda passa por confirmação humana) e
+   `/api/onboarding` (endereço de coleta do restaurante).
+7. **Rede de segurança em `createOrderFromNormalized`:** pedido "pra valer"
+   (sem `requireConfirmation`) não nasce sem coordenada de entrega — retorna
+   `code: 'address_not_found'`. Rascunho de WhatsApp continua podendo nascer
+   sem coordenada (é revisado antes).
+8. **`MAX_DELIVERY_RADIUS_KM = 60`.** Correspondência de geocoding além disso a
+   partir do ponto de coleta é quase certamente um match errado — tratada como
+   "não encontrado". Restaurante que realmente mudar pra >60 km usa o caminho
+   de confirmação manual.
+9. **Teste de regressão:** `scripts/test-address.mjs` (11 casos), com geocoder
+   falso determinístico (via `__setMapProvider`) pra não depender de rede.
+   Cobre o caso exato reportado.

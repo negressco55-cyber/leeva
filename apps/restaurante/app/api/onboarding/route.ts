@@ -1,6 +1,12 @@
 import { getApiContext, adminDb } from '@/lib/context';
 import { json, unauthorized, badRequest, serverError } from '@/lib/api';
-import { ensureSubscription, changePlan, DEFAULT_LOGISTICS_CONFIG } from '@leeva/shared/services';
+import {
+  ensureSubscription,
+  changePlan,
+  DEFAULT_LOGISTICS_CONFIG,
+  resolvePickupLocation,
+  deliveryLocationErrorMessage,
+} from '@leeva/shared/services';
 
 export async function POST(req: Request) {
   const ctx = await getApiContext();
@@ -15,10 +21,27 @@ export async function POST(req: Request) {
       customerFee?: number;
       serviceRadiusKm?: number;
       planCode?: string;
+      addressConfirmed?: boolean;
     };
     if (!b.name?.trim() || !b.address?.trim()) return badRequest('nome e endereço obrigatórios');
 
     const db = adminDb();
+
+    // o endereço do restaurante (ponto de coleta) precisa ser localizável —
+    // toda tarifa de entrega é calculada a partir dele.
+    const pickup = await resolvePickupLocation({
+      address: b.address.trim(),
+      latitude: b.latitude,
+      longitude: b.longitude,
+      confirmed: b.addressConfirmed === true,
+    });
+    if (!pickup.ok) {
+      const msg =
+        pickup.reason === 'geocoder_unavailable'
+          ? deliveryLocationErrorMessage(pickup.reason)
+          : 'Não conseguimos localizar o endereço do seu restaurante. Confira a rua, o número e o bairro.';
+      return json({ error: msg, code: pickup.reason }, pickup.reason === 'geocoder_unavailable' ? 503 : 400);
+    }
     const fleetMode = (
       ['own', 'leeva', 'hybrid'].includes(b.fleetMode ?? '') ? b.fleetMode : 'leeva'
     ) as 'own' | 'leeva' | 'hybrid';
@@ -28,8 +51,8 @@ export async function POST(req: Request) {
       .update({
         name: b.name.trim().slice(0, 200),
         address: b.address.trim().slice(0, 500),
-        latitude: typeof b.latitude === 'number' ? b.latitude : null,
-        longitude: typeof b.longitude === 'number' ? b.longitude : null,
+        latitude: pickup.latitude,
+        longitude: pickup.longitude,
         fleet_mode: fleetMode,
         logistics_config: {
           ...DEFAULT_LOGISTICS_CONFIG,
