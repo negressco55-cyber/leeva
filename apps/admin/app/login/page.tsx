@@ -21,7 +21,7 @@ export default function LoginPage() {
           <input className="input" type="password" name="password" required />
         </label>
         {state.error && <p style={{ color: 'var(--danger)' }}>{state.error}</p>}
-        <button className="btn" type="submit" disabled={pending}>
+        <button className="btn primary" type="submit" disabled={pending}>
           {pending ? 'Entrando…' : 'Entrar'}
         </button>
       </form>

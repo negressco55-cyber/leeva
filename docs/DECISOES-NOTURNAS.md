@@ -312,3 +312,35 @@ autenticação. Resumo em `docs/RESUMO-2026-09-01-app-nativo.md`.
 **Nada disso é irreversível ou arquitetural** — o PWA em produção não foi
 tocado, o backend só ganhou o teste novo, e todo o resto é o app nativo (que
 ainda não está publicado em lugar nenhum).
+
+---
+
+## Build do APK, Sentry, auditoria (02/09) — resumo em `RESUMO-2026-09-02-build-e-auditoria.md`
+
+**Decisões tomadas sozinho:**
+
+1. **Slug do projeto EAS = `leeva`** (não `leeva-motoboy`). O prompt dizia "o
+   slug precisa bater com `leeva-motoboy`", mas o projeto que o usuário criou
+   na Expo (`5c851aad-...`, org `leeva-jp`) tem slug real `leeva`. Segui o real
+   — é o único jeito do `eas build` funcionar. Ajustei `app.config.js`
+   (`slug` + `owner: 'leeva-jp'`).
+2. **Sentry só em restaurante + admin, NÃO no PWA `apps/motoboy`.** A Parte 2
+   pedia "3 apps web", mas a regra "não mexer no PWA de produção" está no mesmo
+   prompt e é absoluta. Como o Sentry é no-op sem DSN, não há perda em esperar
+   o usuário. Receita pra adicionar depois está no `SENTRY-SETUP.md`.
+3. **`withSentryConfig` no next.config** (em vez de um setup manual mais
+   enxuto). O `@sentry/nextjs` puxa módulos Node pro bundle edge e quebra o
+   build sem ele — é o caminho oficial. Configurado pra não exigir
+   `SENTRY_AUTH_TOKEN` no build (source map upload fica opcional).
+4. **`sourcemaps.disable` condicional ao `SENTRY_AUTH_TOKEN`** — sem token, o
+   build nem tenta subir source map (senão falharia).
+5. **Botão "Entrar" do admin → `.btn.primary`** (era um `.btn` sem `primary`,
+   que no design system novo renderiza secundário/branco). Inconsistência com
+   os outros 2 logins; corrigido.
+6. **Auditoria: nada crítico.** RLS ok nas 35 tabelas, rotas de API todas
+   escopadas, zero segredo hardcoded, zero `console.log`/`TODO`. Detalhe no
+   resumo do dia.
+7. **`EXPO_PUBLIC_SUPABASE_ANON_KEY` via `eas env:set`** (comando novo; o
+   `eas env:create` está deprecado) no ambiente `preview`, visibilidade
+   `sensitive`. A chave anon é pública por design, mas `sensitive` evita ela
+   aparecer em logs de build.

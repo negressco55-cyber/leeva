@@ -18,6 +18,7 @@ import {
   scoreCandidatesForOrder,
   runDispatchTick,
   savePushSubscription,
+  saveExpoPushToken,
   deletePushSubscription,
   sendPushToMotoboy,
   notifyDriver,
@@ -276,6 +277,37 @@ async function main() {
     const r = await sendPushToMotoboy(db, d1, { title: 'x', body: 'y' });
     assert.equal(r.ok, false);
     assert.match(r.error ?? '', /dispositivo|VAPID/i);
+  });
+
+  await t('push nativo: saveExpoPushToken cria linha kind=expo e liga push_enabled', async () => {
+    const token = `ExponentPushToken[f5-${crypto.randomUUID()}]`;
+    const r = await saveExpoPushToken(db, d1, token);
+    assert.ok(r.ok, r.error);
+    const { data: sub } = await db
+      .from('push_subscriptions')
+      .select('kind, p256dh, auth')
+      .eq('endpoint', token)
+      .single();
+    assert.equal(sub.kind, 'expo');
+    assert.equal(sub.p256dh, null);
+    const { data: m } = await db.from('motoboys').select('push_enabled').eq('id', d1).single();
+    assert.equal(m.push_enabled, true);
+    cleanup.push(() => db.from('push_subscriptions').delete().eq('endpoint', token));
+  });
+
+  await t('push nativo: token Expo malformado é recusado', async () => {
+    const r = await saveExpoPushToken(db, d1, 'nao-e-um-token-expo');
+    assert.equal(r.ok, false);
+  });
+
+  await t('push nativo: sendPushToMotoboy tenta o Expo Push Service e não lança', async () => {
+    const token = `ExponentPushToken[f5-${crypto.randomUUID()}]`;
+    await saveExpoPushToken(db, d1, token);
+    cleanup.push(() => db.from('push_subscriptions').delete().eq('endpoint', token));
+    // token fake → Expo devolve "DeviceNotRegistered" ou erro; a função trata
+    const r = await sendPushToMotoboy(db, d1, { title: 'x', body: 'y', tag: 'offer' });
+    assert.equal(typeof r.sent, 'number');
+    assert.equal(typeof r.removed, 'number');
   });
 
   await t('notifyDriver: grava in-app quando há restaurantId', async () => {
