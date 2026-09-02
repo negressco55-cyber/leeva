@@ -53,6 +53,11 @@ certo, o app reconhece sozinho, sem mais nenhuma mudança.
 3. Pode fechar o resto do assistente do Firebase ("Adicionar SDK", "Próximas
    etapas") — **não precisa mexer em código**, o Expo cuida disso.
 
+> ⚠️ O `google-services.json` entra no app **na hora do build**. Se você já
+> tinha gerado um APK antes, vai precisar **gerar um APK novo** (repetir o
+> `eas build` do `PRONTO-PARA-BUILD.md`) depois de colocar o arquivo — o APK
+> antigo continua sem push.
+
 ## 4. Conferir se o app reconheceu
 
 Na pasta `apps/motoboy-app`, rode:
@@ -72,6 +77,9 @@ const hasAndroidFirebase = fs.existsSync(path.join(__dirname, 'google-services.j
 ```
 
 ## 5. Ligar o FCM no Expo (uma vez, quando for buildar)
+
+**Ordem certa:** (a) colocar o `google-services.json` na pasta → (b) esta chave
+do FCM → (c) `eas build` (APK novo).
 
 O Expo precisa da chave do FCM pra enviar push em seu nome. Depois de fazer
 login na Expo (ver `PRONTO-PARA-BUILD.md`):
