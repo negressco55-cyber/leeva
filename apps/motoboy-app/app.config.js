@@ -19,7 +19,9 @@ const DARK = '#141513';
 module.exports = () => ({
   expo: {
     name: 'Leeva Motoboy',
-    slug: 'leeva-motoboy',
+    // projeto EAS: @leeva-jp/leeva (org "leeva-jp", slug "leeva", id 5c851aad-...)
+    owner: 'leeva-jp',
+    slug: 'leeva',
     scheme: 'leevamotoboy',
     version: '1.0.0',
     orientation: 'portrait',
