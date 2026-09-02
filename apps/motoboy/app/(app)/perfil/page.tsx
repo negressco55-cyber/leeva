@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireMotoboyContext, adminDb } from '@/lib/context';
 import { getMotoboyPixInfo } from '@leeva/shared/services';
 import { logout } from '../../login/actions';
+import Avatar from '../_lib/Avatar';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,8 @@ export default async function PerfilPage() {
   const [{ data: m }, pix] = await Promise.all([
     db
       .from('motoboys')
+      // avatar_url entra quando a migration 0030 for aplicada + houver upload
+      // (selfie da verificação de identidade). Até lá, Avatar mostra iniciais.
       .select('phone, city, rating, deliveries_completed')
       .eq('id', ctx.motoboyId)
       .maybeSingle(),
@@ -28,10 +31,13 @@ export default async function PerfilPage() {
     <div className="grid" style={{ gap: 14 }}>
       <h1 style={{ margin: 0 }}>Perfil</h1>
 
-      <div className="profile-id">
-        <span className="name">{ctx.fullName}</span>
-        {m?.phone && <span className="muted">{m.phone}</span>}
-        {m?.city && <span className="muted">{m.city}</span>}
+      <div className="profile-id profile-id--row">
+        <Avatar name={ctx.fullName} src={null} size={60} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <span className="name">{ctx.fullName}</span>
+          {m?.phone && <span className="muted">{m.phone}</span>}
+          {m?.city && <span className="muted">{m.city}</span>}
+        </div>
       </div>
 
       <div className="row" style={{ gap: 12 }}>

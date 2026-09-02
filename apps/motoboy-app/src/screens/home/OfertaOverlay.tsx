@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
-import { RotaMini } from '../../components/RotaMini';
+import { RouteMapMini } from '../../components/RouteMapMini';
 import { useRide } from '../../context/RideContext';
 import { theme } from '../../theme/theme';
 
@@ -18,6 +18,7 @@ export function OfertaOverlay(): React.JSX.Element | null {
   const { offer, acceptOffer, declineOffer } = useRide();
   const [secs, setSecs] = useState(0);
   const [busy, setBusy] = useState(false);
+  const mapW = Dimensions.get('window').width;
 
   useEffect(() => {
     if (!offer) return;
@@ -30,6 +31,10 @@ export function OfertaOverlay(): React.JSX.Element | null {
   if (!offer) return null;
 
   const grouped = !!offer.routeStops && offer.routeStops.length > 1;
+  const totalKm = offer.distanceTotalKm ?? offer.routeTotalKm;
+  const perKm = offer.payout != null && totalKm && totalKm > 0 ? offer.payout / totalKm : null;
+  const pickupEta =
+    offer.distancePickupKm != null ? Math.max(1, Math.round((offer.distancePickupKm / 20) * 60) + 2) : null;
 
   async function handleAccept(): Promise<void> {
     setBusy(true);
@@ -44,115 +49,160 @@ export function OfertaOverlay(): React.JSX.Element | null {
 
   return (
     <Modal visible animationType="slide" statusBarTranslucent onRequestClose={() => {}}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>{grouped ? `Nova rota — ${offer.routeStops!.length} entregas` : 'Nova entrega'}</Text>
-          <Text style={[styles.timer, secs <= 10 && styles.timerUrgent]}>{secs}s</Text>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.body}>
-          <Card style={styles.valorCard}>
-            <Text style={styles.valorLabel}>Você recebe</Text>
-            <Text style={styles.valor}>{offer.payout != null ? brl(offer.payout) : '—'}</Text>
-            {offer.quality ? <Text style={styles.qualidade}>{qualityLabel(offer.quality)}</Text> : null}
-          </Card>
-
-          <RotaMini
-            pickup={
-              offer.pickupLat != null && offer.pickupLng != null
-                ? { lat: offer.pickupLat, lng: offer.pickupLng }
-                : null
-            }
-            dropoff={
-              offer.dropoffLat != null && offer.dropoffLng != null
-                ? { lat: offer.dropoffLat, lng: offer.dropoffLng }
-                : null
-            }
-            pickupKm={offer.distancePickupKm}
-            totalKm={offer.distanceTotalKm ?? offer.routeTotalKm}
-          />
-
-          <View style={styles.chips}>
-            {offer.distancePickupKm != null && (
-              <Text style={styles.chip}>🛵 {offer.distancePickupKm.toFixed(1)} km até você</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
+          <View style={styles.mapWrap}>
+            <RouteMapMini
+              pickup={offer.pickupLat != null && offer.pickupLng != null ? { lat: offer.pickupLat, lng: offer.pickupLng } : null}
+              dropoff={offer.dropoffLat != null && offer.dropoffLng != null ? { lat: offer.dropoffLat, lng: offer.dropoffLng } : null}
+              width={mapW}
+              height={190}
+            />
+            <Text style={[styles.timer, secs <= 10 && styles.timerUrgent]}>{secs}s</Text>
+            {!offer.countsForAcceptance && (
+              <Pressable style={styles.dismiss} onPress={() => void handleDecline()} disabled={busy}>
+                <Text style={styles.dismissText}>Recusar sem afetar sua taxa  ✕</Text>
+              </Pressable>
             )}
-            {(offer.distanceTotalKm ?? offer.routeTotalKm) != null && (
-              <Text style={styles.chip}>📍 {(offer.distanceTotalKm ?? offer.routeTotalKm)!.toFixed(1)} km no total</Text>
-            )}
-            {offer.etaMinutes != null && <Text style={styles.chip}>⏱ ~{offer.etaMinutes} min</Text>}
-            {grouped && <Text style={styles.chip}>🔁 {offer.routeStops!.length} paradas</Text>}
           </View>
 
-          {grouped ? (
-            <Card style={styles.card}>
-              <Text style={styles.label}>Paradas</Text>
-              {offer.routeStops!.map((s) => (
-                <View key={s.seq} style={styles.stopRow}>
-                  <Text style={styles.stopText}>
-                    {s.seq}ª · {s.region ?? s.address}
-                  </Text>
-                  <Text style={styles.stopValue}>{brl(s.payout)}</Text>
-                </View>
-              ))}
-            </Card>
-          ) : (
-            <Card style={styles.card}>
-              <Text style={styles.label}>Entrega</Text>
-              <Text style={styles.endereco}>{offer.address}</Text>
-              <Text style={styles.dest}>{offer.customerName}</Text>
-            </Card>
-          )}
+          <View style={styles.content}>
+            <View style={styles.topRow}>
+              <Text style={styles.topRowText} numberOfLines={1}>
+                {grouped ? `Rota — ${offer.routeStops!.length} entregas` : `Coleta · ${offer.pickupName ?? 'restaurante'}`}
+              </Text>
+              {offer.quality ? <Text style={styles.quality}>{qualityLabel(offer.quality)}</Text> : null}
+            </View>
 
-          {offer.distancePickupKm != null && (
-            <Text style={styles.meta}>{offer.distancePickupKm.toFixed(1)} km até a coleta</Text>
-          )}
-          {offer.notes ? <Text style={styles.meta}>Obs: {offer.notes}</Text> : null}
-          <Text style={styles.meta}>
-            {offer.countsForAcceptance
-              ? 'Recusar conta na sua taxa de aceitação.'
-              : 'Recusar esta oferta não afeta sua reputação.'}
-          </Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceNum}>{offer.payout != null ? brl(offer.payout) : '—'}</Text>
+              {perKm != null && (
+                <View>
+                  <Text style={styles.priceKm}>{brl(perKm)}</Text>
+                  <Text style={styles.priceKmLbl}>por km</Text>
+                </View>
+              )}
+            </View>
+
+            {grouped ? (
+              <View style={styles.legs}>
+                {offer.routeStops!.map((s) => (
+                  <View key={s.seq} style={styles.leg}>
+                    <View style={[styles.dot, styles.dotBrand]} />
+                    <Text style={styles.legMeta}>{s.seq}ª parada</Text>
+                    <Text style={styles.legAddr} numberOfLines={2}>{s.region ?? s.address}</Text>
+                    <Text style={styles.legPay}>{brl(s.payout)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.legs}>
+                <View style={styles.leg}>
+                  <View style={[styles.dot, styles.dotWarn]} />
+                  <Text style={styles.legMeta}>
+                    {pickupEta != null ? `${pickupEta} min` : 'coleta'}
+                    {offer.distancePickupKm != null ? ` · ${offer.distancePickupKm.toFixed(1)} km` : ''}
+                  </Text>
+                  <Text style={styles.legAddr} numberOfLines={2}>
+                    {offer.pickupAddress ?? offer.pickupName ?? 'ponto de coleta'}
+                  </Text>
+                </View>
+                <View style={styles.leg}>
+                  <View style={[styles.dot, styles.dotBrand]} />
+                  <Text style={styles.legMeta}>
+                    {offer.etaMinutes != null ? `${offer.etaMinutes} min` : 'entrega'}
+                    {totalKm != null ? ` · ${totalKm.toFixed(1)} km` : ''}
+                  </Text>
+                  <Text style={styles.legAddr} numberOfLines={2}>{offer.address}</Text>
+                </View>
+              </View>
+            )}
+
+            {offer.notes ? <Text style={styles.meta}>Obs: {offer.notes}</Text> : null}
+            <Text style={styles.meta}>
+              Venda: {offer.paymentMethod} · {offer.paymentStatus}
+            </Text>
+          </View>
         </ScrollView>
 
         <View style={styles.actions}>
-          <Button label="Recusar" variant="outline" onPress={() => void handleDecline()} disabled={busy} style={styles.flex} />
-          <Button label="Aceitar" onPress={() => void handleAccept()} loading={busy} style={styles.flex} />
+          <Pressable
+            style={({ pressed }) => [styles.accept, busy && styles.acceptDisabled, pressed && styles.acceptPressed]}
+            onPress={() => void handleAccept()}
+            disabled={busy}
+          >
+            <Text style={styles.acceptText}>{busy ? 'Aceitando…' : 'Aceitar'}</Text>
+            <Text style={styles.acceptTimer}>{secs}s</Text>
+          </Pressable>
+          {offer.countsForAcceptance && (
+            <Button label="Recusar" variant="outline" onPress={() => void handleDecline()} disabled={busy} style={{ marginTop: theme.spacing.sm }} />
+          )}
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.lg, paddingTop: theme.spacing.xxl },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md },
-  eyebrow: { fontFamily: theme.fonts.headingSemiBold, fontSize: 20, color: theme.colors.primary, flex: 1 },
-  timer: { fontFamily: theme.fonts.heading, fontSize: 22, color: theme.colors.text },
-  timerUrgent: { color: theme.colors.danger },
-  body: { paddingBottom: theme.spacing.md },
-  valorCard: { alignItems: 'center', marginBottom: theme.spacing.md },
-  valorLabel: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary },
-  valor: { fontFamily: theme.fonts.heading, fontSize: 40, color: theme.colors.success, marginTop: 4 },
-  qualidade: { fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: theme.colors.textSecondary, marginTop: 4 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: theme.spacing.md },
-  chip: {
-    fontFamily: theme.fonts.body,
-    fontSize: 12,
-    color: theme.colors.text,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    overflow: 'hidden',
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  scroll: { paddingBottom: theme.spacing.md },
+  mapWrap: { position: 'relative' },
+  timer: {
+    position: 'absolute', top: 12, left: 12,
+    fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: theme.radius.pill,
+    paddingHorizontal: 11, paddingVertical: 3, overflow: 'hidden',
   },
-  card: { marginBottom: theme.spacing.md },
-  label: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.accent, marginBottom: 6 },
-  endereco: { fontFamily: theme.fonts.body, fontSize: 15, color: theme.colors.text, lineHeight: 20 },
-  dest: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, marginTop: 6 },
-  stopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 6 },
-  stopText: { fontFamily: theme.fonts.body, fontSize: 14, color: theme.colors.text, flex: 1 },
-  stopValue: { fontFamily: theme.fonts.bodySemiBold, fontSize: 14, color: theme.colors.text },
-  meta: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 6 },
-  actions: { flexDirection: 'row', gap: theme.spacing.md, marginTop: theme.spacing.sm },
-  flex: { flex: 1 },
+  timerUrgent: { backgroundColor: theme.colors.danger },
+  dismiss: {
+    position: 'absolute', top: 12, right: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: theme.radius.pill,
+    paddingHorizontal: 11, paddingVertical: 4,
+  },
+  dismissText: { fontFamily: theme.fonts.body, fontSize: 12, color: '#fff' },
+
+  content: { padding: theme.spacing.lg, gap: theme.spacing.md },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.sm },
+  topRowText: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, flexShrink: 1 },
+  quality: { fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: theme.colors.textSecondary },
+
+  priceRow: { flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.md },
+  priceNum: { fontFamily: theme.fonts.heading, fontSize: 34, color: theme.colors.text, letterSpacing: -0.5 },
+  priceKm: { fontFamily: theme.fonts.bodyBold, fontSize: 15, color: theme.colors.success, lineHeight: 17 },
+  priceKmLbl: { fontFamily: theme.fonts.body, fontSize: 11, color: theme.colors.textSecondary },
+
+  legs: { gap: theme.spacing.sm },
+  leg: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, flexWrap: 'wrap' },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  dotWarn: { backgroundColor: theme.colors.accent },
+  dotBrand: { backgroundColor: theme.colors.primary },
+  legMeta: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary },
+  legAddr: { fontFamily: theme.fonts.body, fontSize: 14, color: theme.colors.text, flex: 1, minWidth: 140 },
+  legPay: { fontFamily: theme.fonts.bodySemiBold, fontSize: 14, color: theme.colors.text },
+
+  meta: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary },
+
+  actions: {
+    padding: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  accept: {
+    minHeight: 56,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  acceptDisabled: { opacity: 0.6 },
+  acceptPressed: { opacity: 0.88 },
+  acceptText: { fontFamily: theme.fonts.bodySemiBold, fontSize: 17, color: theme.colors.onPrimary },
+  acceptTimer: {
+    fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: theme.colors.onPrimary,
+    backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: theme.radius.pill,
+    paddingHorizontal: 9, paddingVertical: 2, overflow: 'hidden',
+  },
 });

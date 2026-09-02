@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { acceptTerms } from '../../api/motoboy';
+import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { useAuth } from '../../context/AuthContext';
@@ -51,9 +52,12 @@ export function PerfilScreen(): React.JSX.Element {
         <Text style={styles.title}>Perfil</Text>
 
         <View style={styles.idBlock}>
-          <Text style={styles.nome}>{me?.fullName ?? '—'}</Text>
-          {me?.phone ? <Text style={styles.sub}>{me.phone}</Text> : null}
-          {me?.city ? <Text style={styles.sub}>{me.city}</Text> : null}
+          <Avatar name={me?.fullName ?? '?'} src={me?.avatarUrl} size={60} />
+          <View style={{ flexShrink: 1 }}>
+            <Text style={styles.nome}>{me?.fullName ?? '—'}</Text>
+            {me?.phone ? <Text style={styles.sub}>{me.phone}</Text> : null}
+            {me?.city ? <Text style={styles.sub}>{me.city}</Text> : null}
+          </View>
         </View>
 
         <View style={styles.statsRow}>
@@ -102,7 +106,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.background },
   content: { padding: theme.spacing.lg },
   title: { fontFamily: theme.fonts.heading, fontSize: 26, color: theme.colors.text, marginBottom: theme.spacing.lg },
-  idBlock: { marginBottom: theme.spacing.md },
+  idBlock: { marginBottom: theme.spacing.md, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
   nome: { fontFamily: theme.fonts.headingSemiBold, fontSize: 20, color: theme.colors.text },
   sub: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, marginTop: 4 },
   statsRow: { flexDirection: 'row', gap: theme.spacing.md, marginBottom: theme.spacing.md },

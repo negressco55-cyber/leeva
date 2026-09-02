@@ -36,6 +36,7 @@ export interface MotoboyMe {
   pixKey: string | null;
   pixKeyType: string | null;
   city: string | null;
+  avatarUrl?: string | null;
   pushEnabled: boolean;
   terms: { version: number; content: string } | null;
 }

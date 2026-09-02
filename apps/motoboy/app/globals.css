@@ -191,9 +191,8 @@ label .input, label select, label textarea { margin-top: var(--s1); }
   pointer-events: auto;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: 4px solid var(--brand);
   border-radius: var(--r-lg);
-  padding: var(--s4);
+  overflow: hidden;
   box-shadow: var(--shadow-pop);
   animation: offer-in 180ms ease;
 }
@@ -201,72 +200,112 @@ label .input, label select, label textarea { margin-top: var(--s1); }
   from { opacity: 0; transform: translateY(8px) scale(0.985); }
   to { opacity: 1; transform: none; }
 }
-.offer-head {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: var(--s2);
+
+/* mapa real da corrida, sangrando no topo do card */
+.offer-map-wrap { position: relative; }
+.route-map {
+  position: relative;
+  overflow: hidden;
+  background: #10110f;
+}
+.route-map--empty { background: var(--surface-2); }
+.route-map-tiles { position: absolute; inset: 0; }
+.route-map-tiles img { display: block; }
+.route-map-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.route-map-attr {
+  position: absolute; right: 4px; bottom: 3px;
+  font-size: 9px; color: rgba(255,255,255,0.65);
+  background: rgba(0,0,0,0.35); border-radius: 4px; padding: 0 4px;
 }
 .offer-timer {
-  background: var(--surface-2);
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-weight: 600;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(0,0,0,0.6); color: #fff;
+  border-radius: 999px; padding: 3px 11px;
+  font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums;
 }
-.offer-timer.urgent { background: var(--danger-weak); color: var(--danger); }
-.offer-body { display: flex; flex-direction: column; gap: var(--s1); margin-bottom: var(--s3); }
-.offer-pay { font-size: 17px; margin-top: var(--s1); }
+.offer-timer.urgent { background: var(--danger); }
+.offer-dismiss {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(0,0,0,0.6); color: #fff;
+  border: none; border-radius: 999px; padding: 4px 11px;
+  font-size: 12px; font-family: inherit; cursor: pointer;
+}
+
+.offer-content { padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3); }
+.offer-toprow { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s2); font-size: var(--fs-meta); }
+.offer-quality { font-weight: 600; white-space: nowrap; }
+
+.offer-price { display: flex; align-items: baseline; gap: var(--s3); }
+.offer-price-num {
+  font-size: 32px; font-weight: 700; color: var(--text);
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.offer-price-km {
+  color: var(--ok); font-weight: 700; font-size: 15px;
+  display: flex; flex-direction: column; line-height: 1.1;
+}
+.offer-price-km i { font-style: normal; font-weight: 500; font-size: 11px; color: var(--muted); }
+
+.offer-legs { display: flex; flex-direction: column; gap: var(--s2); }
+.offer-leg {
+  display: grid;
+  grid-template-columns: 14px auto 1fr;
+  align-items: baseline;
+  column-gap: var(--s2);
+  font-size: 14px;
+}
+.leg-dot {
+  width: 10px; height: 10px; border-radius: 999px; align-self: center;
+  box-shadow: 0 0 0 3px var(--surface-2);
+}
+.leg-dot.warn { background: var(--warn); }
+.leg-dot.brand { background: var(--brand); }
+.leg-meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.leg-addr { color: var(--text); }
+.leg-pay { grid-column: 3; justify-self: end; font-weight: 600; }
+
 .offer-collect {
   background: var(--warn-weak);
   border-radius: var(--r-sm);
   padding: 8px 10px;
   font-size: 14px;
+  color: var(--text);
+}
+
+.offer-accept {
+  width: 100%;
+  min-height: 56px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: var(--brand); color: var(--on-brand);
+  border: none; border-radius: var(--r);
+  font-weight: 700; font-size: 17px; font-family: inherit; cursor: pointer;
   margin-top: var(--s1);
-  color: var(--text);
 }
-.offer-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--s3); }
-.offer-actions .button { min-height: 56px; font-size: 17px; }
-.route-stops { display: grid; gap: var(--s2); margin-top: var(--s1); }
+.offer-accept:disabled { opacity: 0.6; }
+.offer-accept-timer {
+  background: rgba(0,0,0,0.18); color: inherit;
+  border-radius: 999px; padding: 2px 9px;
+  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.offer-decline-text {
+  background: none; border: none; color: var(--muted);
+  font-family: inherit; font-size: 14px; padding: 6px; cursor: pointer;
+  align-self: center;
+}
 
-/* valor da corrida em destaque, no topo do card */
-.offer-value {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 2px;
-  padding: var(--s2) 0 var(--s3);
-}
-.offer-value-num { font-size: 34px; font-weight: 700; color: var(--ok); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.offer-value-lbl { font-size: var(--fs-meta); color: var(--muted); }
-.offer-quality { font-size: var(--fs-meta); font-weight: 600; margin-top: 2px; }
-
-/* prévia da rota (sem tiles) */
-.route-mini {
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  margin-bottom: var(--s3);
-}
-.route-mini svg { display: block; }
-.route-mini-legend {
-  display: flex; justify-content: space-between;
-  padding: 6px 10px;
-  font-size: var(--fs-label);
-  color: var(--muted);
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-}
-.route-mini-legend .rm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 5px; vertical-align: middle; }
-.rm-dot.warn { background: var(--warn); }
-.rm-dot.brand { background: var(--brand); }
-
-/* linha de chips com ícone */
-.offer-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--s3); }
-.offer-chip {
-  background: var(--surface-2);
+/* avatar do entregador */
+.avatar {
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: var(--fs-meta);
-  color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+.avatar--initials {
+  background: var(--brand-weak);
+  color: var(--brand);
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 /* botão grande central de disponibilidade */
@@ -305,6 +344,7 @@ label .input, label select, label textarea { margin-top: var(--s1); }
   border: 1px solid var(--border);
   border-radius: var(--r);
 }
+.profile-id--row { flex-direction: row; align-items: center; gap: var(--s4); }
 .profile-id .name { font-size: var(--fs-subhead); font-weight: 600; }
 .profile-list {
   background: var(--surface);
