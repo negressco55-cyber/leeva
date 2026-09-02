@@ -92,9 +92,9 @@ module.exports = () => ({
     ],
 
     extra: {
+      // ID do projeto EAS (conta Expo do dono). Ligado via `eas init`.
       eas: {
-        // preenchido pelo `eas init` / `eas build:configure` no seu login
-        projectId: process.env.EAS_PROJECT_ID || '',
+        projectId: '5c851aad-66e2-4c2c-8f3f-c2fd80b620d9',
       },
       // usado por src/lib/push.ts para saber se o push nativo está viável
       firebaseConfigured: hasAndroidFirebase || hasIosFirebase,
