@@ -28,11 +28,13 @@ export const RotaMini = React.memo(function RotaMini({ pickup, dropoff, pickupKm
     const len = Math.hypot(dx, dy) || 1;
     const ux = dx / len;
     const uy = dy / len;
-    const half = Math.min(W, H) / 2 - pad;
-    ax = W / 2 - ux * half;
-    ay = H / 2 - uy * half;
-    bx = W / 2 + ux * half;
-    by = H / 2 + uy * half;
+    const sx = ux !== 0 ? (W / 2 - pad) / Math.abs(ux) : Infinity;
+    const sy = uy !== 0 ? (H / 2 - pad) / Math.abs(uy) : Infinity;
+    const s = Math.min(sx, sy);
+    ax = W / 2 - ux * s;
+    ay = H / 2 - uy * s;
+    bx = W / 2 + ux * s;
+    by = H / 2 + uy * s;
   }
 
   const lineLen = Math.hypot(bx - ax, by - ay);

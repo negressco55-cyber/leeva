@@ -34,11 +34,14 @@ export default function RouteMini({
     const uy = dy / len;
     const cx = W / 2;
     const cy = H / 2;
-    const half = Math.min(W, H) / 2 - pad;
-    ax = cx - ux * half;
-    ay = cy - uy * half;
-    bx = cx + ux * half;
-    by = cy + uy * half;
+    // escala o vetor para o traço tocar as bordas da caixa, mantendo a direção
+    const sx = ux !== 0 ? (W / 2 - pad) / Math.abs(ux) : Infinity;
+    const sy = uy !== 0 ? (H / 2 - pad) / Math.abs(uy) : Infinity;
+    const s = Math.min(sx, sy);
+    ax = cx - ux * s;
+    ay = cy - uy * s;
+    bx = cx + ux * s;
+    by = cy + uy * s;
   }
 
   return (
