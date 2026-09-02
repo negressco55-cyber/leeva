@@ -226,7 +226,107 @@ label .input, label select, label textarea { margin-top: var(--s1); }
   color: var(--text);
 }
 .offer-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--s3); }
-.route-stops { display: grid; gap: var(--s2); }
+.offer-actions .button { min-height: 56px; font-size: 17px; }
+.route-stops { display: grid; gap: var(--s2); margin-top: var(--s1); }
+
+/* valor da corrida em destaque, no topo do card */
+.offer-value {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px;
+  padding: var(--s2) 0 var(--s3);
+}
+.offer-value-num { font-size: 34px; font-weight: 700; color: var(--ok); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.offer-value-lbl { font-size: var(--fs-meta); color: var(--muted); }
+.offer-quality { font-size: var(--fs-meta); font-weight: 600; margin-top: 2px; }
+
+/* prévia da rota (sem tiles) */
+.route-mini {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  margin-bottom: var(--s3);
+}
+.route-mini svg { display: block; }
+.route-mini-legend {
+  display: flex; justify-content: space-between;
+  padding: 6px 10px;
+  font-size: var(--fs-label);
+  color: var(--muted);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.route-mini-legend .rm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 5px; vertical-align: middle; }
+.rm-dot.warn { background: var(--warn); }
+.rm-dot.brand { background: var(--brand); }
+
+/* linha de chips com ícone */
+.offer-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--s3); }
+.offer-chip {
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: var(--fs-meta);
+  color: var(--text);
+}
+
+/* botão grande central de disponibilidade */
+.status-hero {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: var(--s6) var(--s4);
+  display: flex; flex-direction: column; align-items: center; gap: var(--s2);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.status-hero:disabled { opacity: 0.6; cursor: default; }
+.status-hero-ring {
+  width: 108px; height: 108px;
+  border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  border: 3px solid var(--border-strong);
+  color: var(--muted);
+  transition: all 150ms ease;
+}
+.status-hero-state { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+.status-hero-hint { font-size: var(--fs-meta); color: var(--muted); text-align: center; max-width: 240px; }
+.status-hero.on { background: var(--brand-weak); border-color: var(--brand); }
+.status-hero.on .status-hero-ring { border-color: var(--brand); color: var(--brand); background: var(--surface); }
+.status-hero.on .status-hero-state { color: var(--brand); }
+.status-hero.off .status-hero-state { color: var(--muted); }
+
+/* perfil — lista simples, uma linha por item */
+.profile-id {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.profile-id .name { font-size: var(--fs-subhead); font-weight: 600; }
+.profile-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.profile-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: 14px var(--s4);
+  min-height: 52px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  width: 100%;
+  background: none; border-left: none; border-right: none; border-bottom: none;
+  font-family: inherit; font-size: var(--fs-body); text-align: left;
+}
+.profile-list .profile-row:first-child { border-top: none; }
+a.profile-row, button.profile-row { cursor: pointer; }
+.profile-row .k { color: var(--muted); }
+.profile-row .v { font-weight: 600; text-align: right; }
+.profile-row .v.chev::after { content: "›"; color: var(--faint); margin-left: 8px; font-weight: 400; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

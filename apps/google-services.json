@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "125576749890",
+    "project_id": "leeva-b902d",
+    "storage_bucket": "leeva-b902d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:125576749890:android:86388cedc339bf03b61edb",
+        "android_client_info": {
+          "package_name": "br.com.leeva.motoboy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDex9J2UyqzlEJfX0AluBiUU5e0QUDBLoo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MOTOBOY_STATUS_LABELS, type MotoboyStatus } from '@leeva/shared';
+import { type MotoboyStatus } from '@leeva/shared';
 
 export default function StatusToggle({
   initialStatus,
@@ -45,21 +45,27 @@ export default function StatusToggle({
 
   return (
     <div className="grid" style={{ gap: 16 }}>
-      <div className="panel" style={{ textAlign: 'center' }}>
-        <p className="muted">Você está</p>
-        <div style={{ fontSize: 28, fontWeight: 650, color: online ? 'var(--ok)' : 'var(--muted)' }}>
-          {MOTOBOY_STATUS_LABELS[status]}
-        </div>
-        <button
-          className="button"
-          onClick={toggle}
-          disabled={busy}
-          style={{ marginTop: 16, background: online ? 'var(--danger)' : 'var(--ok)' }}
-        >
-          {busy ? '…' : online ? 'Ficar offline' : 'Ficar online'}
-        </button>
-        {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
-      </div>
+      <button
+        type="button"
+        className={`status-hero ${online ? 'on' : 'off'}`}
+        onClick={toggle}
+        disabled={busy}
+        aria-pressed={online}
+      >
+        <span className="status-hero-ring">
+          <ScooterIcon />
+        </span>
+        <span className="status-hero-state">{online ? 'Disponível' : 'Indisponível'}</span>
+        <span className="status-hero-hint">
+          {busy
+            ? 'Um instante…'
+            : online
+              ? 'Você está recebendo ofertas. Toque para parar.'
+              : 'Toque para começar a receber ofertas.'}
+        </span>
+      </button>
+
+      {err && <p style={{ color: 'var(--danger)', margin: 0, textAlign: 'center' }}>{err}</p>}
 
       <div className="row" style={{ gap: 12 }}>
         <div className="panel" style={{ flex: 1, textAlign: 'center' }}>
@@ -78,5 +84,21 @@ export default function StatusToggle({
         </Link>
       )}
     </div>
+  );
+}
+
+function ScooterIcon() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="6" cy="17.5" r="2.6" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="18" cy="17.5" r="2.6" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M8.5 17.5h6.2l2.3-6.5H14M17 11l-1.2-4H13m-4.6 10.5c-.4-2.2-1.7-3.5-3.9-3.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

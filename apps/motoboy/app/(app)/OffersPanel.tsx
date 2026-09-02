@@ -11,6 +11,7 @@ import {
   type PaymentMethod,
   type PaymentStatus,
 } from '@leeva/shared';
+import RouteMini from './_lib/RouteMini';
 
 type Offer = {
   offerId: string;
@@ -19,6 +20,13 @@ type Offer = {
   customerName: string;
   address: string;
   region: string | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  pickupName: string | null;
+  pickupAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  etaMinutes: number | null;
   expiresAt: string;
   payout: number | null;
   quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
@@ -131,15 +139,45 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
               </strong>
               <span className={`offer-timer ${secs <= 10 ? 'urgent' : ''}`}>{secs}s</span>
             </div>
-            <div className="offer-body">
-              {o.quality && (
-                <div style={{ fontWeight: 700, color: QUALITY_LABEL[o.quality]!.color }}>
-                  {QUALITY_LABEL[o.quality]!.text}
-                </div>
-              )}
 
+            {/* valor em destaque, no topo — a primeira coisa que o motoboy vê */}
+            <div className="offer-value">
+              <span className="offer-value-num">
+                {o.payout != null ? formatCurrencyBRL(o.payout) : '—'}
+              </span>
+              <span className="offer-value-lbl">você recebe</span>
+              {o.quality && (
+                <span className="offer-quality" style={{ color: QUALITY_LABEL[o.quality]!.color }}>
+                  {QUALITY_LABEL[o.quality]!.text}
+                </span>
+              )}
+            </div>
+
+            {/* prévia da rota */}
+            <RouteMini
+              pickup={o.pickupLat != null && o.pickupLng != null ? { lat: o.pickupLat, lng: o.pickupLng } : null}
+              dropoff={o.dropoffLat != null && o.dropoffLng != null ? { lat: o.dropoffLat, lng: o.dropoffLng } : null}
+              pickupKm={o.distancePickupKm}
+              totalKm={o.distanceTotalKm ?? o.routeTotalKm}
+            />
+
+            {/* dados em linha/ícone */}
+            <div className="offer-chips">
+              {o.distancePickupKm != null && (
+                <span className="offer-chip">🛵 {o.distancePickupKm.toFixed(1)} km até você</span>
+              )}
+              {(o.distanceTotalKm ?? o.routeTotalKm) != null && (
+                <span className="offer-chip">📍 {(o.distanceTotalKm ?? o.routeTotalKm)!.toFixed(1)} km no total</span>
+              )}
+              {o.etaMinutes != null && <span className="offer-chip">⏱ ~{o.etaMinutes} min</span>}
+              {o.routeStops && o.routeStops.length > 1 && (
+                <span className="offer-chip">🔁 {o.routeStops.length} paradas</span>
+              )}
+            </div>
+
+            <div className="offer-body">
               {o.routeStops && o.routeStops.length > 1 ? (
-                <div className="route-stops" style={{ display: 'grid', gap: 6 }}>
+                <div className="route-stops">
                   {o.routeStops.map((s) => (
                     <div
                       key={s.seq}
@@ -151,34 +189,18 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                       <span>{formatCurrencyBRL(s.payout)}</span>
                     </div>
                   ))}
-                  <div className="muted" style={{ fontSize: 12 }}>
-                    {o.customerName} · 1ª parada: {o.address}
-                    {o.routeTotalKm != null ? ` · rota ~${o.routeTotalKm.toFixed(1)} km` : ''}
-                  </div>
                 </div>
               ) : (
-                <>
-                  <div>{o.region ?? o.address}</div>
-                  <div className="muted">{o.customerName} · {o.address}</div>
-                </>
-              )}
-              {(o.distancePickupKm != null || o.distanceTotalKm != null) && (
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {o.distancePickupKm != null ? `${o.distancePickupKm.toFixed(1)} km até a coleta` : ''}
-                  {o.distanceTotalKm != null ? ` · ${o.distanceTotalKm.toFixed(1)} km no total` : ''}
+                <div>
+                  <div style={{ fontWeight: 600 }}>{o.region ?? o.address}</div>
+                  <div className="muted" style={{ fontSize: 13 }}>{o.customerName} · {o.address}</div>
+                  {o.pickupName && (
+                    <div className="muted" style={{ fontSize: 13 }}>Coleta: {o.pickupName}</div>
+                  )}
                 </div>
               )}
-              {o.payout != null && (
-                <div className="offer-pay">Você recebe <strong>{formatCurrencyBRL(o.payout)}</strong></div>
-              )}
-              <div className="muted" style={{ fontSize: 12 }}>
-                {o.countsForAcceptance
-                  ? 'Recusar esta oferta conta na sua taxa de aceitação.'
-                  : 'Recusar esta oferta não afeta sua reputação.'}
-              </div>
               <div className="muted" style={{ fontSize: 13 }}>
-                Pagamento da venda: {PAYMENT_METHOD_LABELS[o.paymentMethod]} —{' '}
-                {PAYMENT_STATUS_LABELS[o.paymentStatus]}
+                Venda: {PAYMENT_METHOD_LABELS[o.paymentMethod]} — {PAYMENT_STATUS_LABELS[o.paymentStatus]}
               </div>
               {collectOnDelivery && (
                 <div className="offer-collect">
@@ -186,6 +208,11 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                 </div>
               )}
               {o.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {o.notes}</div>}
+              <div className="muted" style={{ fontSize: 12 }}>
+                {o.countsForAcceptance
+                  ? 'Recusar esta oferta conta na sua taxa de aceitação.'
+                  : 'Recusar não afeta sua reputação.'}
+              </div>
             </div>
             <div className="offer-actions">
               <button

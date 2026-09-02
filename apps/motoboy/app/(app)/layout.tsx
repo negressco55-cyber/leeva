@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { requireMotoboyContext, adminDb } from '@/lib/context';
 import { getActiveTerms, needsTermsAcceptance } from '@leeva/shared/services';
-import { logout } from '../login/actions';
 import LocationSender from './LocationSender';
 import OffersPanel from './OffersPanel';
 import { OnboardingGate } from './_lib/OnboardingGate';
@@ -10,8 +9,8 @@ const TABS = [
   { href: '/status', label: 'Status' },
   { href: '/entrega', label: 'Entrega' },
   { href: '/historico', label: 'Histórico' },
-  { href: '/desempenho', label: 'Desempenho' },
   { href: '/pagamentos', label: 'Pagamentos' },
+  { href: '/perfil', label: 'Perfil' },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,22 +26,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="screen">
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-        }}
-      >
-        <strong>{ctx.fullName}</strong>
-        <form action={logout}>
-          <button className="button secondary" style={{ width: 'auto', padding: '8px 12px' }}>
-            Sair
-          </button>
-        </form>
-      </header>
-
       {children}
 
       <OffersPanel motoboyId={ctx.motoboyId} />
