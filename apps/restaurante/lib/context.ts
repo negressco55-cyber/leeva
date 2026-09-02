@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createLeevaServerClient, createLeevaAdminClient } from '@leeva/shared/server';
 import type { UserRole } from '@leeva/shared';
@@ -11,8 +12,13 @@ export type RestaurantContext = {
   fullName: string | null;
 };
 
-/** Contexto autenticado do painel do restaurante. Redireciona se não logado. */
-export async function requireRestaurantContext(): Promise<RestaurantContext> {
+/**
+ * Contexto autenticado do painel do restaurante. Redireciona se não logado.
+ *
+ * `cache()` deduplica a chamada dentro de uma mesma request: o layout e a
+ * página compartilham o resultado (1 `auth.getUser()` + 1 query, não 2).
+ */
+export const requireRestaurantContext = cache(async function requireRestaurantContext(): Promise<RestaurantContext> {
   const supabase = await createLeevaServerClient();
   const {
     data: { user },
@@ -38,13 +44,13 @@ export async function requireRestaurantContext(): Promise<RestaurantContext> {
       (profile as { restaurants?: { name?: string } | null }).restaurants?.name ?? 'Restaurante',
     fullName: profile.full_name,
   };
-}
+});
 
 /**
  * Contexto para rotas de API. Retorna null (não redireciona) quando não
  * autorizado — a rota decide o status HTTP.
  */
-export async function getApiContext(): Promise<RestaurantContext | null> {
+export const getApiContext = cache(async function getApiContext(): Promise<RestaurantContext | null> {
   const supabase = await createLeevaServerClient();
   const {
     data: { user },
@@ -65,7 +71,7 @@ export async function getApiContext(): Promise<RestaurantContext | null> {
       (profile as { restaurants?: { name?: string } | null }).restaurants?.name ?? 'Restaurante',
     fullName: profile.full_name,
   };
-}
+});
 
 /**
  * Cliente com service_role para uso nas rotas de API/serviços DEPOIS de já

@@ -32,12 +32,6 @@ export default function OpsCenter({
   finance: { deliveries: number; cost: number; margin: number; avgCost: number | null };
 }) {
   const router = useRouter();
-  const [clock, setClock] = useState<string>('');
-  useEffect(() => {
-    setClock(new Date().toLocaleTimeString('pt-BR'));
-    const i = setInterval(() => setClock(new Date().toLocaleTimeString('pt-BR')), 1000);
-    return () => clearInterval(i);
-  }, []);
   const [situation, setSituation] = useState(initialSituation);
   const [alerts, setAlerts] = useState(initialAlerts);
   const [map, setMap] = useState(initialMap);
@@ -63,8 +57,18 @@ export default function OpsCenter({
     return () => clearTimeout(t);
   }, [rtOrders.length, refresh]);
   useEffect(() => {
-    const iv = setInterval(refresh, 12000);
-    return () => clearInterval(iv);
+    // só faz polling com a aba visível — aba em segundo plano não gasta rede
+    const iv = setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, 20000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [refresh]);
 
   const markers = useMemo<MapMarker[]>(() => {
@@ -115,7 +119,7 @@ export default function OpsCenter({
       <div className="page-head">
         <div>
           <h1>Visão geral</h1>
-          <div className="sub">Central de operações{clock ? ` — ${clock}` : ''}</div>
+          <div className="sub">Central de operações — <Clock /></div>
         </div>
         <Link href="/mapa" className="btn sm">
           Abrir mapa completo
@@ -237,6 +241,17 @@ export default function OpsCenter({
       </button>
     </>
   );
+}
+
+/** Relógio isolado: re-renderiza só a si mesmo a cada segundo, não a página/mapa. */
+function Clock() {
+  const [t, setT] = useState('');
+  useEffect(() => {
+    setT(new Date().toLocaleTimeString('pt-BR'));
+    const i = setInterval(() => setT(new Date().toLocaleTimeString('pt-BR')), 1000);
+    return () => clearInterval(i);
+  }, []);
+  return <span suppressHydrationWarning>{t}</span>;
 }
 
 function colorFor(status: string, dispatch: string, late?: boolean) {

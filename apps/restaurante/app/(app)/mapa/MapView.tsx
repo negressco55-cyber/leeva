@@ -36,7 +36,9 @@ export default function MapView({
 
   useEffect(() => {
     if (mode !== 'ops') return;
-    const iv = setInterval(refreshOps, 12000);
+    const iv = setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshOps();
+    }, 20000);
     return () => clearInterval(iv);
   }, [mode, refreshOps]);
 

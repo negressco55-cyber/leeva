@@ -302,6 +302,18 @@ table.data th, .tbl th { color: var(--muted); font-weight: 600; font-size: var(-
 .track-wrap { max-width: 440px; margin: 0 auto; padding: var(--s6) var(--s4); }
 .track-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--s5); }
 
+/* ---------- esqueleto de carregamento (feedback imediato ao navegar) ---------- */
+.skeleton {
+  background: linear-gradient(100deg, var(--surface-2) 30%, var(--border) 50%, var(--surface-2) 70%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.2s ease-in-out infinite;
+  border-radius: var(--r-sm);
+}
+.sk-line { height: 12px; margin: 8px 0; }
+.sk-card { height: 96px; margin-top: var(--s3); border-radius: var(--r); }
+.sk-title { height: 24px; width: 220px; }
+@keyframes sk-shimmer { to { background-position: -200% 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
   .button:active, .btn:active { transform: none; }
