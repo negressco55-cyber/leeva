@@ -1,5 +1,29 @@
 # Pronto para build — o que rodar quando você voltar com o token da Expo
 
+---
+
+## ✅ Build gerado em 01/09/2026 (perfil `preview`)
+
+**APK pronto pra instalar no seu Android:**
+
+**https://expo.dev/artifacts/eas/5V5aVb_6NxpUbkAUNCa0ZkgFRDeo0URObuFIse4Vel0.apk**
+
+- Build ID: `0a60cb60-25a5-4d24-b0ca-0f55bece8bff`
+- Projeto EAS: `@leeva-jp/leeva` · versão 1.0.0 (versionCode 1)
+- Página do build (com QR code): https://expo.dev/accounts/leeva-jp/projects/leeva/builds/0a60cb60-25a5-4d24-b0ca-0f55bece8bff
+- Feito a partir do commit `4325332`.
+
+**Como instalar:** abra o link acima **no navegador do próprio celular Android**,
+baixe o `.apk`, toque na notificação de download. O Android vai pedir pra
+"permitir instalar apps desta fonte" → ative → **Instalar**. O ícone verde
+"Leeva Motoboy" aparece na tela. (Detalhes e o que testar: seção 5, mais abaixo.)
+
+> ⚠️ Push ainda NÃO funciona neste APK — falta o Firebase (`FIREBASE-SETUP.md`).
+> O resto (login, ficar online, mapa, GPS em segundo plano) funciona.
+
+---
+
+
 Tudo que não dependia de login já está feito (ícone, GPS em segundo plano,
 `eas.json`, `app.config.js`). Isto aqui é a sequência de comandos pra você
 rodar. Todos são na pasta **`apps/motoboy-app`**.

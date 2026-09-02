@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@leeva/shared": "*",
+    "@sentry/nextjs": "^10.73.0",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "leaflet": "^1.9.4",
