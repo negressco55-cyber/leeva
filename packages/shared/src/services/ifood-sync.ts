@@ -1,9 +1,13 @@
 /**
  * Importação de pedidos do iFood — modelo de POLLING (não webhook).
  *
- *   getIfoodAccessToken → pollIfoodEvents → (evento PLC) → getIfoodOrder
- *     → IFoodOrderProvider.parse() → resolveAndApplyDeliveryLocation
+ *   getValidIfoodAccessToken(restaurantId) → pollIfoodEvents → (evento PLC)
+ *     → getIfoodOrder → IFoodOrderProvider.parse() → resolveAndApplyDeliveryLocation
  *     → createOrderFromNormalized → acknowledgeIfoodEvents
+ *
+ * O restaurante precisa ter concluído o vínculo (ver services/ifood-link.ts —
+ * fluxo authorization_code + userCode, obrigatório pra apps distribuídos)
+ * antes de haver o que sincronizar.
  *
  * Idempotência: cada evento do iFood vira uma linha em `integration_events`
  * (unique por provider+event_id) ANTES de criar o pedido — reprocessar o
@@ -17,8 +21,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import { getOrderProvider } from '../integrations/registry';
 import {
-  getIfoodAccessToken,
-  listIfoodMerchants,
   pollIfoodEvents,
   acknowledgeIfoodEvents,
   getIfoodOrder,
@@ -26,6 +28,7 @@ import {
   IfoodApiError,
   type IfoodPollEvent,
 } from '../integrations/ifood-client';
+import { getValidIfoodAccessToken, IfoodNotLinkedError } from './ifood-link';
 import { createOrderFromNormalized } from './orders';
 import { resolveAndApplyDeliveryLocation, deliveryLocationErrorMessage } from './address';
 import { isValidLatLng } from './geo';
@@ -42,37 +45,22 @@ export type IfoodSyncResult = {
 };
 
 /**
- * Um ciclo de sincronização: autentica, descobre o(s) merchant(s) (se
- * IFOOD_MERCHANT_ID não estiver definido), busca eventos, importa pedidos
- * novos e confirma o recebimento de TODOS os eventos buscados (mesmo os que
- * não geram pedido) — é obrigatório pro iFood parar de reenviar.
+ * Um ciclo de sincronização pra UM restaurante já vinculado: renova o
+ * access token se preciso, busca eventos, importa pedidos novos e confirma
+ * o recebimento de TODOS os eventos buscados (mesmo os que não geram
+ * pedido) — é obrigatório pro iFood parar de reenviar.
  */
 export async function syncIfoodOrders(db: DB, restaurantId: string): Promise<IfoodSyncResult> {
   const errors: string[] = [];
   let token: string;
+  let merchantIds: string[];
   try {
-    token = await getIfoodAccessToken();
+    const auth = await getValidIfoodAccessToken(db, restaurantId);
+    token = auth.token;
+    merchantIds = auth.merchantIds;
   } catch (e) {
-    return {
-      ok: false,
-      merchantIds: [],
-      polled: 0,
-      imported: 0,
-      skipped: 0,
-      errors: [(e as Error).message],
-    };
-  }
-
-  let merchantIds: string[] = process.env.IFOOD_MERCHANT_ID
-    ? [process.env.IFOOD_MERCHANT_ID]
-    : [];
-  if (!merchantIds.length) {
-    try {
-      const merchants = await listIfoodMerchants(token);
-      merchantIds = merchants.map((m) => m.id);
-    } catch (e) {
-      errors.push(`listar merchants: ${(e as Error).message}`);
-    }
+    const msg = e instanceof IfoodNotLinkedError ? e.message : (e as Error).message;
+    return { ok: false, merchantIds: [], polled: 0, imported: 0, skipped: 0, errors: [msg] };
   }
 
   let events: IfoodPollEvent[];

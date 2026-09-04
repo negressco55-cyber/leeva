@@ -14,7 +14,7 @@ Resumo:
 |---|---|---|---|
 | Manual | fonte de pedido | **IMPLEMENTADO** | — |
 | Cardápio / API própria | fonte de pedido | **IMPLEMENTADO** | gerar `x-leeva-api-key` (abaixo) |
-| iFood | fonte de pedido | **PREPARADO** (polling implementado, testado em sandbox — app não aprovado pro grant `client_credentials`, ver seção abaixo) | `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET`, app aprovado no portal iFood pro produto certo |
+| iFood | fonte de pedido | **PREPARADO** (vínculo authorization_code + polling implementados; testado em sandbox até gerar o userCode — falta um humano autorizar no Portal do Parceiro pra testar o recebimento ponta a ponta) | `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET`, `INTEGRATIONS_ENCRYPTION_KEY`, cada restaurante vincula em Integrações |
 | WhatsApp (pedidos) | fonte de pedido | **PREPARADO** | `WHATSAPP_*`, número de produção aprovado |
 | WhatsApp (notificações) | canal | **PREPARADO** | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID` |
 | SMS (Twilio) | canal | **PREPARADO** | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` |
@@ -100,63 +100,104 @@ where restaurant_id = '<id>' and provider = 'menu';
 
 ## <a id="ifood"></a>iFood
 
-**Importante:** o iFood **não envia webhook** pro parceiro (ao contrário do
-que a versão anterior deste doc dizia). A Merchant API v1.0 é de **polling**:
-o parceiro busca eventos periodicamente e confirma o recebimento.
+**Duas coisas importantes que a versão anterior deste doc errava:**
 
-Fluxo real, implementado em `integrations/ifood-client.ts` + `services/ifood-sync.ts`:
+1. O iFood **não envia webhook** pro parceiro. A Merchant API v1.0 é de
+   **polling**: o parceiro busca eventos periodicamente e confirma o
+   recebimento.
+2. O app do Leeva é um **App Distribuído** (um app único, usado por muitos
+   restaurantes — não um app interno de um restaurante só). Apps
+   distribuídos **não usam `client_credentials`** — só `client_credentials`
+   é permitido pra **Apps Centralizados** (um app = um merchant). Um app
+   distribuído precisa do fluxo **`authorization_code` com `userCode`**
+   (parecido com o "device code" do OAuth 2.0/RFC 8628): cada restaurante
+   autoriza o vínculo individualmente pelo Portal do Parceiro do iFood.
+   *(Confirmado testando contra o sandbox real: `client_credentials` foi
+   recusado com "Unsupported grant type client_credentials to client
+   `<id>`" — não era bug de código, era o grant errado pro tipo de app.)*
+
+### Vínculo (uma vez por restaurante) — `services/ifood-link.ts`
 
 ```
-getIfoodAccessToken()          OAuth client_credentials → access token (cacheado, renova sozinho)
-  → listIfoodMerchants()       descobre o(s) merchant(s) do app (se IFOOD_MERCHANT_ID vazio)
-  → pollIfoodEvents()          GET /events:polling
+startIfoodLink(restaurantId)
+  → POST /authentication/v1.0/oauth/userCode  { clientId }
+  → devolve { userCode, authorizationCodeVerifier, verificationUrlComplete }
+  → userCode + link ficam visíveis pro dono do restaurante em Integrações
+    (tela IfoodLink.tsx); authorizationCodeVerifier é CIFRADO
+    (encryptSecret, chave INTEGRATIONS_ENCRYPTION_KEY) antes de gravar em
+    integrations.config — a linha é legível pelo dono via RLS, então o
+    verifier em claro seria um vazamento potencial.
+
+[ restaurante abre o link, loga no Portal do Parceiro com a conta do
+  MERCHANT dele, autoriza o app "Leeva" ]
+
+completeIfoodLink(restaurantId)
+  → POST /authentication/v1.0/oauth/token
+      { grantType: 'authorization_code', clientId, clientSecret,
+        authorizationCode: userCode, authorizationCodeVerifier }
+  → antes do restaurante autorizar, devolve "pending" (não é erro — a tela
+    deixa tentar de novo); depois, devolve { accessToken, refreshToken }.
+  → refreshToken (de longa duração) e accessToken ficam cifrados em
+    integrations.config; listIfoodMerchants() guarda os merchantIds.
+```
+
+### Sincronização (repetida) — `services/ifood-sync.ts`
+
+```
+getValidIfoodAccessToken(restaurantId)   usa o accessToken cifrado se ainda
+                                          válido; senão renova via
+                                          refreshIfoodAccessToken() (POST
+                                          .../oauth/token, grantType=refresh_token)
+  → pollIfoodEvents()                    GET /events:polling
   → (evento código PLC)
-      → getIfoodOrder()        GET /orders/{id}
-      → IFoodOrderProvider.parse()      → NormalizedOrder
+      → getIfoodOrder()                  GET /orders/{id}
+      → IFoodOrderProvider.parse()       → NormalizedOrder
       → resolveAndApplyDeliveryLocation  (bloco 1 — mesma validação de endereço dos outros canais)
       → createOrderFromNormalized()
-  → acknowledgeIfoodEvents()   POST /events/acknowledgment — de TODOS os eventos buscados,
-                                mesmo os que não viraram pedido (senão o iFood reenvia)
+  → acknowledgeIfoodEvents()             POST /events/acknowledgment — de TODOS os
+                                          eventos buscados, mesmo os que não
+                                          viraram pedido (senão o iFood reenvia)
 ```
 
 Acionado via `POST /api/cron/ifood-poll?restaurant=<id>` (protegido por
 `CRON_SECRET`, mesmo padrão do `dispatch-tick`) — ainda não agendado
-automaticamente (ver abaixo). `pushStatus` (`IFoodOrderProvider`) mapeia
-`preparing→confirm`, `in_route→dispatch`, `delivered→conclude`,
-`cancelled→requestCancellation` e não mudou.
+automaticamente. `pushStatus` (`IFoodOrderProvider`) ficou **sem chamador**
+por enquanto: a interface `OrderProvider.pushStatus(externalId, status)` não
+carrega `restaurantId`, que agora é necessário pra resolver o token certo —
+ajustar quando alguém for de fato ligar isso em `advanceOrderStatus`.
 
-**Variáveis:** `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET` (obrigatórias),
-`IFOOD_MERCHANT_ID` (opcional — sem ela, descobre via `listIfoodMerchants`).
-`IFOOD_ACCESS_TOKEN`/`IFOOD_WEBHOOK_SECRET` (do formato antigo, webhook) não
-são mais usados no caminho de recebimento de pedido.
+**Variáveis:** `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET` (credenciais do app,
+as mesmas pra todos os restaurantes), `INTEGRATIONS_ENCRYPTION_KEY` (cifra os
+segredos por restaurante — gerar com `openssl rand -hex 32` ou
+`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`,
+uma vez, guardar como env var de produção). `IFOOD_MERCHANT_ID`/
+`IFOOD_ACCESS_TOKEN`/`IFOOD_WEBHOOK_SECRET` (formatos antigos) não são mais
+usados.
 
-### Testado em 02/09 com credenciais de sandbox reais
+### Testado em 02–03/09 com credenciais de sandbox reais
 
-`scripts/test-ifood-sandbox.mjs` roda o fluxo (auth → merchants → polling →
-import). Resultado real:
+1. **`client_credentials`** → recusado (`Unsupported grant type
+   client_credentials to client <id>`) — diagnosticado pelo usuário: o app é
+   Distribuído, precisa do fluxo `authorization_code`.
+2. **`authorization_code` + `userCode`** (implementação atual) → **funcionou**:
+   ```
+   node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs start
 
-```
-1) Autenticando (OAuth client_credentials)…
-   ❌ falhou: autenticação iFood falhou (400)
-   detalhe: {"error":{"code":"BadRequest","message":"Unsupported grant type client_credentials to client <id>"}}
-```
-
-O request está correto (parâmetros `grantType`/`clientId`/`clientSecret`
-reconhecidos — testei também a variação `grant_type` padrão OAuth2, que dá um
-erro diferente e pior, confirmando que o formato certo é o camelCase). O
-iFood recusa **esse client específico** pra esse grant type — ou seja, é uma
-configuração do lado do app no portal de parceiros, não um bug daqui.
-
-**Precisa checar no painel de desenvolvedor do iFood:**
-- Se o app foi criado com o produto/escopo certo pra **Merchant API — Pedidos**
-  (alguns tipos de app do iFood são só pra outro fluxo, ex. um "plugin" que usa
-  `authorization_code` com login do lojista, não `client_credentials`).
-- Se o app está com o status "ativo"/aprovado pro ambiente de sandbox.
-- Se existe um merchant de teste já vinculado a esse Client ID.
-
-Assim que tiver um client aprovado pra `client_credentials`, o teste é rodar
-de novo: `node --import tsx --env-file=apps/restaurante/.env.local
-scripts/test-ifood-sandbox.mjs`.
+   ✅ código gerado:
+      userCode: MVVB-GTJV
+      link:     https://portal.ifood.com.br/apps/code?c=MVVB-GTJV
+   ```
+   Confirmado: `userCode`/`authorizationCodeVerifier` gravados (o verifier
+   cifrado) em `integrations.config` do restaurante demo.
+3. **Falta um humano completar**: abrir o link acima, logar no Portal do
+   Parceiro com a conta de um merchant de teste do sandbox, autorizar o app.
+   Depois disso, rodar:
+   ```
+   node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs complete
+   ```
+   que troca o código por tokens e roda um ciclo de sincronização completo
+   (`syncIfoodOrders`) — só aí dá pra confirmar o recebimento de um pedido de
+   ponta a ponta.
 
 ## <a id="whatsapp"></a>WhatsApp
 Fluxo: `WhatsApp Cloud API → webhook → verify (HMAC x-hub-signature-256) →

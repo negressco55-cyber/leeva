@@ -1,79 +1,97 @@
 /**
- * Teste manual do fluxo iFood (sandbox): autentica, descobre o(s)
- * merchant(s), busca eventos pendentes e, se houver um pedido novo (evento
- * PLC), importa de verdade no restaurante demo — passando pela mesma
- * validação de endereço dos outros canais.
+ * Teste manual do fluxo iFood (sandbox) — authorization_code + userCode
+ * (apps distribuídos, ver docs/INTEGRATIONS.md#ifood).
  *
- * Uso: node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs
+ * Uso:
+ *   node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs start
+ *     → gera o userCode + link do Portal do Parceiro. Abra o link, autorize
+ *       o app com a conta do restaurante de teste no sandbox do iFood.
+ *
+ *   node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs complete
+ *     → depois de autorizar, troca o código por access/refresh token e
+ *       roda um ciclo de sincronização completo (poll → import, se houver
+ *       pedido de teste parado).
+ *
+ *   node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs status
+ *     → mostra o estado atual do vínculo.
  */
 import { createClient } from '@supabase/supabase-js';
 import {
-  getIfoodAccessToken,
-  listIfoodMerchants,
-  pollIfoodEvents,
-} from '../packages/shared/src/integrations/ifood-client.ts';
-import { syncIfoodOrders } from '../packages/shared/src/services/ifood-sync.ts';
+  getIfoodLinkStatus,
+  startIfoodLink,
+  completeIfoodLink,
+  syncIfoodOrders,
+} from '../packages/shared/src/services/index.ts';
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-async function main() {
-  console.log('1) Autenticando (OAuth client_credentials)…');
-  let token;
-  try {
-    token = await getIfoodAccessToken({ force: true });
-    console.log(`   ✅ token obtido (${token.slice(0, 8)}…, ${token.length} chars)`);
-  } catch (e) {
-    console.log(`   ❌ falhou: ${e.message}`);
-    if (e.body) console.log('   detalhe:', JSON.stringify(e.body).slice(0, 500));
-    process.exit(1);
-  }
-
-  console.log('\n2) Listando merchants associados ao app…');
-  let merchants = [];
-  try {
-    merchants = await listIfoodMerchants(token);
-    console.log(`   ✅ ${merchants.length} merchant(s):`);
-    for (const m of merchants) console.log(`      - ${m.id}  ${m.name ?? m.corporateName ?? ''}`);
-  } catch (e) {
-    console.log(`   ⚠️  falhou: ${e.message} — seguindo sem filtrar por merchant`);
-  }
-
-  console.log('\n3) Buscando eventos pendentes (GET /events:polling)…');
-  let events = [];
-  try {
-    events = await pollIfoodEvents(token, merchants.map((m) => m.id));
-    console.log(`   ✅ ${events.length} evento(s) pendente(s)`);
-    for (const e of events) console.log(`      - ${e.code} (${e.fullCode ?? ''}) pedido=${e.orderId ?? '—'} id=${e.id}`);
-  } catch (e) {
-    console.log(`   ❌ falhou: ${e.message}`);
-    process.exit(1);
-  }
-
-  if (!events.length) {
-    console.log(
-      '\n   Nenhum evento parado. Isso é normal se ainda não existe um pedido de\n' +
-      '   teste no sandbox — o polling só devolve algo depois que VOCÊ simular\n' +
-      '   um pedido pelo portal de testes do iFood (não é algo que eu consigo\n' +
-      '   disparar por aqui). Auth + merchants + polling estão funcionando.\n',
-    );
-    process.exit(0);
-  }
-
-  console.log('\n4) Há evento(s) — rodando o fluxo completo contra o restaurante demo…');
-  const { data: rest } = await db
+async function demoRestaurant() {
+  const { data } = await db
     .from('restaurants')
     .select('id, name')
     .eq('onboarding_completed', true)
     .not('latitude', 'is', null)
     .limit(1)
     .single();
-  console.log(`   restaurante: ${rest?.name} (${rest?.id})`);
+  return data;
+}
 
-  const result = await syncIfoodOrders(db, rest.id);
-  console.log('   resultado:', JSON.stringify(result, null, 2));
-  process.exit(result.ok ? 0 : 1);
+async function main() {
+  const cmd = process.argv[2] ?? 'status';
+  const rest = await demoRestaurant();
+  if (!rest) {
+    console.log('nenhum restaurante demo encontrado (onboarding_completed=true).');
+    process.exit(1);
+  }
+  console.log(`Restaurante: ${rest.name} (${rest.id})\n`);
+
+  if (cmd === 'status') {
+    const s = await getIfoodLinkStatus(db, rest.id);
+    console.log(JSON.stringify(s, null, 2));
+    return;
+  }
+
+  if (cmd === 'start') {
+    console.log('Gerando userCode (POST /authentication/v1.0/oauth/userCode)…');
+    try {
+      const s = await startIfoodLink(db, rest.id);
+      console.log('✅ código gerado:\n');
+      console.log(`   userCode: ${s.userCode}`);
+      console.log(`   link:     ${s.verificationUrlComplete || s.verificationUrl}`);
+      console.log(`   expira:   ${s.userCodeExpiresAt}`);
+      console.log('\nAbra o link acima, logue com a conta do restaurante de teste no');
+      console.log('sandbox do iFood, e autorize o app. Depois rode:');
+      console.log('  node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs complete');
+    } catch (e) {
+      console.log(`❌ falhou: ${e.message}`);
+      if (e.body) console.log('   detalhe:', JSON.stringify(e.body).slice(0, 800));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (cmd === 'complete') {
+    console.log('Tentando trocar o userCode por access/refresh token…');
+    const s = await completeIfoodLink(db, rest.id);
+    console.log(JSON.stringify(s, null, 2));
+    if (s.linkStatus === 'pending') {
+      console.log('\n⏳ ainda pendente — conclua a autorização no Portal do Parceiro e rode "complete" de novo.');
+      return;
+    }
+    if (s.linkStatus !== 'linked') {
+      console.log('\n❌ não vinculou.');
+      process.exit(1);
+    }
+    console.log('\n✅ vinculado! Rodando um ciclo de sincronização (poll → import)…\n');
+    const result = await syncIfoodOrders(db, rest.id);
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(result.ok ? 0 : 1);
+  }
+
+  console.log('comando desconhecido — use: start | complete | status');
+  process.exit(1);
 }
 
 main().catch((e) => {

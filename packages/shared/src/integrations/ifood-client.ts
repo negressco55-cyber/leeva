@@ -1,19 +1,27 @@
 /**
  * Cliente OAuth + polling da API do iFood (Merchant API v1.0).
  *
- * O iFood NÃO envia webhook pro parceiro — o parceiro precisa:
- *   1. trocar client_id/client_secret por um access token (OAuth
- *      client_credentials), renovando antes de expirar;
- *   2. buscar (GET /events:polling) eventos periodicamente;
- *   3. confirmar o recebimento (POST /events/acknowledgment) — sem isso o
- *      iFood reenvia os mesmos eventos;
- *   4. buscar o pedido completo (GET /orders/{id}) quando o evento for de
- *      pedido novo.
+ * O app do Leeva é um **App Distribuído** (um app, muitos restaurantes —
+ * não um app interno de um único merchant). Apps distribuídos NÃO usam
+ * `client_credentials` — usam o fluxo **authorization_code com userCode**
+ * (parecido com o "device code" do OAuth 2.0, RFC 8628):
  *
- * `ifood.ts` (IFoodOrderProvider) foi escrito para um modelo de webhook
- * push, que não é como a API do iFood funciona — por isso este cliente
- * existe separado: ele busca o evento/pedido e entrega pro
- * `IFoodOrderProvider.parse()` fazer a conversão (isso continua igual).
+ *   1. startIfoodAuthorization()      → POST /oauth/userCode
+ *        devolve um `userCode` (curto, exibido pro dono do restaurante) +
+ *        um `authorizationCodeVerifier` (segredo, fica só no servidor) +
+ *        um link do Portal do Parceiro.
+ *   2. O dono do restaurante abre o link, loga no Portal do Parceiro
+ *      (portal.ifood.com.br) com a conta do MERCHANT dele, e autoriza o
+ *      app do Leeva a acessar aquele merchant.
+ *   3. exchangeIfoodAuthorizationCode(userCode, verifier) → POST /oauth/token
+ *        só funciona DEPOIS do passo 2. Devolve accessToken + refreshToken
+ *        (o refreshToken é o que importa — de longa duração, guardado).
+ *   4. refreshIfoodAccessToken(refreshToken) → renova o accessToken quando
+ *      expira, sem precisar repetir o passo 1-2.
+ *
+ * Depois de autenticado, o resto é igual pra qualquer app iFood: buscar
+ * eventos por polling, confirmar, buscar o pedido (ver services/ifood-sync.ts
+ * e services/ifood-link.ts, que guardam o estado por restaurante).
  */
 
 export class IfoodApiError extends Error {
@@ -29,66 +37,131 @@ export class IfoodApiError extends Error {
 
 const BASE = 'https://merchant-api.ifood.com.br';
 
-type CachedToken = { accessToken: string; expiresAt: number };
-let cached: CachedToken | null = null;
-
-/** Reseta o cache do token (usado em testes). */
-export function __resetIfoodTokenCache(): void {
-  cached = null;
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new IfoodApiError(`${name} não configurada`);
+  return v;
 }
 
-/**
- * Obtém um access token válido, renovando via OAuth quando necessário.
- * Cacheado em memória do processo — não é persistido no banco (o processo
- * do servidor é de curta duração/reaproveitado; a próxima chamada renova).
- */
-export async function getIfoodAccessToken(opts: { force?: boolean } = {}): Promise<string> {
-  if (!opts.force && cached && cached.expiresAt > Date.now() + 30_000) return cached.accessToken;
-
-  const clientId = process.env.IFOOD_CLIENT_ID;
-  const clientSecret = process.env.IFOOD_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new IfoodApiError('IFOOD_CLIENT_ID / IFOOD_CLIENT_SECRET não configurados');
-  }
-
-  const body = new URLSearchParams({
-    grantType: 'client_credentials',
-    clientId,
-    clientSecret,
-  });
-
+async function postForm(path: string, params: Record<string, string>): Promise<{ status: number; json: Record<string, unknown> }> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}/authentication/v1.0/oauth/token`, {
+    res = await fetch(`${BASE}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
+      body: new URLSearchParams(params),
       signal: AbortSignal.timeout(10_000),
     });
   } catch (e) {
-    throw new IfoodApiError(`autenticação iFood: falha de rede (${(e as Error).message})`);
+    throw new IfoodApiError(`iFood: falha de rede em ${path} (${(e as Error).message})`);
   }
-
-  const json = (await res.json().catch(() => ({}))) as {
-    accessToken?: string;
-    access_token?: string;
-    expiresIn?: number;
-    expires_in?: number;
-  };
-  if (!res.ok) {
-    throw new IfoodApiError(`autenticação iFood falhou (${res.status})`, res.status, json);
-  }
-  const accessToken = json.accessToken ?? json.access_token;
-  if (!accessToken) throw new IfoodApiError('resposta de autenticação sem accessToken', res.status, json);
-  const expiresIn = Number(json.expiresIn ?? json.expires_in ?? 21_600);
-
-  cached = { accessToken, expiresAt: Date.now() + expiresIn * 1000 };
-  return accessToken;
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return { status: res.status, json };
 }
+
+// ---------------------------------------------------------------------------
+// 1. Iniciar o vínculo — gera o código que o dono do restaurante vai usar.
+// ---------------------------------------------------------------------------
+
+export type IfoodUserCode = {
+  userCode: string;
+  /** SEGREDO — nunca expor ao cliente/navegador. Guardar cifrado. */
+  authorizationCodeVerifier: string;
+  verificationUrl: string;
+  verificationUrlComplete: string;
+  /** segundos até o userCode expirar (o restaurante precisa autorizar antes disso) */
+  expiresIn: number;
+};
+
+export async function startIfoodAuthorization(): Promise<IfoodUserCode> {
+  const clientId = requireEnv('IFOOD_CLIENT_ID');
+  const { status, json } = await postForm('/authentication/v1.0/oauth/userCode', { clientId });
+  if (status !== 200 && status !== 201) {
+    throw new IfoodApiError(`gerar código de vínculo falhou (${status})`, status, json);
+  }
+  const userCode = json.userCode as string | undefined;
+  const authorizationCodeVerifier = json.authorizationCodeVerifier as string | undefined;
+  if (!userCode || !authorizationCodeVerifier) {
+    throw new IfoodApiError('resposta sem userCode/authorizationCodeVerifier', status, json);
+  }
+  return {
+    userCode,
+    authorizationCodeVerifier,
+    verificationUrl: (json.verificationUrl as string) ?? 'https://portal.ifood.com.br/apps/link',
+    verificationUrlComplete: (json.verificationUrlComplete as string) ?? '',
+    expiresIn: Number(json.expiresIn ?? 600),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 2. Trocar o userCode (depois que o restaurante autorizou) por tokens.
+// ---------------------------------------------------------------------------
+
+export type IfoodTokenSet = { accessToken: string; refreshToken: string; expiresIn: number };
+
+/** `AUTHORIZATION_PENDING` = o restaurante ainda não concluiu a autorização no Portal. */
+export class IfoodAuthorizationPendingError extends IfoodApiError {
+  constructor(body?: unknown) {
+    super('o restaurante ainda não concluiu a autorização no Portal do Parceiro', 400, body);
+    this.name = 'IfoodAuthorizationPendingError';
+  }
+}
+
+export async function exchangeIfoodAuthorizationCode(
+  userCode: string,
+  authorizationCodeVerifier: string,
+): Promise<IfoodTokenSet> {
+  const clientId = requireEnv('IFOOD_CLIENT_ID');
+  const clientSecret = requireEnv('IFOOD_CLIENT_SECRET');
+  const { status, json } = await postForm('/authentication/v1.0/oauth/token', {
+    grantType: 'authorization_code',
+    clientId,
+    clientSecret,
+    authorizationCode: userCode,
+    authorizationCodeVerifier,
+  });
+  if (status !== 200) {
+    const code = (json?.error as { code?: string } | undefined)?.code ?? '';
+    if (/pending|not.?authoriz|not.?found/i.test(String(code) + JSON.stringify(json))) {
+      throw new IfoodAuthorizationPendingError(json);
+    }
+    throw new IfoodApiError(`troca do código de autorização falhou (${status})`, status, json);
+  }
+  const accessToken = (json.accessToken ?? json.access_token) as string | undefined;
+  const refreshToken = (json.refreshToken ?? json.refresh_token) as string | undefined;
+  if (!accessToken || !refreshToken) {
+    throw new IfoodApiError('resposta sem accessToken/refreshToken', status, json);
+  }
+  return { accessToken, refreshToken, expiresIn: Number(json.expiresIn ?? json.expires_in ?? 21_600) };
+}
+
+// ---------------------------------------------------------------------------
+// 3. Renovar o accessToken usando o refreshToken guardado.
+// ---------------------------------------------------------------------------
+
+export async function refreshIfoodAccessToken(refreshToken: string): Promise<IfoodTokenSet> {
+  const clientId = requireEnv('IFOOD_CLIENT_ID');
+  const clientSecret = requireEnv('IFOOD_CLIENT_SECRET');
+  const { status, json } = await postForm('/authentication/v1.0/oauth/token', {
+    grantType: 'refresh_token',
+    clientId,
+    clientSecret,
+    refreshToken,
+  });
+  if (status !== 200) throw new IfoodApiError(`renovação do token falhou (${status})`, status, json);
+  const accessToken = (json.accessToken ?? json.access_token) as string | undefined;
+  // o iFood pode rotacionar o refresh token a cada renovação — se não vier um novo, mantém o mesmo.
+  const newRefreshToken = ((json.refreshToken ?? json.refresh_token) as string | undefined) ?? refreshToken;
+  if (!accessToken) throw new IfoodApiError('resposta de renovação sem accessToken', status, json);
+  return { accessToken, refreshToken: newRefreshToken, expiresIn: Number(json.expiresIn ?? json.expires_in ?? 21_600) };
+}
+
+// ---------------------------------------------------------------------------
+// API de pedidos — usa o accessToken de um restaurante já vinculado.
+// ---------------------------------------------------------------------------
 
 export type IfoodMerchant = { id: string; name?: string; corporateName?: string };
 
-/** Lista os merchants associados ao app — usado quando IFOOD_MERCHANT_ID não está definido. */
 export async function listIfoodMerchants(token: string): Promise<IfoodMerchant[]> {
   const res = await fetch(`${BASE}/merchant/v1.0/merchants`, {
     headers: { Authorization: `Bearer ${token}` },

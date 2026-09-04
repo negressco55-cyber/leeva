@@ -426,3 +426,39 @@ explicitamente que queria seguir mesmo assim ("pode sim").
    app no portal iFood, (b) revisar o código antes de ir pra produção. É
    integração nova com um provedor de pedidos externo — trato com a mesma
    cautela do Asaas.
+
+---
+
+## iFood — correção: fluxo authorization_code (02–03/09)
+
+Usuário diagnosticou corretamente a causa do erro anterior: o app é
+**Distribuído** no iFood (um app, muitos restaurantes), e apps distribuídos
+não usam `client_credentials` — só `authorization_code` com `userCode`
+(fluxo tipo "device code", cada restaurante autoriza individualmente pelo
+Portal do Parceiro).
+
+1. **Reescrevi o cliente iFood** (`ifood-client.ts`): removido
+   `client_credentials`; adicionado `startIfoodAuthorization` (gera
+   userCode), `exchangeIfoodAuthorizationCode`, `refreshIfoodAccessToken`.
+2. **Vínculo por restaurante** (`ifood-link.ts`, novo): guarda o estado em
+   `integrations.config` (tabela que já existia, sem migration nova). O
+   dono do restaurante pode ler a própria linha via RLS — por isso o
+   `authorizationCodeVerifier` e o `refreshToken`/`accessToken` são
+   **cifrados** (`encryptSecret`/`decryptSecret`, AES-GCM via Web Crypto,
+   chave `INTEGRATIONS_ENCRYPTION_KEY`) antes de gravar. Só o status de
+   exibição (userCode, link, merchantIds) fica em claro.
+3. **Tela nova em Integrações** (`IfoodLink.tsx` + `/api/ifood/link`):
+   dono clica "Vincular", vê o código + link do Portal do Parceiro, autoriza
+   lá, volta e clica "Concluir vínculo".
+4. **`pushStatus` do iFood ficou sem chamador** — a interface `OrderProvider`
+   não carrega `restaurantId` (que agora é necessário pra resolver o token
+   certo). Documentado, não é regressão (já não tinha chamador antes).
+5. **Testado contra o sandbox real**: `startIfoodLink` funcionou —
+   gerou um userCode de verdade (`MVVB-GTJV`) e um link real do Portal do
+   Parceiro, confirmando que o grant certo é esse. Falta um humano abrir o
+   link e autorizar (não é algo que eu deva fazer — é a conta do
+   restaurante/merchant) pra testar o recebimento de pedido ponta a ponta.
+6. Gerei uma `INTEGRATIONS_ENCRYPTION_KEY` local pro teste (só em
+   `apps/restaurante/.env.local`, nunca commitada) — em produção precisa de
+   uma chave própria, gerada uma vez e nunca trocada (trocar invalida todo
+   segredo já cifrado).
