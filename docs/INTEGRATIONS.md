@@ -14,7 +14,7 @@ Resumo:
 |---|---|---|---|
 | Manual | fonte de pedido | **IMPLEMENTADO** | — |
 | Cardápio / API própria | fonte de pedido | **IMPLEMENTADO** | gerar `x-leeva-api-key` (abaixo) |
-| iFood | fonte de pedido | **PREPARADO** | `IFOOD_ACCESS_TOKEN`, `IFOOD_WEBHOOK_SECRET`, app aprovado + merchant homologado |
+| iFood | fonte de pedido | **PREPARADO** (polling implementado, testado em sandbox — app não aprovado pro grant `client_credentials`, ver seção abaixo) | `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET`, app aprovado no portal iFood pro produto certo |
 | WhatsApp (pedidos) | fonte de pedido | **PREPARADO** | `WHATSAPP_*`, número de produção aprovado |
 | WhatsApp (notificações) | canal | **PREPARADO** | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID` |
 | SMS (Twilio) | canal | **PREPARADO** | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` |
@@ -99,14 +99,64 @@ where restaurant_id = '<id>' and provider = 'menu';
 ```
 
 ## <a id="ifood"></a>iFood
-Fluxo: `iFood → webhook → IFoodOrderProvider.verifyWebhook (HMAC x-ifood-signature)
-→ parse → NormalizedOrder → createOrderFromNormalized`.
-`pushStatus` mapeia `preparing→confirm`, `in_route→dispatch`, `delivered→conclude`,
-`cancelled→requestCancellation` (chama `merchant-api.ifood.com.br`).
 
-**Falta:** credenciais de app aprovadas + OAuth (fluxo de refresh do
-`IFOOD_ACCESS_TOKEN` **não** está incluído), homologação do merchant. Sem
-`IFOOD_WEBHOOK_SECRET`, `verifyWebhook` retorna `false` e nenhum pedido é criado.
+**Importante:** o iFood **não envia webhook** pro parceiro (ao contrário do
+que a versão anterior deste doc dizia). A Merchant API v1.0 é de **polling**:
+o parceiro busca eventos periodicamente e confirma o recebimento.
+
+Fluxo real, implementado em `integrations/ifood-client.ts` + `services/ifood-sync.ts`:
+
+```
+getIfoodAccessToken()          OAuth client_credentials → access token (cacheado, renova sozinho)
+  → listIfoodMerchants()       descobre o(s) merchant(s) do app (se IFOOD_MERCHANT_ID vazio)
+  → pollIfoodEvents()          GET /events:polling
+  → (evento código PLC)
+      → getIfoodOrder()        GET /orders/{id}
+      → IFoodOrderProvider.parse()      → NormalizedOrder
+      → resolveAndApplyDeliveryLocation  (bloco 1 — mesma validação de endereço dos outros canais)
+      → createOrderFromNormalized()
+  → acknowledgeIfoodEvents()   POST /events/acknowledgment — de TODOS os eventos buscados,
+                                mesmo os que não viraram pedido (senão o iFood reenvia)
+```
+
+Acionado via `POST /api/cron/ifood-poll?restaurant=<id>` (protegido por
+`CRON_SECRET`, mesmo padrão do `dispatch-tick`) — ainda não agendado
+automaticamente (ver abaixo). `pushStatus` (`IFoodOrderProvider`) mapeia
+`preparing→confirm`, `in_route→dispatch`, `delivered→conclude`,
+`cancelled→requestCancellation` e não mudou.
+
+**Variáveis:** `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET` (obrigatórias),
+`IFOOD_MERCHANT_ID` (opcional — sem ela, descobre via `listIfoodMerchants`).
+`IFOOD_ACCESS_TOKEN`/`IFOOD_WEBHOOK_SECRET` (do formato antigo, webhook) não
+são mais usados no caminho de recebimento de pedido.
+
+### Testado em 02/09 com credenciais de sandbox reais
+
+`scripts/test-ifood-sandbox.mjs` roda o fluxo (auth → merchants → polling →
+import). Resultado real:
+
+```
+1) Autenticando (OAuth client_credentials)…
+   ❌ falhou: autenticação iFood falhou (400)
+   detalhe: {"error":{"code":"BadRequest","message":"Unsupported grant type client_credentials to client <id>"}}
+```
+
+O request está correto (parâmetros `grantType`/`clientId`/`clientSecret`
+reconhecidos — testei também a variação `grant_type` padrão OAuth2, que dá um
+erro diferente e pior, confirmando que o formato certo é o camelCase). O
+iFood recusa **esse client específico** pra esse grant type — ou seja, é uma
+configuração do lado do app no portal de parceiros, não um bug daqui.
+
+**Precisa checar no painel de desenvolvedor do iFood:**
+- Se o app foi criado com o produto/escopo certo pra **Merchant API — Pedidos**
+  (alguns tipos de app do iFood são só pra outro fluxo, ex. um "plugin" que usa
+  `authorization_code` com login do lojista, não `client_credentials`).
+- Se o app está com o status "ativo"/aprovado pro ambiente de sandbox.
+- Se existe um merchant de teste já vinculado a esse Client ID.
+
+Assim que tiver um client aprovado pra `client_credentials`, o teste é rodar
+de novo: `node --import tsx --env-file=apps/restaurante/.env.local
+scripts/test-ifood-sandbox.mjs`.
 
 ## <a id="whatsapp"></a>WhatsApp
 Fluxo: `WhatsApp Cloud API → webhook → verify (HMAC x-hub-signature-256) →

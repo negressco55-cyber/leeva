@@ -16,6 +16,7 @@ export * from './situation';
 export * from './orders';
 export * from './tracking';
 export * from './webhooks';
+export * from './ifood-sync';
 // Fase 3 — produto comercial
 export * from './autodispatch';
 export * from './payout';

@@ -1,25 +1,27 @@
 /**
  * IFoodOrderProvider — PREPARADO.
  *
+ * IMPORTANTE: o iFood não manda webhook pro parceiro. O RECEBIMENTO de
+ * pedido de verdade é feito por polling — ver `ifood-client.ts` +
+ * `services/ifood-sync.ts` (OAuth client_credentials → GET /events:polling
+ * → GET /orders/{id} → parse() abaixo → createOrderFromNormalized).
+ * `verifyWebhook` aqui só existe porque a rota genérica
+ * `/api/webhooks/[provider]` aceita 'ifood' — não é o caminho usado.
+ *
  * O que já está pronto:
  *  - parsing do payload de pedido do iFood (formato da API de Pedidos v1)
  *    para NormalizedOrder;
- *  - verificação de webhook por HMAC-SHA256 (header x-ifood-signature)
- *    usando IFOOD_WEBHOOK_SECRET;
- *  - pushStatus (confirmar/despachar/concluir) chamando a API do iFood
- *    com IFOOD_ACCESS_TOKEN.
+ *  - pushStatus (confirmar/despachar/concluir), autenticado via
+ *    getIfoodAccessToken() (OAuth client_credentials, renova sozinho).
  *
  * O que falta (depende do iFood):
- *  - credenciais de app aprovadas (client_id / client_secret) e OAuth;
- *  - IFOOD_ACCESS_TOKEN válido (fluxo de refresh não incluído aqui);
- *  - homologação do merchant.
- *
- * Enquanto IFOOD_ACCESS_TOKEN / IFOOD_WEBHOOK_SECRET não existirem, o
- * provider recusa webhooks (verifyWebhook = false) e pushStatus retorna erro
- * explícito. Nada é simulado.
+ *  - app aprovado no portal do iFood pro grant `client_credentials` — ver
+ *    docs/INTEGRATIONS.md#ifood (testado em sandbox em 02/09, recusado
+ *    pelo iFood nesse ponto — não é bug daqui).
  */
 import type { OrderProvider, ProviderResult, NormalizedOrder } from './types';
 import { hmacSha256Hex, timingSafeEqualHex } from '../lib/crypto';
+import { getIfoodAccessToken } from './ifood-client';
 
 type IFoodOrderPayload = {
   id?: string;
@@ -43,7 +45,7 @@ export class IFoodOrderProvider implements OrderProvider {
   readonly integrationStatus = 'prepared' as const;
 
   get configured() {
-    return Boolean(process.env.IFOOD_ACCESS_TOKEN);
+    return Boolean(process.env.IFOOD_CLIENT_ID && process.env.IFOOD_CLIENT_SECRET);
   }
 
   async verifyWebhook(req: { headers: Record<string, string>; rawBody: string }): Promise<boolean> {
@@ -93,7 +95,7 @@ export class IFoodOrderProvider implements OrderProvider {
 
   async pushStatus(externalId: string, status: string) {
     if (!this.configured)
-      return { ok: false, error: 'iFood PREPARADO: defina IFOOD_ACCESS_TOKEN para enviar status' };
+      return { ok: false, error: 'iFood PREPARADO: defina IFOOD_CLIENT_ID/IFOOD_CLIENT_SECRET para enviar status' };
     // mapa Leeva -> iFood
     const map: Record<string, string> = {
       preparing: 'confirm',
@@ -104,11 +106,12 @@ export class IFoodOrderProvider implements OrderProvider {
     const action = map[status];
     if (!action) return { ok: true }; // status sem equivalente no iFood
     try {
+      const token = await getIfoodAccessToken();
       const res = await fetch(
         `https://merchant-api.ifood.com.br/order/v1.0/orders/${externalId}/${action}`,
         {
           method: 'POST',
-          headers: { Authorization: `Bearer ${process.env.IFOOD_ACCESS_TOKEN}` },
+          headers: { Authorization: `Bearer ${token}` },
           signal: AbortSignal.timeout(8000),
         },
       );

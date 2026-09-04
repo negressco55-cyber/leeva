@@ -1,6 +1,7 @@
 export * from './types';
 export * from './manual';
 export * from './ifood';
+export * from './ifood-client';
 export * from './whatsapp';
 export * from './website';
 export * from './registry';
