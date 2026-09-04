@@ -396,3 +396,33 @@ Causa: nada geocodificava o endereço; sem coordenada, a tarifa caía no piso
 9. **Teste de regressão:** `scripts/test-address.mjs` (11 casos), com geocoder
    falso determinístico (via `__setMapProvider`) pra não depender de rede.
    Cobre o caso exato reportado.
+
+---
+
+## iFood — integração por polling (02/09, sandbox)
+
+Pedido do usuário: configurar credenciais de sandbox reais (Client ID/Secret/
+Merchant ID) e testar o fluxo completo. Pausei antes de agir porque contrariava
+a regra repetida em toda sessão ("nunca iFood") — usuário confirmou
+explicitamente que queria seguir mesmo assim ("pode sim").
+
+1. **Doc `docs/IFOOD-INTEGRACAO.md` citado pelo usuário não existia.** O real
+   é `docs/INTEGRATIONS.md#ifood`. Avisei antes de continuar.
+2. **O código existente (`ifood.ts`) estava arquitetado errado** — assumia
+   webhook push do iFood. A Merchant API v1.0 real é por *polling*: o
+   parceiro autentica via OAuth, busca eventos, confirma recebimento, busca
+   o pedido. Implementei esse fluxo de verdade em vez de só "configurar 3
+   variáveis" (que não teria funcionado sobre o código antigo).
+3. **Testado contra o sandbox real:** autenticação OAuth foi recusada pelo
+   iFood ("Unsupported grant type client_credentials to client <id>").
+   Confirmei que o formato do request está correto (testei a variante
+   snake_case padrão OAuth2 também, que dá um erro diferente/pior). É uma
+   configuração do app no portal de parceiros do iFood, não um bug daqui —
+   documentado o que conferir em `docs/INTEGRATIONS.md#ifood`.
+4. **Credenciais reais só em `apps/restaurante/.env.local`** (gitignored),
+   nunca no código, no chat de novo, ou em commit.
+5. **Não fiz merge pra `main`** — ficou em `feature/ifood-sandbox` (branch
+   separada da do redesign) esperando: (a) você resolver a configuração do
+   app no portal iFood, (b) revisar o código antes de ir pra produção. É
+   integração nova com um provedor de pedidos externo — trato com a mesma
+   cautela do Asaas.
