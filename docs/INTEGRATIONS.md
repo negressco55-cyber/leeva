@@ -224,3 +224,24 @@ instância em produção). Google/Mapbox: pontos de extensão prontos em
 rastreamento). Se houver telefone + canal externo configurado, tenta também por
 lá. Se o canal não está configurado, a notificação fica `status = 'skipped'` com
 o motivo em `error` — **nunca** marca como enviada sem enviar.
+
+### Bloqueado no portal do iFood, aguardando suporte (ticket 32820575)
+
+Vínculo (`startIfoodLink`) funciona — gera `userCode` real e chega na tela de
+autorização do Portal do Parceiro. Mas a **homologação** do app LEEVA pros
+módulos **Order/Events** (obrigatória antes de qualquer merchant conseguir
+autorizar de verdade) trava no portal com **"Erro ao criar homologação"**,
+sem detalhe — tentado com o único app disponível (LEEVA, Distribuído,
+status "Em desenvolvimento"), loja de teste "65.819.903 MARIANA CIDELINO DOS
+SANTOS", modo POLLING.
+
+**Aberto ticket de suporte com o iFood: Nº 32820575** ("Erro ao criar
+homologação — app LEEVA (Distribuído)"), status Em análise em 04/09/2026.
+Isso é 100% do lado do iFood — nada a fazer no código enquanto não
+responderem. Quando a homologação for liberada, o teste ponta a ponta é:
+
+```bash
+node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs start
+# abrir o link, autorizar no Portal do Parceiro, depois:
+node --import tsx --env-file=apps/restaurante/.env.local scripts/test-ifood-sandbox.mjs complete
+```
