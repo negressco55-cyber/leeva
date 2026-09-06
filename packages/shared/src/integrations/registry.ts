@@ -76,10 +76,10 @@ export function integrationsOverview(): IntegrationInfo[] {
     {
       provider: 'maps',
       kind: 'routing',
-      status: process.env.OSRM_BASE_URL ? 'implemented' : 'prepared',
-      configured: Boolean(process.env.OSRM_BASE_URL),
-      requires: ['OSRM_BASE_URL (rota real) — sem isso usa distância em linha reta'],
-      docs: 'docs/INTEGRATIONS.md#rotas',
+      status: process.env.OSRM_BASE_URL || process.env.MAPBOX_TOKEN ? 'implemented' : 'prepared',
+      configured: Boolean(process.env.OSRM_BASE_URL || process.env.MAPBOX_TOKEN),
+      requires: ['OSRM_BASE_URL ou MAPBOX_TOKEN (rota real) — sem isso usa distância em linha reta ×1,3. Ver docs/ROTAS-SETUP.md'],
+      docs: 'docs/ROTAS-SETUP.md',
     },
   ];
 

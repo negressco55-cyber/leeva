@@ -42,3 +42,7 @@ npm-debug.log*
 /app.json
 /apps/google-services.json
 /apps/GoogleService-Info.plist
+
+# backups locais do banco (nunca versionar)
+backups/
+*.dump

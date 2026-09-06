@@ -7,9 +7,12 @@
  *
  * Estado atual:
  *  - StraightLineRoutingService  -> IMPLEMENTADO (Haversine, sem API)
- *  - GoogleRoutingService        -> PREPARADO   (requer GOOGLE_MAPS_API_KEY)
- *  - MapboxRoutingService        -> PREPARADO   (requer MAPBOX_TOKEN)
- *  - OsrmRoutingService          -> PREPARADO   (requer OSRM_BASE_URL)
+ *  - MapboxRoutingService        -> IMPLEMENTADO (requer MAPBOX_TOKEN)
+ *  - OsrmRoutingService          -> IMPLEMENTADO (requer OSRM_BASE_URL)
+ *
+ * Preferência em getRoutingService(): OSRM (se OSRM_BASE_URL) > Mapbox (se
+ * MAPBOX_TOKEN) > linha reta. Todos com fallback pra linha reta em caso de
+ * falha (HybridRoutingService). Ver docs/ROTAS-SETUP.md.
  */
 import { haversineKm, minutesForKm, type LatLng } from './geo';
 
@@ -124,6 +127,51 @@ export class OsrmRoutingService implements RoutingService {
 }
 
 /**
+ * IMPLEMENTADO — rota real via Mapbox Directions API. Ativa com `MAPBOX_TOKEN`
+ * (a mesma chave que já troca os tiles do mapa por Mapbox). Free tier:
+ * 100.000 requisições/mês. Resposta no mesmo formato do OSRM.
+ */
+export class MapboxRoutingService implements RoutingService {
+  readonly provider = 'mapbox';
+  readonly isEstimate = false;
+  constructor(private token: string) {}
+
+  async leg(from: LatLng, to: LatLng): Promise<RouteLeg | null> {
+    const plan = await this.route([from, to]);
+    return plan?.legs[0] ?? null;
+  }
+
+  async route(points: LatLng[]): Promise<RoutePlan | null> {
+    if (points.length < 2) return null;
+    const coords = points.map((p) => `${p.longitude},${p.latitude}`).join(';');
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?overview=false&access_token=${this.token}`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!res.ok) return null;
+      const json = (await res.json()) as {
+        routes?: { distance: number; duration: number; legs: { distance: number; duration: number }[] }[];
+      };
+      const route = json.routes?.[0];
+      if (!route) return null;
+      return {
+        legs: route.legs.map((l) => ({
+          distanceKm: l.distance / 1000,
+          durationMin: l.duration / 60,
+          isEstimate: false,
+          provider: this.provider,
+        })),
+        totalDistanceKm: route.distance / 1000,
+        totalDurationMin: route.duration / 60,
+        isEstimate: false,
+        provider: this.provider,
+      };
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
  * Combina um provedor de rota real com o fallback em linha reta.
  * Se o provedor real falha (rede, rate limit, ponto sem via), NÃO perde a
  * estimativa — cai para Haversine × fator de rua. Cache curto em memória
@@ -193,8 +241,11 @@ let cached: RoutingService | null = null;
 export function getRoutingService(): RoutingService {
   if (cached) return cached;
   const osrm = process.env.OSRM_BASE_URL;
+  const mapbox = process.env.MAPBOX_TOKEN;
   if (osrm) {
     cached = new HybridRoutingService(new OsrmRoutingService(osrm));
+  } else if (mapbox) {
+    cached = new HybridRoutingService(new MapboxRoutingService(mapbox));
   } else {
     cached = new StraightLineRoutingService();
   }

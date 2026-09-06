@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { StraightLineRoutingService, HybridRoutingService, type RoutingService } from '../services/routing';
+import {
+  StraightLineRoutingService,
+  HybridRoutingService,
+  MapboxRoutingService,
+  type RoutingService,
+} from '../services/routing';
 
 test('StraightLineRoutingService: leg devolve distância e tempo estimados', async () => {
   const svc = new StraightLineRoutingService();
@@ -63,6 +68,46 @@ test('HybridRoutingService: cai para linha reta quando o provedor real falha', a
   assert.ok(leg, 'deveria ter fallback');
   assert.equal(leg!.isEstimate, true, 'fallback é estimativa');
   assert.ok(leg!.distanceKm > 2 && leg!.distanceKm < 4);
+});
+
+test('MapboxRoutingService: converte metros/segundos e monta a URL com o token', async () => {
+  const realFetch = globalThis.fetch;
+  let calledUrl = '';
+  globalThis.fetch = (async (url: string) => {
+    calledUrl = String(url);
+    return {
+      ok: true,
+      json: async () => ({
+        routes: [{ distance: 4300, duration: 1080, legs: [{ distance: 4300, duration: 1080 }] }],
+      }),
+    };
+  }) as unknown as typeof fetch;
+  try {
+    const svc = new MapboxRoutingService('tok_123');
+    const leg = await svc.leg({ latitude: -7.11, longitude: -34.86 }, { latitude: -7.1, longitude: -34.84 });
+    assert.ok(leg);
+    assert.equal(leg!.distanceKm, 4.3);
+    assert.equal(leg!.durationMin, 18);
+    assert.equal(leg!.isEstimate, false);
+    assert.match(calledUrl, /api\.mapbox\.com\/directions\/v5\/mapbox\/driving/);
+    assert.match(calledUrl, /access_token=tok_123/);
+    assert.match(calledUrl, /-34\.86,-7\.11;-34\.84,-7\.1/); // lng,lat na ordem certa
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('MapboxRoutingService: resposta não-ok → null (Hybrid cai pra linha reta)', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => ({ ok: false, json: async () => ({}) })) as unknown as typeof fetch;
+  try {
+    const svc = new HybridRoutingService(new MapboxRoutingService('tok'));
+    const leg = await svc.leg({ latitude: -7.11, longitude: -34.86 }, { latitude: -7.1, longitude: -34.84 });
+    assert.ok(leg);
+    assert.equal(leg!.isEstimate, true);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 test('HybridRoutingService: cacheia a mesma perna', async () => {

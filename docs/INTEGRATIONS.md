@@ -214,10 +214,16 @@ pedido com nota "[A CONFIRMAR]"`.
 
 ## <a id="rotas"></a>Rotas / mapas
 `RoutingService` isola o provedor. Sem config → `StraightLineRoutingService`
-(Haversine × 1.3 de fator de rua, marcado `isEstimate: true`). Com
-`OSRM_BASE_URL` → rota real (ex: `https://router.project-osrm.org`, mas rode a sua
-instância em produção). Google/Mapbox: pontos de extensão prontos em
-`getRoutingService()`.
+(Haversine × 1.3 de fator de rua, marcado `isEstimate: true`). Provedores reais
+**implementados**, todos com fallback automático pra linha reta:
+
+- **Mapbox** — define `MAPBOX_TOKEN` (o mesmo token troca os tiles do mapa). Free
+  tier 100k req/mês.
+- **OSRM** — define `OSRM_BASE_URL` (instância própria; não use o servidor
+  público em produção).
+
+Preferência: OSRM > Mapbox > linha reta. **Passo a passo completo:
+`docs/ROTAS-SETUP.md`.**
 
 ## <a id="whatsapp"></a><a id="sms"></a><a id="push"></a>Canais de notificação
 `NotificationService` sempre grava a versão **in-app** (visível no painel e no
