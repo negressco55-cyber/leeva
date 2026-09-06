@@ -1,22 +1,24 @@
 /**
  * IFoodOrderProvider — PREPARADO.
  *
+ * IMPORTANTE: o iFood não manda webhook pro parceiro. O RECEBIMENTO de
+ * pedido de verdade é feito por polling, por RESTAURANTE (cada um vincula
+ * sua própria conta iFood via authorization_code + userCode — o Leeva é um
+ * "app distribuído", não usa client_credentials) — ver `ifood-client.ts` +
+ * `services/ifood-link.ts` (vínculo) + `services/ifood-sync.ts` (polling).
+ * `verifyWebhook` aqui só existe porque a rota genérica
+ * `/api/webhooks/[provider]` aceita 'ifood' — não é o caminho usado.
+ *
  * O que já está pronto:
  *  - parsing do payload de pedido do iFood (formato da API de Pedidos v1)
- *    para NormalizedOrder;
- *  - verificação de webhook por HMAC-SHA256 (header x-ifood-signature)
- *    usando IFOOD_WEBHOOK_SECRET;
- *  - pushStatus (confirmar/despachar/concluir) chamando a API do iFood
- *    com IFOOD_ACCESS_TOKEN.
+ *    para NormalizedOrder.
  *
- * O que falta (depende do iFood):
- *  - credenciais de app aprovadas (client_id / client_secret) e OAuth;
- *  - IFOOD_ACCESS_TOKEN válido (fluxo de refresh não incluído aqui);
- *  - homologação do merchant.
- *
- * Enquanto IFOOD_ACCESS_TOKEN / IFOOD_WEBHOOK_SECRET não existirem, o
- * provider recusa webhooks (verifyWebhook = false) e pushStatus retorna erro
- * explícito. Nada é simulado.
+ * `pushStatus` (confirmar/despachar/concluir) ainda não tem chamador em
+ * lugar nenhum do sistema (dead code intencional — não é regressão). Pra
+ * ligar de verdade precisa de um `restaurantId` (o token agora é por
+ * restaurante, via `getValidIfoodAccessToken`), que a interface
+ * `OrderProvider.pushStatus(externalId, status)` não carrega — ajustar
+ * quando alguém for de fato chamar isso a partir de `advanceOrderStatus`.
  */
 import type { OrderProvider, ProviderResult, NormalizedOrder } from './types';
 import { hmacSha256Hex, timingSafeEqualHex } from '../lib/crypto';
@@ -43,7 +45,7 @@ export class IFoodOrderProvider implements OrderProvider {
   readonly integrationStatus = 'prepared' as const;
 
   get configured() {
-    return Boolean(process.env.IFOOD_ACCESS_TOKEN);
+    return Boolean(process.env.IFOOD_CLIENT_ID && process.env.IFOOD_CLIENT_SECRET);
   }
 
   async verifyWebhook(req: { headers: Record<string, string>; rawBody: string }): Promise<boolean> {
@@ -91,30 +93,14 @@ export class IFoodOrderProvider implements OrderProvider {
     return { ok: true, order };
   }
 
-  async pushStatus(externalId: string, status: string) {
-    if (!this.configured)
-      return { ok: false, error: 'iFood PREPARADO: defina IFOOD_ACCESS_TOKEN para enviar status' };
-    // mapa Leeva -> iFood
-    const map: Record<string, string> = {
-      preparing: 'confirm',
-      in_route: 'dispatch',
-      delivered: 'conclude',
-      cancelled: 'requestCancellation',
-    };
-    const action = map[status];
-    if (!action) return { ok: true }; // status sem equivalente no iFood
-    try {
-      const res = await fetch(
-        `https://merchant-api.ifood.com.br/order/v1.0/orders/${externalId}/${action}`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${process.env.IFOOD_ACCESS_TOKEN}` },
-          signal: AbortSignal.timeout(8000),
-        },
-      );
-      return res.ok ? { ok: true } : { ok: false, error: `iFood ${res.status}` };
-    } catch (e) {
-      return { ok: false, error: (e as Error).message };
-    }
+  /**
+   * PREPARADO, sem chamador ainda. `OrderProvider.pushStatus` não recebe
+   * `restaurantId` e o token do iFood agora é por restaurante — quando isto
+   * for ligado em `advanceOrderStatus`, passe o token já resolvido
+   * (`getValidIfoodAccessToken(db, restaurantId)`) em vez de reautenticar
+   * aqui dentro.
+   */
+  async pushStatus(): Promise<{ ok: boolean; error?: string }> {
+    return { ok: false, error: 'iFood pushStatus: ainda não ligado (precisa do restaurantId — ver comentário no código)' };
   }
 }

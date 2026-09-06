@@ -396,3 +396,69 @@ Causa: nada geocodificava o endereço; sem coordenada, a tarifa caía no piso
 9. **Teste de regressão:** `scripts/test-address.mjs` (11 casos), com geocoder
    falso determinístico (via `__setMapProvider`) pra não depender de rede.
    Cobre o caso exato reportado.
+
+---
+
+## iFood — integração por polling (02/09, sandbox)
+
+Pedido do usuário: configurar credenciais de sandbox reais (Client ID/Secret/
+Merchant ID) e testar o fluxo completo. Pausei antes de agir porque contrariava
+a regra repetida em toda sessão ("nunca iFood") — usuário confirmou
+explicitamente que queria seguir mesmo assim ("pode sim").
+
+1. **Doc `docs/IFOOD-INTEGRACAO.md` citado pelo usuário não existia.** O real
+   é `docs/INTEGRATIONS.md#ifood`. Avisei antes de continuar.
+2. **O código existente (`ifood.ts`) estava arquitetado errado** — assumia
+   webhook push do iFood. A Merchant API v1.0 real é por *polling*: o
+   parceiro autentica via OAuth, busca eventos, confirma recebimento, busca
+   o pedido. Implementei esse fluxo de verdade em vez de só "configurar 3
+   variáveis" (que não teria funcionado sobre o código antigo).
+3. **Testado contra o sandbox real:** autenticação OAuth foi recusada pelo
+   iFood ("Unsupported grant type client_credentials to client <id>").
+   Confirmei que o formato do request está correto (testei a variante
+   snake_case padrão OAuth2 também, que dá um erro diferente/pior). É uma
+   configuração do app no portal de parceiros do iFood, não um bug daqui —
+   documentado o que conferir em `docs/INTEGRATIONS.md#ifood`.
+4. **Credenciais reais só em `apps/restaurante/.env.local`** (gitignored),
+   nunca no código, no chat de novo, ou em commit.
+5. **Não fiz merge pra `main`** — ficou em `feature/ifood-sandbox` (branch
+   separada da do redesign) esperando: (a) você resolver a configuração do
+   app no portal iFood, (b) revisar o código antes de ir pra produção. É
+   integração nova com um provedor de pedidos externo — trato com a mesma
+   cautela do Asaas.
+
+---
+
+## iFood — correção: fluxo authorization_code (02–03/09)
+
+Usuário diagnosticou corretamente a causa do erro anterior: o app é
+**Distribuído** no iFood (um app, muitos restaurantes), e apps distribuídos
+não usam `client_credentials` — só `authorization_code` com `userCode`
+(fluxo tipo "device code", cada restaurante autoriza individualmente pelo
+Portal do Parceiro).
+
+1. **Reescrevi o cliente iFood** (`ifood-client.ts`): removido
+   `client_credentials`; adicionado `startIfoodAuthorization` (gera
+   userCode), `exchangeIfoodAuthorizationCode`, `refreshIfoodAccessToken`.
+2. **Vínculo por restaurante** (`ifood-link.ts`, novo): guarda o estado em
+   `integrations.config` (tabela que já existia, sem migration nova). O
+   dono do restaurante pode ler a própria linha via RLS — por isso o
+   `authorizationCodeVerifier` e o `refreshToken`/`accessToken` são
+   **cifrados** (`encryptSecret`/`decryptSecret`, AES-GCM via Web Crypto,
+   chave `INTEGRATIONS_ENCRYPTION_KEY`) antes de gravar. Só o status de
+   exibição (userCode, link, merchantIds) fica em claro.
+3. **Tela nova em Integrações** (`IfoodLink.tsx` + `/api/ifood/link`):
+   dono clica "Vincular", vê o código + link do Portal do Parceiro, autoriza
+   lá, volta e clica "Concluir vínculo".
+4. **`pushStatus` do iFood ficou sem chamador** — a interface `OrderProvider`
+   não carrega `restaurantId` (que agora é necessário pra resolver o token
+   certo). Documentado, não é regressão (já não tinha chamador antes).
+5. **Testado contra o sandbox real**: `startIfoodLink` funcionou —
+   gerou um userCode de verdade (`MVVB-GTJV`) e um link real do Portal do
+   Parceiro, confirmando que o grant certo é esse. Falta um humano abrir o
+   link e autorizar (não é algo que eu deva fazer — é a conta do
+   restaurante/merchant) pra testar o recebimento de pedido ponta a ponta.
+6. Gerei uma `INTEGRATIONS_ENCRYPTION_KEY` local pro teste (só em
+   `apps/restaurante/.env.local`, nunca commitada) — em produção precisa de
+   uma chave própria, gerada uma vez e nunca trocada (trocar invalida todo
+   segredo já cifrado).

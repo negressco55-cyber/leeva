@@ -55,8 +55,8 @@ export function integrationsOverview(): IntegrationInfo[] {
       provider: 'ifood',
       kind: 'order-source',
       status: 'prepared',
-      configured: Boolean(process.env.IFOOD_ACCESS_TOKEN && process.env.IFOOD_WEBHOOK_SECRET),
-      requires: ['IFOOD_ACCESS_TOKEN', 'IFOOD_WEBHOOK_SECRET', 'app aprovado + merchant homologado'],
+      configured: Boolean(process.env.IFOOD_CLIENT_ID && process.env.IFOOD_CLIENT_SECRET),
+      requires: ['IFOOD_CLIENT_ID', 'IFOOD_CLIENT_SECRET', 'app aprovado no portal iFood para o grant client_credentials'],
       docs: 'docs/INTEGRATIONS.md#ifood',
     },
     {

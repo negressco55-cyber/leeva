@@ -2,6 +2,7 @@ import { requireRestaurantContext } from '@/lib/context';
 import { integrationsOverview } from '@leeva/shared/integrations';
 import { INTEGRATION_STATUS_LABELS } from '@leeva/shared';
 import { ApiKeys } from './ApiKeys';
+import { IfoodLink } from './IfoodLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,13 +54,16 @@ export default async function IntegracoesPage() {
         </tbody>
       </table>
 
+      <IfoodLink />
+
       <ApiKeys />
 
       <section className="panel">
         <h2 style={{ fontSize: 15, marginTop: 0 }}>Endpoints</h2>
         <ul className="muted" style={{ fontSize: 13, lineHeight: 1.8 }}>
           <li>
-            <b>Webhook iFood:</b> <code>{base}/api/webhooks/ifood?restaurant=&lt;id&gt;</code>
+            <b>Sincronização iFood (polling):</b> <code>POST {base}/api/cron/ifood-poll?restaurant=&lt;id&gt;</code>{' '}
+            com header <code>x-cron-secret</code>
           </li>
           <li>
             <b>Webhook WhatsApp:</b> <code>{base}/api/webhooks/whatsapp?restaurant=&lt;id&gt;</code>{' '}
