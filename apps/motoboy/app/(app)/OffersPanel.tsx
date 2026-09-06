@@ -11,6 +11,7 @@ import {
   type PaymentMethod,
   type PaymentStatus,
 } from '@leeva/shared';
+import RouteMap from './_lib/RouteMap';
 
 type Offer = {
   offerId: string;
@@ -19,6 +20,13 @@ type Offer = {
   customerName: string;
   address: string;
   region: string | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  pickupName: string | null;
+  pickupAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  etaMinutes: number | null;
   expiresAt: string;
   payout: number | null;
   quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
@@ -121,87 +129,112 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
       {active.map((o) => {
         const secs = Math.max(0, Math.round((new Date(o.expiresAt).getTime() - now) / 1000));
         const collectOnDelivery = paymentPendingOnDelivery(o.paymentMethod, o.paymentStatus);
+        const grouped = !!o.routeStops && o.routeStops.length > 1;
+        const totalKm = o.distanceTotalKm ?? o.routeTotalKm;
+        const perKm = o.payout != null && totalKm && totalKm > 0 ? o.payout / totalKm : null;
+        const pickupEta =
+          o.distancePickupKm != null ? Math.max(1, Math.round((o.distancePickupKm / 20) * 60) + 2) : null;
+
         return (
           <div key={o.offerId} className="offer-card">
-            <div className="offer-head">
-              <strong>
-                {o.routeStops && o.routeStops.length > 1
-                  ? `Nova rota — ${o.routeStops.length} entregas`
-                  : 'Nova entrega'}
-              </strong>
+            <div className="offer-map-wrap">
+              <RouteMap
+                pickup={o.pickupLat != null && o.pickupLng != null ? { lat: o.pickupLat, lng: o.pickupLng } : null}
+                dropoff={o.dropoffLat != null && o.dropoffLng != null ? { lat: o.dropoffLat, lng: o.dropoffLng } : null}
+                height={148}
+              />
               <span className={`offer-timer ${secs <= 10 ? 'urgent' : ''}`}>{secs}s</span>
+              {!o.countsForAcceptance && (
+                <button
+                  className="offer-dismiss"
+                  disabled={busy === o.offerId}
+                  onClick={() => respond(o.offerId, 'decline')}
+                >
+                  Recusar sem afetar sua taxa ✕
+                </button>
+              )}
             </div>
-            <div className="offer-body">
-              {o.quality && (
-                <div style={{ fontWeight: 700, color: QUALITY_LABEL[o.quality]!.color }}>
-                  {QUALITY_LABEL[o.quality]!.text}
+
+            <div className="offer-content">
+              <div className="offer-toprow">
+                <span className="muted">
+                  {grouped ? `Rota — ${o.routeStops!.length} entregas` : `Coleta · ${o.pickupName ?? 'restaurante'}`}
+                </span>
+                {o.quality && (
+                  <span className="offer-quality" style={{ color: QUALITY_LABEL[o.quality]!.color }}>
+                    {QUALITY_LABEL[o.quality]!.text}
+                  </span>
+                )}
+              </div>
+
+              <div className="offer-price">
+                <span className="offer-price-num">
+                  {o.payout != null ? formatCurrencyBRL(o.payout) : '—'}
+                </span>
+                {perKm != null && (
+                  <span className="offer-price-km">{formatCurrencyBRL(perKm)}<i>por km</i></span>
+                )}
+              </div>
+
+              {grouped ? (
+                <div className="offer-legs">
+                  {o.routeStops!.map((s) => (
+                    <div key={s.seq} className="offer-leg">
+                      <span className="leg-dot brand" />
+                      <span className="leg-meta">{s.seq}ª parada</span>
+                      <span className="leg-addr">{s.region ?? s.address}</span>
+                      <span className="leg-pay">{formatCurrencyBRL(s.payout)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="offer-legs">
+                  <div className="offer-leg">
+                    <span className="leg-dot warn" />
+                    <span className="leg-meta">
+                      {pickupEta != null ? `${pickupEta} min` : 'coleta'}
+                      {o.distancePickupKm != null ? ` · ${o.distancePickupKm.toFixed(1)} km` : ''}
+                    </span>
+                    <span className="leg-addr">{o.pickupAddress ?? o.pickupName ?? 'ponto de coleta'}</span>
+                  </div>
+                  <div className="offer-leg">
+                    <span className="leg-dot brand" />
+                    <span className="leg-meta">
+                      {o.etaMinutes != null ? `${o.etaMinutes} min` : 'entrega'}
+                      {totalKm != null ? ` · ${totalKm.toFixed(1)} km` : ''}
+                    </span>
+                    <span className="leg-addr">{o.address}</span>
+                  </div>
                 </div>
               )}
 
-              {o.routeStops && o.routeStops.length > 1 ? (
-                <div className="route-stops" style={{ display: 'grid', gap: 6 }}>
-                  {o.routeStops.map((s) => (
-                    <div
-                      key={s.seq}
-                      style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 14 }}
-                    >
-                      <span>
-                        <strong>{s.seq}ª</strong> {s.region ?? s.address}
-                      </span>
-                      <span>{formatCurrencyBRL(s.payout)}</span>
-                    </div>
-                  ))}
-                  <div className="muted" style={{ fontSize: 12 }}>
-                    {o.customerName} · 1ª parada: {o.address}
-                    {o.routeTotalKm != null ? ` · rota ~${o.routeTotalKm.toFixed(1)} km` : ''}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div>{o.region ?? o.address}</div>
-                  <div className="muted">{o.customerName} · {o.address}</div>
-                </>
-              )}
-              {(o.distancePickupKm != null || o.distanceTotalKm != null) && (
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {o.distancePickupKm != null ? `${o.distancePickupKm.toFixed(1)} km até a coleta` : ''}
-                  {o.distanceTotalKm != null ? ` · ${o.distanceTotalKm.toFixed(1)} km no total` : ''}
-                </div>
-              )}
-              {o.payout != null && (
-                <div className="offer-pay">Você recebe <strong>{formatCurrencyBRL(o.payout)}</strong></div>
-              )}
-              <div className="muted" style={{ fontSize: 12 }}>
-                {o.countsForAcceptance
-                  ? 'Recusar esta oferta conta na sua taxa de aceitação.'
-                  : 'Recusar esta oferta não afeta sua reputação.'}
-              </div>
-              <div className="muted" style={{ fontSize: 13 }}>
-                Pagamento da venda: {PAYMENT_METHOD_LABELS[o.paymentMethod]} —{' '}
-                {PAYMENT_STATUS_LABELS[o.paymentStatus]}
-              </div>
               {collectOnDelivery && (
                 <div className="offer-collect">
                   💰 Receber do cliente na entrega: {formatCurrencyBRL(o.orderAmount)}
                 </div>
               )}
               {o.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {o.notes}</div>}
-            </div>
-            <div className="offer-actions">
+              <div className="muted" style={{ fontSize: 12.5 }}>
+                Venda: {PAYMENT_METHOD_LABELS[o.paymentMethod]} — {PAYMENT_STATUS_LABELS[o.paymentStatus]}
+              </div>
+
               <button
-                className="button secondary"
-                disabled={busy === o.offerId}
-                onClick={() => respond(o.offerId, 'decline')}
-              >
-                Recusar
-              </button>
-              <button
-                className="button"
+                className="offer-accept"
                 disabled={busy === o.offerId}
                 onClick={() => respond(o.offerId, 'accept')}
               >
-                {busy === o.offerId ? '…' : 'Aceitar'}
+                <span>{busy === o.offerId ? 'Aceitando…' : 'Aceitar'}</span>
+                <span className="offer-accept-timer">{secs}s</span>
               </button>
+              {o.countsForAcceptance && (
+                <button
+                  className="offer-decline-text"
+                  disabled={busy === o.offerId}
+                  onClick={() => respond(o.offerId, 'decline')}
+                >
+                  Recusar
+                </button>
+              )}
             </div>
           </div>
         );

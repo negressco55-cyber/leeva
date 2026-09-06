@@ -37,3 +37,8 @@ npm-debug.log*
 
 # vercel
 .vercel
+
+# Firebase / config Expo em local errado (o certo é apps/motoboy-app/)
+/app.json
+/apps/google-services.json
+/apps/GoogleService-Info.plist

@@ -36,6 +36,7 @@ export interface MotoboyMe {
   pixKey: string | null;
   pixKeyType: string | null;
   city: string | null;
+  avatarUrl?: string | null;
   pushEnabled: boolean;
   terms: { version: number; content: string } | null;
 }
@@ -54,6 +55,13 @@ export interface Offer {
   customerName: string;
   address: string;
   region: string | null;
+  dropoffLat: number | null;
+  dropoffLng: number | null;
+  pickupName: string | null;
+  pickupAddress: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
+  etaMinutes: number | null;
   expiresAt: string;
   payout: number | null;
   quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
