@@ -57,6 +57,9 @@ const fakeAsaas = {
 };
 
 const run = async () => {
+  // limpa restos de execuções interrompidas
+  await db.from('credit_packages').delete().like('label', '[ASA]%');
+
   const { data: r } = await db
     .from('restaurants')
     .insert({ name: '[ASA] R', latitude: -7.115, longitude: -34.845, fleet_mode: 'leeva', onboarding_completed: true })

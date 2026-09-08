@@ -18,8 +18,10 @@ tempo). Calma, densa de informação, sem enfeite.
 2. **Pouca cor.** Uma cor de marca, usada com parcimônia (ação principal e
    pouco mais). Verde. Status (ok/aviso/erro) têm suas cores e só aparecem
    quando há status.
-3. **Elevação é exceção.** Nada de sombra em todo card. Sombra só em 3 lugares
-   nomeados (§6). O resto se separa com fundo e linha de 1px.
+3. **Elevação é discreta e uniforme.** Uma "camada de papel" quase
+   imperceptível (`--shadow-sm`) no card/painel/botão; um leve realce no
+   hover; a sombra forte (`--shadow-pop`) só em modal/popover/oferta. Nunca
+   sombra decorativa, colorida ou diferente por card (§6).
 4. **Sem caixa-alta.** Rótulos são texto pequeno em peso médio, nunca
    `TEXT-TRANSFORM: UPPERCASE`. O reset zera isso globalmente.
 5. **Botão é texto.** Sem `→`, sem ícone dentro do rótulo, sem "Clique aqui".
@@ -30,7 +32,8 @@ tempo). Calma, densa de informação, sem enfeite.
 
 - ❌ Fundo bege / terracota / "warm cream". O neutro do Leeva é cinza-quente
   quase branco (hue ~40°, saturação < 4%). Bege tem saturação alta demais.
-- ❌ Todo container sendo um card branco com a mesma sombra e o mesmo raio.
+- ❌ Sombra forte/estilizada em card ("floating card"), sombra colorida, ou
+  cada card com uma sombra diferente. A camada padrão é `--shadow-sm` (5% alpha).
 - ❌ RÓTULOS EM CAIXA ALTA.
 - ❌ Seta `→` em botão ("Continuar →", "Ver mais →").
 - ❌ Gradiente de enfeite (header, botão, "hero", borda).
@@ -94,8 +97,11 @@ Tokens em `:root` (tema claro) e sobrescritos em
 
 ## 3. Tipografia
 
-Fonte: stack de sistema (`ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-Roboto, ...`). Sem webfont — carrega instantâneo e é familiar.
+Fonte: **Inter** (`next/font`, `--font-sans`), com fallback para a stack de
+sistema (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, …`).
+Inter é sóbria, tem ótima leitura em tamanho pequeno e números tabulares —
+é o que dá o acabamento "ferramenta profissional" (Linear, Vercel, Stripe).
+`display: swap` — o fallback aparece na hora, Inter troca ao carregar.
 
 ### Escala (px)
 
@@ -216,14 +222,18 @@ ocupando a largura.
 
 ## 6. Elevação
 
-Um único token: `--shadow-pop: 0 10px 34px -6px rgba(20,20,18,.22)`.
-**Só** nestes três:
+Três níveis, discretos e uniformes — nunca decorativos, nunca coloridos.
 
-1. `.offer-card` (motoboy).
-2. Modal / diálogo (`.dialog`).
-3. Menu suspenso / popover.
+| Token | Valor (claro) | Uso |
+|---|---|---|
+| `--shadow-sm` | `0 1px 2px rgba(20,20,15,.05), 0 1px 1px rgba(20,20,15,.03)` | card, painel, botão em repouso, stat-row, input de mapa — a "camada de papel" padrão |
+| `--shadow-raise` | `0 4px 14px -4px rgba(20,20,15,.12), …` | `:hover` de botão e de item clicável; `.track-card` |
+| `--shadow-pop` | `0 16px 48px -12px rgba(15,15,12,.28), …` | modal / diálogo, popover, `.offer-card` (motoboy) |
 
-Card, painel, header, tabela: **nunca** têm sombra.
+`--shadow-sm` é tão sutil que não "flutua" — só separa a superfície do fundo,
+como Linear/Stripe. O que **não** pode: sombra forte/estilizada, sombra
+colorida, sombra diferente por card, sombra em `<table>` interna ou em texto.
+Header e linha de tabela seguem sem sombra (fundo + borda de 1px bastam).
 
 ---
 
