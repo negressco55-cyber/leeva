@@ -56,7 +56,9 @@ export async function POST(req: Request) {
       case 'PAYMENT_RECEIVED':
       case 'PAYMENT_CONFIRMED': {
         const r = await confirmCreditPurchase(db, { externalId, purchaseId });
-        if (!r.ok && !r.alreadyPaid) {
+        // "compra não encontrada" = pagamento que não nasceu no Leeva (outra
+        // atividade na conta Asaas). Ignora em silêncio; só registra falha real.
+        if (!r.ok && !r.alreadyPaid && r.error !== 'compra não encontrada') {
           await captureError(db, 'billing', new Error(r.error ?? 'confirm falhou'), { event, externalId });
         }
         return json({ ok: true, credited: r.ok, alreadyPaid: !!r.alreadyPaid });
