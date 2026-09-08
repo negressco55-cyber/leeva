@@ -49,6 +49,9 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
   const [pix, setPix] = useState<BuyResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const [custom, setCustom] = useState('');
+  const [cpfCnpj, setCpfCnpj] = useState('');
+  const [needDoc, setNeedDoc] = useState(false);
 
   async function refreshBalance() {
     try {
@@ -81,12 +84,16 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pix]);
 
-  async function buy(packageId: string) {
-    setBuying(packageId);
+  async function buy(opts: { packageId?: string; amount?: number }) {
+    const tag = opts.packageId ?? `custom:${opts.amount}`;
+    setBuying(tag);
     setMsg(null);
     setPix(null);
     try {
-      const r = await apiPost<BuyResult>('/api/credits', { packageId });
+      const body: Record<string, unknown> = { ...opts };
+      if (cpfCnpj.trim()) body.cpfCnpj = cpfCnpj.trim();
+      const r = await apiPost<BuyResult>('/api/credits', body);
+      setNeedDoc(false);
       if (r.simulated) {
         if (r.balance != null) setData((d) => ({ ...d, balance: r.balance! }));
         setMsg('Crédito adicionado (simulação — sem pagamento real ainda).');
@@ -99,10 +106,25 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
         router.refresh();
       }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'erro');
+      const code = (e as { code?: string })?.code;
+      if (code === 'need_cpf_cnpj') {
+        setNeedDoc(true);
+        setMsg('Informe o CNPJ (ou CPF) do restaurante para gerar a cobrança. É pedido só uma vez.');
+      } else {
+        setMsg(e instanceof Error ? e.message : 'erro');
+      }
     } finally {
       setBuying(null);
     }
+  }
+
+  function buyCustom() {
+    const v = Number(custom.replace(',', '.'));
+    if (!Number.isFinite(v) || v < 3) {
+      setMsg('Valor mínimo de R$ 3,00.');
+      return;
+    }
+    buy({ amount: Math.round(v * 100) / 100 });
   }
 
   return (
@@ -126,7 +148,7 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
               key={p.id}
               className="btn"
               disabled={!canBuy || buying === p.id}
-              onClick={() => buy(p.id)}
+              onClick={() => buy({ packageId: p.id })}
               style={{ minWidth: 130 }}
             >
               {buying === p.id ? '…' : formatCurrencyBRL(p.amount)}
@@ -134,6 +156,46 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
             </button>
           ))}
         </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13 }}>Ou outro valor:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span className="muted">R$</span>
+            <input
+              type="number"
+              min={3}
+              step="0.01"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={custom}
+              disabled={!canBuy}
+              onChange={(e) => setCustom(e.target.value)}
+              style={{ width: 100 }}
+            />
+          </div>
+          <button
+            className="btn"
+            disabled={!canBuy || buying === `custom:${Number(custom.replace(',', '.'))}`}
+            onClick={buyCustom}
+          >
+            Comprar
+          </button>
+          <span className="muted" style={{ fontSize: 12 }}>mínimo R$ 3,00</span>
+        </div>
+
+        {needDoc && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13 }}>CNPJ ou CPF:</span>
+            <input
+              value={cpfCnpj}
+              onChange={(e) => setCpfCnpj(e.target.value)}
+              placeholder="00.000.000/0000-00"
+              style={{ width: 200 }}
+            />
+            <span className="muted" style={{ fontSize: 12 }}>pedido só uma vez, depois é lembrado</span>
+          </div>
+        )}
+
         {msg && <div className="op-alert ok" style={{ marginTop: 10 }}>{msg}</div>}
 
         {pix?.invoiceUrl && (

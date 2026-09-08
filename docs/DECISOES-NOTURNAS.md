@@ -493,3 +493,19 @@ sistema só simulava (`addCredit` direto, sem cobrar nada).
    é a usuária quem faz, pagando no próprio celular. `npm run test:asaas`
    cobre o fluxo com cliente fake (8 casos, precisa da migration aplicada).
 7. Passo a passo de produção: `docs/ASAAS-SETUP.md`.
+
+### 2026-09-08 (cont.) — Asaas: cliente/pagador + valor livre
+
+Primeiro teste real deu "Customer inválido ou não informado" — a cobrança
+Asaas (`POST /payments`) exige um `customer`.
+
+1. **`asaas.ts`**: `createCustomer({name, cpfCnpj, ...})` novo; `createPixCharge`
+   agora recebe `customer` e busca o copia-e-cola em
+   `GET /payments/{id}/pixQrCode` (não vem na resposta do POST).
+2. **`credit-purchase.ts`**: `resolveAsaasCustomer` — acha o customerId em
+   `restaurants.settings.asaas.customerId` ou cria um (precisa do CNPJ/CPF na
+   1ª vez; fica salvo). Erro `code: 'need_cpf_cnpj'` quando falta.
+3. **Valor livre**: mínimo baixado de R$ 5 → **R$ 3** (`MIN_CREDIT_PURCHASE`).
+   Tela de Créditos ganhou campo "Ou outro valor" + campo de CNPJ/CPF que só
+   aparece quando o backend pede.
+4. `test:asaas` agora 10 casos (inclui o pedido de documento).

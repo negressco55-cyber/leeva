@@ -54,7 +54,9 @@ Painel Asaas → **Configurações → Integrações → Webhooks** → adiciona
 - **Versão da API**: v3
 
 ### 5. Teste de ponta a ponta (com dinheiro real, valor baixo)
-1. No painel do restaurante → **Créditos** → comprar o menor pacote.
+1. No painel do restaurante → **Créditos** → "Ou outro valor" → `3` → **Comprar**
+   (ou o menor pacote). Na 1ª cobrança ele pede o **CNPJ/CPF** do restaurante
+   (fica salvo em `restaurants.settings.asaas`, não pergunta de novo).
 2. Aparece um código Pix copia-e-cola. Pague no seu banco.
 3. Em alguns segundos o saldo sobe sozinho e a tela mostra "Pagamento confirmado".
 4. Confira no painel Asaas que o pagamento entrou.

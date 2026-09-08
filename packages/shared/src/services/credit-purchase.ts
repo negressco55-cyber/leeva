@@ -21,7 +21,7 @@ import { addCredit, getCreditPackages } from './credits';
 type DB = SupabaseClient<Database>;
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export type StartPurchaseInput = { packageId?: string; amount?: number };
+export type StartPurchaseInput = { packageId?: string; amount?: number; cpfCnpj?: string };
 export type StartPurchaseResult =
   | {
       ok: true;
@@ -35,7 +35,9 @@ export type StartPurchaseResult =
       pixCopyPaste?: string;
       balance?: number;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: 'need_cpf_cnpj' };
+
+export const MIN_CREDIT_PURCHASE = 3;
 
 /** Resolve pacote/valor -> { amount, bonus, gross }. */
 async function resolveAmount(
@@ -50,10 +52,48 @@ async function resolveAmount(
   }
   if (input.amount && input.amount > 0) {
     const amount = Math.min(5000, round(Number(input.amount)));
-    if (amount < 5) return { error: 'valor mínimo de R$ 5,00' };
+    if (amount < MIN_CREDIT_PURCHASE) return { error: `valor mínimo de R$ ${MIN_CREDIT_PURCHASE},00` };
     return { amount, bonus: 0, packageId: null };
   }
   return { error: 'informe um pacote ou valor' };
+}
+
+/** Acha o cliente Asaas do restaurante em restaurants.settings, ou cria um. */
+async function resolveAsaasCustomer(
+  db: DB,
+  restaurantId: string,
+  asaas: NonNullable<ReturnType<typeof getAsaasClient>>,
+  cpfCnpj?: string,
+): Promise<{ ok: true; customerId: string } | { ok: false; error: string; code?: 'need_cpf_cnpj' }> {
+  const { data: r } = await db
+    .from('restaurants')
+    .select('name, phone, settings')
+    .eq('id', restaurantId)
+    .maybeSingle();
+  const settings = (r?.settings && typeof r.settings === 'object' ? r.settings : {}) as Record<string, unknown>;
+  const asaasCfg = (settings.asaas && typeof settings.asaas === 'object' ? settings.asaas : {}) as {
+    customerId?: string;
+  };
+  if (asaasCfg.customerId) return { ok: true, customerId: asaasCfg.customerId };
+
+  const doc = (cpfCnpj ?? '').replace(/\D/g, '');
+  if (doc.length !== 11 && doc.length !== 14) {
+    return { ok: false, error: 'informe um CNPJ ou CPF válido para a cobrança', code: 'need_cpf_cnpj' };
+  }
+
+  const created = await asaas.createCustomer({
+    name: r?.name ?? 'Restaurante Leeva',
+    cpfCnpj: doc,
+    mobilePhone: r?.phone ?? undefined,
+  });
+  if (!created.ok) return { ok: false, error: `não foi possível registrar o pagador: ${created.error}` };
+
+  await db
+    .from('restaurants')
+    .update({ settings: { ...settings, asaas: { ...asaasCfg, customerId: created.data.id, cpfCnpj: doc } } })
+    .eq('id', restaurantId);
+
+  return { ok: true, customerId: created.data.id };
 }
 
 export async function startCreditPurchase(
@@ -68,6 +108,15 @@ export async function startCreditPurchase(
   const gross = amount; // hoje 1:1 (R$ pago = crédito liberado); margem/taxa entram aqui depois
 
   const asaas = getAsaasClient();
+
+  // A cobrança da Asaas exige um "cliente" (o pagador). Resolve/cria antes de
+  // registrar a compra, pra não deixar linha pendente órfã se faltar o CNPJ.
+  let customerId: string | undefined;
+  if (asaas) {
+    const cust = await resolveAsaasCustomer(db, restaurantId, asaas, input.cpfCnpj);
+    if (!cust.ok) return cust;
+    customerId = cust.customerId;
+  }
 
   // linha de controle
   const { data: row, error: insErr } = await db
@@ -103,6 +152,7 @@ export async function startCreditPurchase(
 
   // ----- COBRANÇA PIX REAL -----
   const charge = await asaas.createPixCharge({
+    customer: customerId!,
     value: gross,
     description: `Leeva — crédito de entregas (R$ ${amount.toFixed(2)})`,
     externalReference: row.id,

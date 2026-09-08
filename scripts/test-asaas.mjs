@@ -38,8 +38,14 @@ const t = async (name, fn) => {
 // cliente Asaas fake: cada cobrança gera um id sequencial; nunca chama a rede.
 let seq = 0;
 const fakeCharges = new Map();
+let custSeq = 0;
 const fakeAsaas = {
+  async createCustomer(input) {
+    custSeq++;
+    return { ok: true, data: { id: `cus_fake_${custSeq}` } };
+  },
   async createPixCharge(input) {
+    if (!input.customer) return { ok: false, error: 'Customer inválido ou não informado.' };
     seq++;
     const id = `pay_fake_${seq}`;
     fakeCharges.set(id, input);
@@ -84,9 +90,15 @@ const run = async () => {
   let purchaseId;
   let externalId;
 
+  await t('cobrança real sem CNPJ/CPF salvo pede o documento', async () => {
+    const res = await startCreditPurchase(db, r.id, { amount: 50 });
+    assert.equal(res.ok, false);
+    assert.equal(res.code, 'need_cpf_cnpj');
+  });
+
   await t('compra real fica pendente e NÃO credita ainda', async () => {
     const before = (await getCreditBalance(db, r.id)).balance;
-    const res = await startCreditPurchase(db, r.id, { amount: 50 });
+    const res = await startCreditPurchase(db, r.id, { amount: 50, cpfCnpj: '12.345.678/0001-95' });
     assert.equal(res.ok, true);
     assert.equal(res.simulated, false);
     assert.equal(res.status, 'pending');

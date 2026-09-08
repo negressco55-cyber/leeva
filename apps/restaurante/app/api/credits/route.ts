@@ -40,17 +40,21 @@ export async function POST(req: Request) {
   if (!ctx) return unauthorized();
   if (ctx.role !== 'restaurant_owner') return forbidden('só o dono compra créditos');
 
-  const b = (await req.json().catch(() => ({}))) as { packageId?: string; amount?: number };
+  const b = (await req.json().catch(() => ({}))) as {
+    packageId?: string;
+    amount?: number;
+    cpfCnpj?: string;
+  };
   const db = adminDb();
 
   try {
     const r = await startCreditPurchase(
       db,
       ctx.restaurantId,
-      { packageId: b.packageId, amount: b.amount },
+      { packageId: b.packageId, amount: b.amount, cpfCnpj: b.cpfCnpj },
       { createdBy: ctx.userId },
     );
-    if (!r.ok) return badRequest(r.error);
+    if (!r.ok) return json({ error: r.error, code: r.code }, 400);
     return json(r);
   } catch (e) {
     return serverError(e);

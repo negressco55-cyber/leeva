@@ -25,8 +25,16 @@ export type AsaasResult<T> = { ok: true; data: T } | { ok: false; error: string;
 export interface AsaasClient {
   /** transferência Pix para uma chave (repasse ao motoboy) */
   transferPix(t: AsaasTransfer): Promise<AsaasResult<{ id: string; status: string }>>;
+  /** cria (ou acha) o cliente Asaas de quem vai pagar — exigido pela cobrança */
+  createCustomer(input: {
+    name: string;
+    cpfCnpj: string;
+    email?: string;
+    mobilePhone?: string;
+  }): Promise<AsaasResult<{ id: string }>>;
   /** cobrança Pix avulsa (compra de crédito — Bloco 3) */
   createPixCharge(input: {
+    customer: string;
     value: number;
     description: string;
     externalReference?: string;
@@ -40,12 +48,13 @@ class HttpAsaasClient implements AsaasClient {
     private readonly base: string,
   ) {}
 
-  private async req<T>(path: string, body: unknown): Promise<AsaasResult<T>> {
+  private async req<T>(path: string, body: unknown, method: 'POST' | 'GET' = 'POST'): Promise<AsaasResult<T>> {
     try {
       const res = await fetch(`${this.base}${path}`, {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json', access_token: this.key },
-        body: JSON.stringify(body),
+        body: method === 'GET' ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
       });
       const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (!res.ok) {
@@ -70,15 +79,40 @@ class HttpAsaasClient implements AsaasClient {
     });
   }
 
-  createPixCharge(input: { value: number; description: string; externalReference?: string; dueInDays?: number }) {
+  createCustomer(input: { name: string; cpfCnpj: string; email?: string; mobilePhone?: string }) {
+    return this.req<{ id: string }>('/customers', {
+      name: input.name,
+      cpfCnpj: input.cpfCnpj.replace(/\D/g, ''),
+      email: input.email,
+      mobilePhone: input.mobilePhone?.replace(/\D/g, ''),
+      notificationDisabled: true,
+    });
+  }
+
+  async createPixCharge(input: {
+    customer: string;
+    value: number;
+    description: string;
+    externalReference?: string;
+    dueInDays?: number;
+  }): Promise<AsaasResult<{ id: string; invoiceUrl: string; pixCopyPaste?: string }>> {
     const due = new Date(Date.now() + (input.dueInDays ?? 1) * 86400_000).toISOString().slice(0, 10);
-    return this.req<{ id: string; invoiceUrl: string; pixCopyPaste?: string }>('/payments', {
+    const created = await this.req<{ id: string; invoiceUrl: string }>('/payments', {
+      customer: input.customer,
       billingType: 'PIX',
       value: input.value,
       description: input.description,
       externalReference: input.externalReference,
       dueDate: due,
     });
+    if (!created.ok) return created;
+
+    // o copia-e-cola vem de um endpoint separado
+    let pixCopyPaste: string | undefined;
+    const qr = await this.req<{ payload?: string }>(`/payments/${created.data.id}/pixQrCode`, null, 'GET');
+    if (qr.ok) pixCopyPaste = qr.data.payload;
+
+    return { ok: true, data: { id: created.data.id, invoiceUrl: created.data.invoiceUrl, pixCopyPaste } };
   }
 }
 
