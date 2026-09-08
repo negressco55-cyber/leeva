@@ -23,6 +23,7 @@ async function notifyPayout(
   motoboyId: string,
   outcome: 'paid' | 'failed',
   amount: number,
+  fee = 0,
 ): Promise<void> {
   try {
     if (outcome === 'paid') {
@@ -30,7 +31,10 @@ async function notifyPayout(
         motoboyId,
         kind: 'payout_paid',
         title: 'Repasse enviado',
-        body: `Seu repasse de ${money(amount)} foi enviado para sua chave Pix.`,
+        body:
+          fee > 0
+            ? `Seu repasse de ${money(amount)} (já descontada a taxa de saque de ${money(fee)}) foi enviado para sua chave Pix.`
+            : `Seu repasse de ${money(amount)} foi enviado para sua chave Pix.`,
       });
     } else {
       await notifyDriver(db, {
@@ -48,6 +52,16 @@ async function notifyPayout(
 
 type DB = SupabaseClient<Database>;
 const round = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Taxa que a Asaas cobra por transferência Pix. Como o repasse é 1x por dia
+ * por motoboy, é descontada do valor do repasse (o motoboy sabe disso de
+ * antemão — está escrito na tela de Pagamentos). Ajustável por ambiente.
+ */
+export function payoutTransferFee(): number {
+  const v = Number(process.env.ASAAS_TRANSFER_FEE);
+  return Number.isFinite(v) && v >= 0 ? v : 1.99;
+}
 
 export type PixKeyType = 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
 const PIX_TYPES: PixKeyType[] = ['cpf', 'cnpj', 'email', 'phone', 'random'];
@@ -281,20 +295,38 @@ export async function processPayoutBatch(
     return { batchId, status: 'paid', amount, simulated: true };
   }
 
+  // taxa de saque da Asaas, descontada do repasse (1 saque/dia por motoboy)
+  const fee = payoutTransferFee();
+  const net = round(amount - fee);
+  if (net < 1) {
+    const msg = `valor a receber (R$ ${amount.toFixed(2)}) menor que a taxa de saque (R$ ${fee.toFixed(2)})`;
+    await db.from('payout_batches').update({ status: 'failed', transfer_fee: fee, error: msg }).eq('id', batchId);
+    await createPayoutAlert(db, batch.motoboy_id, batchId, msg);
+    await notifyPayout(db, batch.motoboy_id, 'failed', amount);
+    return { batchId, status: 'failed', amount, simulated: false, error: msg };
+  }
+
   const r = await asaas!.transferPix({
     pixAddressKey: batch.pix_key,
     pixAddressKeyType: pixKeyTypeToAsaas(batch.pix_key_type),
-    value: amount,
-    description: `Repasse Leeva — entregas`,
+    value: net,
+    description: `Repasse Leeva — entregas (taxa de saque R$ ${fee.toFixed(2)})`,
   });
 
   if (r.ok) {
     await db
       .from('payout_batches')
-      .update({ status: 'paid', paid_at: new Date().toISOString(), external_ref: r.data.id, simulated: false, error: null })
+      .update({
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+        external_ref: r.data.id,
+        simulated: false,
+        transfer_fee: fee,
+        error: null,
+      })
       .eq('id', batchId);
-    await notifyPayout(db, batch.motoboy_id, 'paid', amount);
-    return { batchId, status: 'paid', amount, simulated: false };
+    await notifyPayout(db, batch.motoboy_id, 'paid', net, fee);
+    return { batchId, status: 'paid', amount: net, simulated: false };
   }
 
   await db.from('payout_batches').update({ status: 'failed', error: r.error.slice(0, 300) }).eq('id', batchId);
@@ -323,6 +355,8 @@ export type PayoutBatchRow = {
   id: string;
   periodDate: string;
   amount: number;
+  transferFee: number;
+  netAmount: number;
   earningsCount: number;
   status: string;
   simulated: boolean;
@@ -333,7 +367,7 @@ export type PayoutBatchRow = {
 export async function getPayoutHistory(db: DB, motoboyId: string, limit = 30): Promise<PayoutBatchRow[]> {
   const { data } = await db
     .from('payout_batches')
-    .select('id, period_date, amount, earnings_count, status, simulated, paid_at, error')
+    .select('id, period_date, amount, transfer_fee, earnings_count, status, simulated, paid_at, error')
     .eq('motoboy_id', motoboyId)
     .order('period_date', { ascending: false })
     .limit(limit);
@@ -341,6 +375,8 @@ export async function getPayoutHistory(db: DB, motoboyId: string, limit = 30): P
     id: b.id,
     periodDate: b.period_date,
     amount: Number(b.amount),
+    transferFee: Number(b.transfer_fee ?? 0),
+    netAmount: round(Number(b.amount) - Number(b.transfer_fee ?? 0)),
     earningsCount: b.earnings_count,
     status: b.status,
     simulated: !!b.simulated,
@@ -355,7 +391,7 @@ export async function listPayoutBatches(
 ) {
   let q = db
     .from('payout_batches')
-    .select('id, motoboy_id, period_date, amount, earnings_count, status, simulated, pix_key, pix_key_type, external_ref, error, paid_at, created_at, motoboys(full_name, fleet)')
+    .select('id, motoboy_id, period_date, amount, transfer_fee, earnings_count, status, simulated, pix_key, pix_key_type, external_ref, error, paid_at, created_at, motoboys(full_name, fleet)')
     .order('created_at', { ascending: false })
     .limit(filter.limit ?? 200);
   if (filter.status) q = q.eq('status', filter.status as Database['public']['Enums']['payout_batch_status']);

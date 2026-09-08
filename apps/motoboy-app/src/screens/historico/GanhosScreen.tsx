@@ -62,6 +62,9 @@ export function GanhosScreen(): React.JSX.Element {
           <Text style={styles.totalValor}>{brl(total)}</Text>
           <Text style={styles.totalHint}>{count} entrega(s) concluída(s)</Text>
         </Card>
+        <Text style={styles.feeHint}>
+          O repasse é 1x por dia via Pix. O banco cobra R$ 1,99 por saque, descontado do valor.
+        </Text>
 
         {loading ? (
           <ActivityIndicator color={theme.colors.primary} style={{ marginTop: theme.spacing.xl }} />
@@ -104,6 +107,12 @@ const styles = StyleSheet.create({
   totalLabel: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary },
   totalValor: { fontFamily: theme.fonts.heading, fontSize: 32, color: theme.colors.success, marginTop: 4 },
   totalHint: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
+  feeHint: {
+    fontFamily: theme.fonts.body,
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.md,
+  },
   item: { marginBottom: theme.spacing.sm },
   itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   itemData: { fontFamily: theme.fonts.bodyMedium, fontSize: 12, color: theme.colors.textSecondary },

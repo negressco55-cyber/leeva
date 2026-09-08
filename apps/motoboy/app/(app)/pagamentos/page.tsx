@@ -1,5 +1,5 @@
 import { requireMotoboyContext, adminDb } from '@/lib/context';
-import { getMotoboyPixInfo, getPendingEarnings, getPayoutHistory } from '@leeva/shared/services';
+import { getMotoboyPixInfo, getPendingEarnings, getPayoutHistory, payoutTransferFee } from '@leeva/shared/services';
 import { PixForm } from './PixForm';
 import { formatCurrencyBRL } from '@leeva/shared';
 
@@ -22,6 +22,8 @@ export default async function PagamentosPage() {
     getPayoutHistory(db, ctx.motoboyId, 30),
   ]);
 
+  const fee = payoutTransferFee();
+
   return (
     <div className="grid" style={{ gap: 14 }}>
       <h1 style={{ margin: 0 }}>Pagamentos</h1>
@@ -31,6 +33,9 @@ export default async function PagamentosPage() {
         <div style={{ fontSize: 30, fontWeight: 650 }}>{formatCurrencyBRL(pending.amount)}</div>
         <p className="muted" style={{ fontSize: 12 }}>
           {pending.count} entrega(s) fechando no próximo repasse. O pagamento é feito uma vez por dia, via Pix.
+        </p>
+        <p className="muted" style={{ fontSize: 12 }}>
+          O banco cobra {formatCurrencyBRL(fee)} por saque Pix, descontado uma vez por dia do seu repasse.
         </p>
       </div>
 
@@ -54,8 +59,15 @@ export default async function PagamentosPage() {
                 {b.status === 'paid' && b.paidAt ? ` em ${new Date(b.paidAt).toLocaleDateString('pt-BR')}` : ''}
                 {b.error ? ` — ${b.error}` : ''}
               </div>
+              {b.transferFee > 0 && (
+                <div className="muted" style={{ fontSize: 11 }}>
+                  {formatCurrencyBRL(b.amount)} − {formatCurrencyBRL(b.transferFee)} de taxa de saque
+                </div>
+              )}
             </div>
-            <strong style={{ color: b.status === 'paid' ? 'var(--ok)' : undefined }}>{formatCurrencyBRL(b.amount)}</strong>
+            <strong style={{ color: b.status === 'paid' ? 'var(--ok)' : undefined }}>
+              {formatCurrencyBRL(b.transferFee > 0 ? b.netAmount : b.amount)}
+            </strong>
           </div>
         ))}
       </div>

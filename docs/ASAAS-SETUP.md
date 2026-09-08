@@ -100,3 +100,15 @@ aplicada no banco.
 Hoje o valor pago pelo restaurante = crédito liberado (1:1). A margem da
 plataforma e o repasse dessas taxas entram em `credit-purchase.ts` na
 variável `gross` quando você decidir a precificação.
+
+---
+
+## Taxas — como o Leeva repassa
+
+| Taxa Asaas | Quem paga | Onde |
+|---|---|---|
+| Pix recebido (compra de crédito) — R$ 0,99 (3 meses) / R$ 1,99 | **Restaurante**, por cima do valor do crédito | `ASAAS_PIX_FEE_IN` (padrão 0,99) |
+| Pix transferido (repasse ao motoboy) — ~R$ 1,99 | **Motoboy**, descontado 1x/dia do repasse | `ASAAS_TRANSFER_FEE` (padrão 1,99) |
+
+O motoboy vê o aviso na tela de Pagamentos ("o banco cobra R$ 1,99 por saque").
+Depois de 3 meses, atualizar `ASAAS_PIX_FEE_IN` para `1.99` na Vercel.

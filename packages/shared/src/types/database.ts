@@ -1453,6 +1453,7 @@ export type Database = {
           pix_key_type: string | null
           simulated: boolean
           status: Database["public"]["Enums"]["payout_batch_status"]
+          transfer_fee: number
         }
         Insert: {
           amount: number
@@ -1468,6 +1469,7 @@ export type Database = {
           pix_key_type?: string | null
           simulated?: boolean
           status?: Database["public"]["Enums"]["payout_batch_status"]
+          transfer_fee?: number
         }
         Update: {
           amount?: number
@@ -1483,6 +1485,7 @@ export type Database = {
           pix_key_type?: string | null
           simulated?: boolean
           status?: Database["public"]["Enums"]["payout_batch_status"]
+          transfer_fee?: number
         }
         Relationships: [
           {

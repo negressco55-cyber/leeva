@@ -83,7 +83,14 @@ export default async function Repasses({ searchParams }: { searchParams: Promise
                   </td>
                   <td>{m?.fleet === 'leeva' ? 'Rede' : 'Própria'}</td>
                   <td style={{ textAlign: 'right' }}>{b.earnings_count}</td>
-                  <td style={{ textAlign: 'right' }}>{money(Number(b.amount))}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    {money(Number(b.amount) - Number((b as { transfer_fee?: number }).transfer_fee ?? 0))}
+                    {Number((b as { transfer_fee?: number }).transfer_fee ?? 0) > 0 && (
+                      <div className="muted" style={{ fontSize: 11 }}>
+                        {money(Number(b.amount))} − {money(Number((b as { transfer_fee?: number }).transfer_fee))} taxa
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <span className={`tag ${st.tag}`}>{st.label}</span>
                     {b.simulated && <span className="muted" style={{ fontSize: 11 }}> sim.</span>}

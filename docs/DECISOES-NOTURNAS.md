@@ -509,3 +509,18 @@ Asaas (`POST /payments`) exige um `customer`.
    Tela de Créditos ganhou campo "Ou outro valor" + campo de CNPJ/CPF que só
    aparece quando o backend pede.
 4. `test:asaas` agora 10 casos (inclui o pedido de documento).
+
+### 2026-09-08 (cont.) — repasse das taxas Asaas
+
+Primeiro Pix real de R$ 5 → conta Leeva recebeu ~R$ 4 (taxa de R$ 0,99). Decisão
+da dona sobre cada taxa:
+
+1. **Pix recebido** (compra de crédito): restaurante paga por cima.
+   `gross = crédito + ASAAS_PIX_FEE_IN`. Tela mostra o detalhe. QR code
+   adicionado na tela (`encodedImage` do `/pixQrCode`).
+2. **Pix transferido** (repasse ao motoboy): **descontado do motoboy**, 1 saque
+   por dia, avisado de antemão. `payout_batches.transfer_fee` (migration 0032),
+   Pix enviado = `amount − ASAAS_TRANSFER_FEE`. Avisos: tela Pagamentos (PWA),
+   GanhosScreen (nativo), painel admin de repasses, notificação do repasse.
+   Guarda: se `amount ≤ taxa`, lote falha com alerta (não deve acontecer:
+   min_payout R$ 6 > taxa R$ 1,99).
