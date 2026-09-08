@@ -82,8 +82,16 @@ class HttpAsaasClient implements AsaasClient {
   }
 }
 
+let injected: AsaasClient | null | undefined;
+
+/** Só para testes: injeta um cliente Asaas fake (ou null para forçar simulação). */
+export function __setAsaasClient(client: AsaasClient | null | undefined): void {
+  injected = client;
+}
+
 /** Devolve o cliente Asaas se configurado, senão null (modo simulação). */
 export function getAsaasClient(): AsaasClient | null {
+  if (injected !== undefined) return injected;
   const key = process.env.ASAAS_API_KEY;
   if (!key) return null;
   const env = process.env.ASAAS_ENV === 'sandbox' ? 'sandbox' : 'production';

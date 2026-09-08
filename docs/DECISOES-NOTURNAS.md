@@ -462,3 +462,34 @@ Portal do Parceiro).
    `apps/restaurante/.env.local`, nunca commitada) — em produção precisa de
    uma chave própria, gerada uma vez e nunca trocada (trocar invalida todo
    segredo já cifrado).
+
+---
+
+## 2026-09-08 — Asaas: metade "dinheiro entrando" (compra de crédito via Pix)
+
+A metade "dinheiro saindo" (repasse Pix ao motoboy) já estava pronta desde a
+Fase 4. Faltava a metade "entrando": o restaurante comprava crédito e o
+sistema só simulava (`addCredit` direto, sem cobrar nada).
+
+1. **Migration `0031_asaas_credit_purchases.sql`**: tabela `credit_purchases`
+   (uma linha por tentativa de compra: `pending` → `paid`/`expired`/`failed`).
+   Índice único `(provider, external_id)` = idempotência. RLS: equipe do
+   restaurante lê as próprias; escrita só service_role.
+2. **`credit-purchase.ts` (novo)**: `startCreditPurchase` cria a linha e gera
+   a cobrança Pix na Asaas (devolve `invoiceUrl` + copia-e-cola).
+   `confirmCreditPurchase` (chamado pelo webhook) libera o crédito —
+   idempotente via trava otimista (`update ... neq status 'paid'`).
+   Sem `ASAAS_API_KEY` → modo simulação (credita na hora, `simulated: true`).
+3. **`/api/webhooks/asaas` (novo)**: valida o header `asaas-access-token`
+   contra `ASAAS_WEBHOOK_TOKEN` (sem essa env → 503, recusa tudo).
+   `PAYMENT_RECEIVED`/`CONFIRMED` → credita; `OVERDUE` → expira;
+   `DELETED`/`REFUNDED` → falha.
+4. **`/api/credits` e `CreditsClient.tsx`**: a compra agora mostra o Pix e
+   fica conferindo o saldo a cada 5s (o webhook credita sozinho).
+5. **Chave de produção da usuária**: guardada em `.env.local` sob um nome que
+   o código NÃO lê (`ASAAS_API_KEY_PROD_GUARDADA`) — de propósito, pra não
+   mover dinheiro real antes do teste ponta a ponta. NÃO commitada.
+6. **Não rodei teste com dinheiro real** — regra da casa. O teste de R$ real
+   é a usuária quem faz, pagando no próprio celular. `npm run test:asaas`
+   cobre o fluxo com cliente fake (8 casos, precisa da migration aplicada).
+7. Passo a passo de produção: `docs/ASAAS-SETUP.md`.

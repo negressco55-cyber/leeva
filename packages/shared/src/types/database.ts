@@ -254,6 +254,63 @@ export type Database = {
           },
         ]
       }
+      credit_purchases: {
+        Row: {
+          amount: number
+          bonus: number
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          gross: number
+          id: string
+          invoice_url: string | null
+          package_id: string | null
+          paid_at: string | null
+          pix_copy_paste: string | null
+          provider: string
+          restaurant_id: string
+          simulated: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bonus?: number
+          created_at?: string
+          created_by?: string | null
+          external_id?: string | null
+          gross: number
+          id?: string
+          invoice_url?: string | null
+          package_id?: string | null
+          paid_at?: string | null
+          pix_copy_paste?: string | null
+          provider?: string
+          restaurant_id: string
+          simulated?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bonus?: number
+          created_at?: string
+          created_by?: string | null
+          external_id?: string | null
+          gross?: number
+          id?: string
+          invoice_url?: string | null
+          package_id?: string | null
+          paid_at?: string | null
+          pix_copy_paste?: string | null
+          provider?: string
+          restaurant_id?: string
+          simulated?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       credit_packages: {
         Row: {
           active: boolean
