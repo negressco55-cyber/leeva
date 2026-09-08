@@ -35,8 +35,14 @@ mas uma só com saque também funciona.
 | `ASAAS_API_KEY` | a chave da Asaas (`aact_...`) | liga cobrança + repasse |
 | `ASAAS_ENV` | `production` (ou `sandbox` p/ teste) | qual servidor da Asaas usar |
 | `ASAAS_WEBHOOK_TOKEN` | um texto secreto que **você inventa** (ex.: 30 caracteres aleatórios) | valida que o aviso de pagamento veio mesmo da Asaas |
+| `ASAAS_PAYOUTS_ENABLED` | `true` **só quando** for ligar o repasse real ao motoboy | trava de segurança |
 
 Sem `ASAAS_WEBHOOK_TOKEN` o webhook recusa tudo (503) de propósito.
+
+**Trava importante:** `ASAAS_API_KEY` sozinha liga só a metade "entrando"
+(cobrança de crédito). O repasse Pix ao motoboy **continua em simulação** até
+você definir `ASAAS_PAYOUTS_ENABLED=true`. Assim dá pra ligar a cobrança sem
+armar transferências reais no fechamento diário.
 
 ### 4. Webhook no painel Asaas
 Painel Asaas → **Configurações → Integrações → Webhooks** → adicionar:

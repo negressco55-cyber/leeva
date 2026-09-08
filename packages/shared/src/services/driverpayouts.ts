@@ -260,7 +260,11 @@ export async function processPayoutBatch(
   await db.from('payout_batches').update({ status: 'processing' }).eq('id', batchId);
 
   const asaas = getAsaasClient();
-  const simulate = simulateOverride ?? !asaas;
+  // Trava de segurança: mesmo com a chave Asaas configurada (para a compra de
+  // crédito), o repasse real ao motoboy só sai com ASAAS_PAYOUTS_ENABLED=true.
+  // Assim a metade "dinheiro entrando" pode ir ao ar sem armar a "saindo".
+  const payoutsLive = process.env.ASAAS_PAYOUTS_ENABLED === 'true';
+  const simulate = simulateOverride ?? (!asaas || !payoutsLive);
 
   if (simulate) {
     await db
