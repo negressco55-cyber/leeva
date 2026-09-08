@@ -30,14 +30,26 @@ export type StartPurchaseResult =
       simulated: boolean;
       gross: number;
       amount: number;
+      fee: number;
       bonus: number;
       invoiceUrl?: string;
       pixCopyPaste?: string;
+      pixQrImage?: string;
       balance?: number;
     }
   | { ok: false; error: string; code?: 'need_cpf_cnpj' };
 
 export const MIN_CREDIT_PURCHASE = 3;
+
+/**
+ * Taxa que a Asaas cobra por Pix recebido. O restaurante paga
+ * (crédito + taxa) para que a conta Leeva receba o crédito líquido.
+ * Ajustável por ambiente (promo 0,99 nos 3 primeiros meses; 1,99 depois).
+ */
+export function pixFeeIn(): number {
+  const v = Number(process.env.ASAAS_PIX_FEE_IN);
+  return Number.isFinite(v) && v >= 0 ? v : 0.99;
+}
 
 /** Resolve pacote/valor -> { amount, bonus, gross }. */
 async function resolveAmount(
@@ -105,9 +117,12 @@ export async function startCreditPurchase(
   const resolved = await resolveAmount(db, input);
   if ('error' in resolved) return { ok: false, error: resolved.error };
   const { amount, bonus, packageId } = resolved;
-  const gross = amount; // hoje 1:1 (R$ pago = crédito liberado); margem/taxa entram aqui depois
 
   const asaas = getAsaasClient();
+  // Cobrança real: o restaurante paga (crédito + taxa Pix), a Leeva recebe o
+  // crédito líquido. Simulação: sem taxa.
+  const fee = asaas ? pixFeeIn() : 0;
+  const gross = round(amount + fee);
 
   // A cobrança da Asaas exige um "cliente" (o pagador). Resolve/cria antes de
   // registrar a compra, pra não deixar linha pendente órfã se faltar o CNPJ.
@@ -145,6 +160,7 @@ export async function startCreditPurchase(
       simulated: true,
       gross,
       amount,
+      fee,
       bonus,
       balance,
     };
@@ -154,7 +170,7 @@ export async function startCreditPurchase(
   const charge = await asaas.createPixCharge({
     customer: customerId!,
     value: gross,
-    description: `Leeva — crédito de entregas (R$ ${amount.toFixed(2)})`,
+    description: `Leeva — crédito de entregas (R$ ${amount.toFixed(2)} + taxa Pix R$ ${fee.toFixed(2)})`,
     externalReference: row.id,
     dueInDays: 1,
   });
@@ -181,9 +197,11 @@ export async function startCreditPurchase(
     simulated: false,
     gross,
     amount,
+    fee,
     bonus,
     invoiceUrl: charge.data.invoiceUrl,
     pixCopyPaste: charge.data.pixCopyPaste,
+    pixQrImage: charge.data.pixQrImage,
   };
 }
 

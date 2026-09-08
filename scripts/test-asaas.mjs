@@ -104,6 +104,8 @@ const run = async () => {
     assert.equal(res.status, 'pending');
     assert.ok(res.invoiceUrl, 'deve ter invoiceUrl');
     assert.ok(res.pixCopyPaste, 'deve ter copia-e-cola');
+    assert.equal(res.fee, 0.99, 'taxa Pix padrão');
+    assert.equal(res.gross, 50.99, 'cobra crédito + taxa');
     purchaseId = res.purchaseId;
     const after = (await getCreditBalance(db, r.id)).balance;
     assert.equal(after, before, 'saldo não muda antes do pagamento');

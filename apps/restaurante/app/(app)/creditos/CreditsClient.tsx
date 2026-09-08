@@ -37,7 +37,10 @@ type BuyResult = {
   status?: 'pending' | 'paid';
   invoiceUrl?: string;
   pixCopyPaste?: string;
+  pixQrImage?: string;
   amount?: number;
+  fee?: number;
+  gross?: number;
   bonus?: number;
 };
 
@@ -199,11 +202,26 @@ export function CreditsClient({ initial, canBuy }: { initial: Data; canBuy: bool
         {msg && <div className="op-alert ok" style={{ marginTop: 10 }}>{msg}</div>}
 
         {pix?.invoiceUrl && (
-          <div className="op-alert" style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-            <strong>Pague R$ {(pix.amount ?? 0).toFixed(2)} via Pix para liberar o crédito</strong>
+          <div className="op-alert" style={{ marginTop: 12, display: 'grid', gap: 8, justifyItems: 'start' }}>
+            <strong>Pague R$ {(pix.gross ?? pix.amount ?? 0).toFixed(2)} via Pix para liberar o crédito</strong>
+            {pix.fee ? (
+              <div className="muted" style={{ fontSize: 12 }}>
+                R$ {(pix.amount ?? 0).toFixed(2)} de crédito + R$ {pix.fee.toFixed(2)} de taxa Pix (Asaas)
+              </div>
+            ) : null}
+            {pix.pixQrImage && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pix.pixQrImage}
+                alt="QR Code do Pix"
+                width={200}
+                height={200}
+                style={{ background: '#fff', padding: 8, borderRadius: 8 }}
+              />
+            )}
             {pix.pixCopyPaste && (
               <>
-                <div style={{ fontSize: 12 }}>Copie o código Pix e pague no app do seu banco:</div>
+                <div style={{ fontSize: 12 }}>Ou copie o código Pix e pague no app do seu banco:</div>
                 <textarea
                   readOnly
                   value={pix.pixCopyPaste}

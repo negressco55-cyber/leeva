@@ -39,7 +39,7 @@ export interface AsaasClient {
     description: string;
     externalReference?: string;
     dueInDays?: number;
-  }): Promise<AsaasResult<{ id: string; invoiceUrl: string; pixCopyPaste?: string }>>;
+  }): Promise<AsaasResult<{ id: string; invoiceUrl: string; pixCopyPaste?: string; pixQrImage?: string }>>;
 }
 
 class HttpAsaasClient implements AsaasClient {
@@ -95,7 +95,7 @@ class HttpAsaasClient implements AsaasClient {
     description: string;
     externalReference?: string;
     dueInDays?: number;
-  }): Promise<AsaasResult<{ id: string; invoiceUrl: string; pixCopyPaste?: string }>> {
+  }): Promise<AsaasResult<{ id: string; invoiceUrl: string; pixCopyPaste?: string; pixQrImage?: string }>> {
     const due = new Date(Date.now() + (input.dueInDays ?? 1) * 86400_000).toISOString().slice(0, 10);
     const created = await this.req<{ id: string; invoiceUrl: string }>('/payments', {
       customer: input.customer,
@@ -107,12 +107,20 @@ class HttpAsaasClient implements AsaasClient {
     });
     if (!created.ok) return created;
 
-    // o copia-e-cola vem de um endpoint separado
+    // o copia-e-cola e a imagem do QR vêm de um endpoint separado
     let pixCopyPaste: string | undefined;
-    const qr = await this.req<{ payload?: string }>(`/payments/${created.data.id}/pixQrCode`, null, 'GET');
-    if (qr.ok) pixCopyPaste = qr.data.payload;
+    let pixQrImage: string | undefined;
+    const qr = await this.req<{ payload?: string; encodedImage?: string }>(
+      `/payments/${created.data.id}/pixQrCode`,
+      null,
+      'GET',
+    );
+    if (qr.ok) {
+      pixCopyPaste = qr.data.payload;
+      pixQrImage = qr.data.encodedImage ? `data:image/png;base64,${qr.data.encodedImage}` : undefined;
+    }
 
-    return { ok: true, data: { id: created.data.id, invoiceUrl: created.data.invoiceUrl, pixCopyPaste } };
+    return { ok: true, data: { id: created.data.id, invoiceUrl: created.data.invoiceUrl, pixCopyPaste, pixQrImage } };
   }
 }
 
