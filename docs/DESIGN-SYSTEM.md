@@ -43,46 +43,50 @@ tempo). Calma, densa de informação, sem enfeite.
 
 ## 2. Cor
 
-Tokens em `:root` (tema claro) e sobrescritos em
-`@media (prefers-color-scheme: dark)`.
+Tokens em `:root` (tema **claro — é sempre o padrão**) e sobrescritos em
+`:root[data-theme='dark']`. O tema **não segue mais o sistema operacional**:
+a pessoa escolhe no botão "Tema claro / Tema escuro" no rodapé do menu, e a
+escolha fica no `localStorage` (`leeva-theme`). Um `<script>` inline no
+`layout` aplica o tema salvo antes da primeira pintura (sem piscar).
 
 ### Claro (padrão)
 
 | Token | Valor | Uso |
 |---|---|---|
-| `--bg` | `#f7f7f5` | fundo da página (cinza-quente, **não** bege) |
+| `--bg` | `#f7f7f4` | fundo da página (cinza-quente, **não** bege) |
 | `--surface` | `#ffffff` | card, painel, linha de tabela |
-| `--surface-2` | `#f1f1ee` | seção rebaixada, fundo de input, hover |
-| `--text` | `#1b1b19` | texto principal |
-| `--muted` | `#6a6a64` | texto secundário, rótulo |
-| `--faint` | `#9b9b93` | placeholder, meta terciária |
-| `--border` | `#e5e4df` | linha de 1px (padrão) |
-| `--border-strong` | `#d2d1ca` | divisória de ênfase, borda de input |
-| `--brand` | `#1f6f5c` | ação principal, links, foco |
-| `--brand-hover` | `#1a5f50` | :hover da ação principal |
-| `--brand-weak` | `#e7f1ee` | fundo tênue de destaque de marca |
-| `--ok` | `#2f7d4f` / `--ok-weak` `#e6f2ea` | sucesso, "no prazo", pago |
-| `--warn` | `#9a6b08` / `--warn-weak` `#f6ecd8` | atenção, aguardando |
-| `--danger` | `#b3261e` / `--danger-weak` `#f8e5e3` | erro, atrasado, falhou |
+| `--surface-2` | `#f0f0ec` | seção rebaixada, fundo de input, hover |
+| `--text` | `#14140e` | texto principal (bem escuro — nítido) |
+| `--muted` | `#5d5d55` | texto secundário, rótulo |
+| `--faint` | `#8f8f86` | placeholder, meta terciária |
+| `--border` | `#e6e5df` | linha de 1px (padrão) |
+| `--border-strong` | `#d1d0c8` | divisória de ênfase, borda de input |
+| `--brand` | `#0c8a5c` | ação principal, links, foco — verde nítido |
+| `--brand-hover` | `#0a744d` | :hover da ação principal |
+| `--brand-weak` | `#e1f2ea` | fundo tênue de destaque de marca |
+| `--ok` | `#167c43` / `--ok-weak` `#e2f1e7` | sucesso, "no prazo", pago |
+| `--warn` | `#8a5d05` / `--warn-weak` `#f6ebd4` | atenção, aguardando |
+| `--danger` | `#b0241c` / `--danger-weak` `#f8e4e2` | erro, atrasado, falhou |
 
-### Escuro
+### Escuro (`:root[data-theme='dark']`)
 
 | Token | Valor |
 |---|---|
-| `--bg` | `#141513` |
-| `--surface` | `#1c1e1b` |
-| `--surface-2` | `#242621` |
-| `--text` | `#e9e9e4` |
-| `--muted` | `#a3a39a` |
-| `--faint` | `#6f6f66` |
-| `--border` | `#31332e` |
-| `--border-strong` | `#3d3f39` |
-| `--brand` | `#4fae93` |
-| `--brand-hover` | `#5cbfa2` |
-| `--brand-weak` | `#1e2f2a` |
-| `--ok` `#63b98a` / `--ok-weak` `#1b2a22` | |
-| `--warn` `#d3a548` / `--warn-weak` `#2b2519` | |
-| `--danger` `#e0685f` / `--danger-weak` `#2e1d1c` | |
+| `--bg` | `#14150f` |
+| `--surface` | `#1c1e17` |
+| `--surface-2` | `#24261f` |
+| `--text` | `#ecece4` |
+| `--muted` | `#a4a49a` |
+| `--faint` | `#707066` |
+| `--border` | `#303228` |
+| `--border-strong` | `#3d3f34` |
+| `--brand` | `#34c98c` |
+| `--brand-hover` | `#46d69b` |
+| `--brand-weak` | `#172a20` |
+| `--on-brand` | `#052013` |
+| `--ok` `#55c47f` / `--ok-weak` `#17271c` | |
+| `--warn` `#d6a951` / `--warn-weak` `#2b2416` | |
+| `--danger` `#e46a61` / `--danger-weak` `#301b1a` | |
 
 (O verde de marca clareia no escuro para manter contraste AA sobre `--surface`.)
 

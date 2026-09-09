@@ -3,6 +3,7 @@ import { requireRestaurantContext, adminDb } from '@/lib/context';
 import { ensureSubscription } from '@leeva/shared/services';
 import { logout } from '../login/actions';
 import { Nav } from './_lib/Nav';
+import { ThemeToggle } from './_lib/ThemeToggle';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireRestaurantContext();
@@ -36,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="spacer" />
         <div className="side-foot">
           {ctx.fullName ?? ctx.email}
+          <ThemeToggle />
           <form action={logout} style={{ marginTop: 6 }}>
             <button className="btn sm" type="submit" style={{ width: '100%' }}>
               Sair
