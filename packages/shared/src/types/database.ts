@@ -1292,6 +1292,7 @@ export type Database = {
           delivery_gps_status: string | null
           delivery_photo_path: string | null
           dispatch_attempts: number
+          dispatch_hold: boolean
           dispatch_state: Database["public"]["Enums"]["dispatch_state"]
           dispatched_at: string | null
           driver_payout: number | null
@@ -1344,6 +1345,7 @@ export type Database = {
           delivery_gps_status?: string | null
           delivery_photo_path?: string | null
           dispatch_attempts?: number
+          dispatch_hold?: boolean
           dispatch_state?: Database["public"]["Enums"]["dispatch_state"]
           dispatched_at?: string | null
           driver_payout?: number | null
@@ -1396,6 +1398,7 @@ export type Database = {
           delivery_gps_status?: string | null
           delivery_photo_path?: string | null
           dispatch_attempts?: number
+          dispatch_hold?: boolean
           dispatch_state?: Database["public"]["Enums"]["dispatch_state"]
           dispatched_at?: string | null
           driver_payout?: number | null

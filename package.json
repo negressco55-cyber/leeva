@@ -30,6 +30,7 @@
     "test:address": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-address.mjs",
     "test:asaas": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-asaas.mjs",
     "test:delivery-proof": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-delivery-proof.mjs",
+    "test:order-hold": "node --import tsx --env-file=apps/restaurante/.env.local scripts/test-order-hold.mjs",
     "seed:fase3": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-fase3.mjs",
     "seed:admin": "node --import tsx --env-file=apps/restaurante/.env.local scripts/seed-admin.mjs",
     "seed": "node --env-file=apps/restaurante/.env.local scripts/seed.mjs",

@@ -84,6 +84,9 @@ export type LogisticsConfig = {
   min_order: number;
   grouping_enabled: boolean;
   auto_dispatch_enabled: boolean;
+  /** Pedido do iFood: chama entregador automaticamente (true) ou fica
+   *  "aguardando você chamar" no painel (false). */
+  ifood_auto_call: boolean;
   offer_timeout_seconds: number;
   max_dispatch_attempts: number;
 };

@@ -46,6 +46,7 @@ export async function evaluateAlerts(
     .from('orders')
     .select('id, order_number, status, created_at, ready_at, assigned_at, picked_up_at, motoboy_id')
     .eq('restaurant_id', restaurantId)
+    .eq('dispatch_hold', false)
     .in('status', ['waiting_dispatch', 'preparing', 'ready', 'assigned', 'picked_up', 'in_route'])
     .order('created_at', { ascending: true })
     .limit(300);

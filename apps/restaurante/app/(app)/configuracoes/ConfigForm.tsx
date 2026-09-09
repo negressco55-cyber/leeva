@@ -106,9 +106,14 @@ export default function ConfigForm({
           <label>Tempo de oferta ao entregador (s){num(L.offer_timeout_seconds, (v) => nL('offer_timeout_seconds', v), '5')}</label>
           <label>Máx. tentativas de despacho{num(L.max_dispatch_attempts, (v) => nL('max_dispatch_attempts', v), '1')}</label>
         </div>
-        <div style={{ marginTop: 8 }}>
-          <label><input type="checkbox" checked={L.auto_dispatch_enabled} onChange={(e) => setL((s) => ({ ...s, auto_dispatch_enabled: e.target.checked }))} disabled={!isOwner} /> Despacho automático</label>{' · '}
+        <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+          <label><input type="checkbox" checked={L.auto_dispatch_enabled} onChange={(e) => setL((s) => ({ ...s, auto_dispatch_enabled: e.target.checked }))} disabled={!isOwner} /> Despacho automático</label>
           <label><input type="checkbox" checked={L.grouping_enabled} onChange={(e) => setL((s) => ({ ...s, grouping_enabled: e.target.checked }))} disabled={!isOwner} /> Agrupamento de entregas</label>
+          <label><input type="checkbox" checked={L.ifood_auto_call ?? true} onChange={(e) => setL((s) => ({ ...s, ifood_auto_call: e.target.checked }))} disabled={!isOwner} /> Chamar entregador automaticamente para pedidos do iFood</label>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Desligado: cada pedido do iFood aparece no painel e no mapa como “aguardando você chamar”. Você
+            escolhe quais enviar para o Leeva — os outros entrega como quiser, sem custo.
+          </span>
         </div>
       </div>
 

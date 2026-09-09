@@ -65,6 +65,7 @@ export async function PUT(req: Request) {
       min_order: num(L.min_order, 0, 100000, 0),
       grouping_enabled: L.grouping_enabled ?? true,
       auto_dispatch_enabled: L.auto_dispatch_enabled ?? true,
+      ifood_auto_call: L.ifood_auto_call ?? true,
       offer_timeout_seconds: num(L.offer_timeout_seconds, 15, 300, DEFAULT_LOGISTICS_CONFIG.offer_timeout_seconds),
       max_dispatch_attempts: num(L.max_dispatch_attempts, 1, 10, DEFAULT_LOGISTICS_CONFIG.max_dispatch_attempts),
     };

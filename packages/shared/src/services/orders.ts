@@ -43,7 +43,14 @@ export async function createOrderFromNormalized(
   db: DB,
   restaurantId: string,
   n: NormalizedOrder,
-  opts: { integrationEventId?: string; requireConfirmation?: boolean; skipCredit?: boolean } = {},
+  opts: {
+    integrationEventId?: string;
+    requireConfirmation?: boolean;
+    skipCredit?: boolean;
+    /** entra "segurado": aparece no painel/mapa, mas não despacha nem
+     *  desconta crédito até o restaurante clicar "Chamar entregador". */
+    holdForReview?: boolean;
+  } = {},
 ): Promise<CreateResult> {
   // --- idempotência ---
   if (n.externalId) {
@@ -100,7 +107,11 @@ export async function createOrderFromNormalized(
     customerId = cust?.id ?? null;
   }
 
-  const notesPrefix = opts.requireConfirmation ? '[A CONFIRMAR] ' : '';
+  const notesPrefix = opts.requireConfirmation
+    ? '[A CONFIRMAR] '
+    : opts.holdForReview
+      ? '[VOCÊ DECIDE] '
+      : '';
 
   const { data: order, error } = await db
     .from('orders')
@@ -122,8 +133,13 @@ export async function createOrderFromNormalized(
       delivery_fee: 0, // taxa manual removida — o Leeva calcula (finalizeDeliveryCharge)
       payment_method: n.paymentMethod ?? 'unknown',
       payment_status: n.paymentStatus ?? 'pending',
-      notes: n.notes ? notesPrefix + n.notes : opts.requireConfirmation ? notesPrefix.trim() : null,
+      notes: n.notes
+        ? notesPrefix + n.notes
+        : opts.requireConfirmation || opts.holdForReview
+          ? notesPrefix.trim()
+          : null,
       status: 'waiting_dispatch',
+      dispatch_hold: opts.holdForReview ?? false,
     })
     .select('id, order_number')
     .single();
@@ -182,11 +198,15 @@ export async function createOrderFromNormalized(
   }
 
   // TAXA DA ENTREGA — calculada UMA VEZ, aqui. Tudo depois lê o valor gravado.
+  // Pedido "segurado" (holdForReview): a taxa e o crédito só entram quando o
+  // restaurante clicar "Chamar entregador" (ver callDriverForOrder).
   let charge: Awaited<ReturnType<typeof finalizeDeliveryCharge>> = null;
-  try {
-    charge = await finalizeDeliveryCharge(db, order.id, restaurantId);
-  } catch (e) {
-    console.error('[orders] cálculo da taxa falhou (ignorado):', (e as Error).message);
+  if (!opts.holdForReview) {
+    try {
+      charge = await finalizeDeliveryCharge(db, order.id, restaurantId);
+    } catch (e) {
+      console.error('[orders] cálculo da taxa falhou (ignorado):', (e as Error).message);
+    }
   }
 
   // CRÉDITO — desconta o total do saldo. Sem saldo → o pedido NÃO é criado.
@@ -214,8 +234,9 @@ export async function createOrderFromNormalized(
   }
 
   // dispara o despacho automático (o motor decide o entregador sozinho).
-  // Pedidos que exigem confirmação humana (rascunho de WhatsApp) não entram.
-  if (!opts.requireConfirmation) {
+  // Não entram: rascunho de WhatsApp (confirmação humana) nem pedido segurado
+  // ("você decide" — só despacha em callDriverForOrder).
+  if (!opts.requireConfirmation && !opts.holdForReview) {
     try {
       const { data: rst } = await db
         .from('restaurants')
@@ -238,6 +259,61 @@ export async function createOrderFromNormalized(
 /** Confirma um pedido que estava aguardando (waiting_dispatch -> preparing). */
 export async function confirmOrder(db: DB, orderId: string, actorId?: string) {
   return advanceOrderStatus(db, orderId, 'preparing', { actorType: 'restaurant', actorId });
+}
+
+/**
+ * "Chamar entregador" para um pedido SEGURADO (dispatch_hold). Só aqui a taxa
+ * é calculada e o crédito é descontado — antes disso o pedido só existe no
+ * painel/mapa. Sem saldo → NÃO libera (o pedido continua segurado).
+ */
+export async function callDriverForOrder(
+  db: DB,
+  orderId: string,
+  restaurantId: string,
+): Promise<{ ok: true; cost: number } | { ok: false; error: string; code?: 'insufficient_credit' | 'not_held' }> {
+  const { data: order } = await db
+    .from('orders')
+    .select('id, restaurant_id, status, dispatch_hold, dispatch_state, motoboy_id, driver_payout')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order || order.restaurant_id !== restaurantId) return { ok: false, error: 'pedido não encontrado' };
+  if (!order.dispatch_hold) return { ok: false, error: 'este pedido já foi enviado', code: 'not_held' };
+  if (['delivered', 'cancelled'].includes(order.status)) return { ok: false, error: 'pedido encerrado' };
+
+  // taxa (grava uma vez) — se já estava calculada, finalize não repete
+  let cost = 0;
+  try {
+    const charge =
+      order.driver_payout == null
+        ? await finalizeDeliveryCharge(db, orderId, restaurantId)
+        : null;
+    cost = charge?.total ?? 0;
+  } catch (e) {
+    console.error('[orders] callDriver: taxa falhou:', (e as Error).message);
+  }
+  if (!cost) {
+    const { data: o2 } = await db.from('orders').select('leeva_fee').eq('id', orderId).maybeSingle();
+    cost = Number(o2?.leeva_fee ?? 0);
+  }
+
+  if (cost > 0) {
+    const c = await consumeCreditForOrder(db, restaurantId, cost, orderId, `Entrega #${orderId.slice(0, 8)}`);
+    if (!c.ok) {
+      return {
+        ok: false,
+        code: 'insufficient_credit',
+        error: `Saldo insuficiente. Esta entrega custa ${brl(cost)} e você tem ${brl(c.balance)}.`,
+      };
+    }
+  }
+
+  await db
+    .from('orders')
+    .update({ dispatch_hold: false, dispatch_state: 'searching' })
+    .eq('id', orderId)
+    .eq('dispatch_hold', true);
+
+  return { ok: true, cost };
 }
 
 export type TransitionResult = { ok: true } | { ok: false; error: string };

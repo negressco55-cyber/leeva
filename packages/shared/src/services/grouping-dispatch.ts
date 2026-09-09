@@ -82,6 +82,7 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
     .neq('id', lead.id)
     .is('motoboy_id', null)
     .is('group_id', null)
+    .eq('dispatch_hold', false)
     .in('status', ['waiting_dispatch', 'preparing', 'ready'])
     .in('dispatch_state', ['none', 'searching', 'offered'])
     .eq('payment_method', lead.payment_method)

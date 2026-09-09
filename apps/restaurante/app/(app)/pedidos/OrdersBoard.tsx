@@ -26,6 +26,7 @@ type OrderRow = {
   source: OrderSource;
   status: OrderStatus;
   dispatch_state: DispatchState;
+  dispatch_hold: boolean;
   customer_name: string;
   customer_phone: string | null;
   customer_address: string;
@@ -55,6 +56,9 @@ export type GroupPeer = { orderNumber: number | null; customerName: string; seq:
 
 /** Como o restaurante enxerga o andamento — status do pedido OU do despacho. */
 function progressLabel(o: OrderRow): { text: string; cls: string } {
+  if (o.dispatch_hold) {
+    return { text: 'Aguardando você chamar', cls: 'amber' };
+  }
   if (['searching', 'offered'].includes(o.dispatch_state) && !o.motoboy_id) {
     return { text: DISPATCH_STATE_LABELS[o.dispatch_state], cls: 'amber' };
   }
@@ -201,6 +205,28 @@ export default function OrdersBoard({
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {o.dispatch_hold && (
+                  <button
+                    className="btn sm primary"
+                    disabled={busyId === o.id}
+                    onClick={() =>
+                      act(async () => {
+                        try {
+                          await apiPost(`/api/orders/${o.id}/call-driver`);
+                        } catch (e) {
+                          const code = (e as { code?: string }).code;
+                          if (code === 'insufficient_credit') {
+                            setErr('Saldo insuficiente. Compre créditos para chamar o entregador.');
+                            return;
+                          }
+                          throw e;
+                        }
+                      }, o.id)
+                    }
+                  >
+                    {busyId === o.id ? '…' : 'Chamar entregador'}
+                  </button>
+                )}
                 {!['delivered', 'cancelled'].includes(o.status) && (
                   <button
                     className="btn sm"
@@ -210,7 +236,7 @@ export default function OrdersBoard({
                         act(() => apiPost(`/api/orders/${o.id}/status`, { status: 'cancelled' }), o.id);
                     }}
                   >
-                    Cancelar
+                    {o.dispatch_hold ? 'Recusar' : 'Cancelar'}
                   </button>
                 )}
                 <button className="btn sm" onClick={() => setOpenId(openId === o.id ? null : o.id)}>

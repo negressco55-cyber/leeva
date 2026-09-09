@@ -44,6 +44,7 @@ export const DEFAULT_LOGISTICS_CONFIG: LogisticsConfig = {
   min_order: 0,
   grouping_enabled: true,
   auto_dispatch_enabled: true,
+  ifood_auto_call: true,
   offer_timeout_seconds: 45,
   max_dispatch_attempts: 4,
 };
@@ -319,6 +320,7 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
     .select('id, restaurant_id, dispatch_attempts, group_id, group_lead')
     .in('status', ['waiting_dispatch', 'preparing', 'ready'])
     .is('motoboy_id', null)
+    .eq('dispatch_hold', false)
     .in('dispatch_state', ['none', 'searching'])
     .order('created_at', { ascending: true })
     .limit(50);

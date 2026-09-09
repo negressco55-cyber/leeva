@@ -63,6 +63,17 @@ export async function syncIfoodOrders(db: DB, restaurantId: string): Promise<Ifo
     return { ok: false, merchantIds: [], polled: 0, imported: 0, skipped: 0, errors: [msg] };
   }
 
+  // "Chamar entregador automaticamente para pedidos do iFood?" (default sim).
+  // Se não, o pedido entra segurado — aparece no painel/mapa, mas só despacha
+  // e desconta crédito quando o restaurante clicar "Chamar entregador".
+  const { data: rst } = await db
+    .from('restaurants')
+    .select('logistics_config')
+    .eq('id', restaurantId)
+    .maybeSingle();
+  const autoCall =
+    (rst?.logistics_config as { ifood_auto_call?: boolean } | null)?.ifood_auto_call ?? true;
+
   let events: IfoodPollEvent[];
   try {
     events = await pollIfoodEvents(token, merchantIds.length ? merchantIds : undefined);
@@ -123,6 +134,7 @@ export async function syncIfoodOrders(db: DB, restaurantId: string): Promise<Ifo
 
       const created = await createOrderFromNormalized(db, restaurantId, parsed.order, {
         integrationEventId: undefined,
+        holdForReview: !autoCall,
       });
       if (!created.ok) {
         errors.push(`pedido ${evt.orderId}: ${created.error}`);

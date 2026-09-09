@@ -548,3 +548,25 @@ dona: exigir **GPS + foto**.
 5. **Restaurante** (`OrderDetail` + `/api/orders/[id]`): mostra a foto (URL
    assinada 1h) + "confirmada no local (X m)" ou "sem localização".
 6. `npm run test:delivery-proof` (5 casos).
+
+### 2026-09-09 — "o restaurante decide" quais pedidos do iFood vão pro Leeva
+
+Pergunta da dona: com o iFood ligado, TODO pedido vai pro Leeva? E se ela não
+quiser mandar todos?
+
+- **Setting** `logistics_config.ifood_auto_call` (default `true` = automático,
+  como era). Desligado → pedido do iFood entra **segurado**.
+- **Migration 0034**: `orders.dispatch_hold boolean`. Segurado = aparece no
+  painel ("Aguardando você chamar") e no mapa, mas: **não despacha, não
+  calcula taxa, não desconta crédito**.
+- `createOrderFromNormalized({ holdForReview })`: pula finalizeDeliveryCharge
+  + consumo de crédito + trigger de despacho; grava `dispatch_hold=true`.
+- `callDriverForOrder(db, orderId, restaurantId)` (novo): só aqui calcula a
+  taxa, desconta crédito (sem saldo → continua segurado), e libera
+  (`dispatch_hold=false`, `dispatch_state='searching'`).
+- Despacho (`autodispatch`, `grouping-dispatch`) e alertas ignoram
+  `dispatch_hold`. Mapa mostra `dispatchHold` no marcador; segurado não conta
+  como "atrasado".
+- UI: botão **"Chamar entregador"** no card do pedido (Pedidos); "Cancelar"
+  vira "Recusar" pro segurado. Toggle em Configurações → Logística.
+- `npm run test:order-hold` (4 casos).

@@ -22,6 +22,7 @@ export type MapOrderMarker = {
   region: string | null;
   status: Database['public']['Enums']['order_status'];
   dispatchState: Database['public']['Enums']['dispatch_state'];
+  dispatchHold: boolean;
   destination: { latitude: number; longitude: number } | null;
   etaMin: number | null;
   etaMax: number | null;
@@ -50,7 +51,7 @@ export async function getMapData(db: DB, restaurantId: string): Promise<MapData>
   const { data: orders } = await db
     .from('orders')
     .select(
-      'id, order_number, customer_name, region, status, dispatch_state, latitude, longitude, eta_min, eta_max, route_distance_km, created_at, motoboy_id',
+      'id, order_number, customer_name, region, status, dispatch_state, dispatch_hold, latitude, longitude, eta_min, eta_max, route_distance_km, created_at, motoboy_id',
     )
     .eq('restaurant_id', restaurantId)
     .in('status', OPEN_ORDER_STATUSES)
@@ -72,7 +73,7 @@ export async function getMapData(db: DB, restaurantId: string): Promise<MapData>
   const now = Date.now();
   const markers: MapOrderMarker[] = rows.map((o) => {
     const ageMin = (now - new Date(o.created_at).getTime()) / 60000;
-    const late = ageMin > SLA_TOTAL_MIN && o.status !== 'in_route';
+    const late = ageMin > SLA_TOTAL_MIN && o.status !== 'in_route' && !o.dispatch_hold;
     let driverFirstName: string | null = null;
     let driverPosition: { latitude: number; longitude: number } | null = null;
     if (o.motoboy_id && ['picked_up', 'in_route'].includes(o.status)) {
@@ -96,6 +97,7 @@ export async function getMapData(db: DB, restaurantId: string): Promise<MapData>
       region: o.region,
       status: o.status,
       dispatchState: o.dispatch_state,
+      dispatchHold: !!o.dispatch_hold,
       destination: isValidLatLng(o.latitude, o.longitude)
         ? { latitude: o.latitude as number, longitude: o.longitude as number }
         : null,
