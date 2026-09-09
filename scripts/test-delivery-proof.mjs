@@ -37,7 +37,14 @@ async function makeOrder(status = 'in_route') {
   cleanup.push(() => db.from('restaurants').delete().eq('id', r.id));
   const { data: m } = await db
     .from('motoboys')
-    .insert({ restaurant_id: r.id, full_name: '[DP] D', status: 'on_delivery', active: true, fleet: 'own' })
+    .insert({
+      restaurant_id: r.id,
+      full_name: '[DP] D',
+      phone: `+55839${Math.floor(1000000 + Math.random() * 8999999)}`,
+      status: 'on_delivery',
+      active: true,
+      fleet: 'own',
+    })
     .select('id')
     .single();
   cleanup.push(() => db.from('motoboys').delete().eq('id', m.id));
