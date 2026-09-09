@@ -202,7 +202,14 @@ export default function OrderDetail({
         </ul>
       </div>
 
-      {order.status === 'delivered' && (
+      {order.status === 'delivered' && (o?.delivery_gps_status as string | undefined) === 'external' && (
+        <div>
+          <div className="card-title">Conclusão</div>
+          <div className="tag gray">Concluída no iFood — entrega feita por fora do Leeva</div>
+        </div>
+      )}
+
+      {order.status === 'delivered' && (o?.delivery_gps_status as string | undefined) !== 'external' && (
         <div>
           <div className="card-title">Comprovante de entrega</div>
           {(() => {

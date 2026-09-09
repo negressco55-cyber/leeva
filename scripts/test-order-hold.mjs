@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import {
   createOrderFromNormalized,
   callDriverForOrder,
+  markOrderHandledExternally,
+  closeIfoodOrder,
   getCreditBalance,
   addCredit,
   adjustCredit,
@@ -93,6 +95,52 @@ const run = async () => {
     const res = await callDriverForOrder(db, heldId, r.id);
     assert.equal(res.ok, false);
     assert.equal(res.code, 'not_held');
+  });
+
+  await t('Recusar → fecha como entregue por fora, sem custo', async () => {
+    const before = (await getCreditBalance(db, r.id)).balance;
+    const c = await createOrderFromNormalized(db, r.id, normalized(3), { holdForReview: true });
+    const res = await markOrderHandledExternally(db, c.orderId, r.id);
+    assert.equal(res.ok, true);
+    const { data: o } = await db
+      .from('orders')
+      .select('status, delivery_gps_status, dispatch_hold')
+      .eq('id', c.orderId)
+      .single();
+    assert.equal(o.status, 'delivered');
+    assert.equal(o.delivery_gps_status, 'external');
+    assert.equal(o.dispatch_hold, false);
+    assert.equal((await getCreditBalance(db, r.id)).balance, before, 'crédito intacto');
+  });
+
+  await t('iFood conclui um pedido segurado → fecha como externa no Leeva', async () => {
+    const ext = `hold-con-${Date.now()}`;
+    const c = await createOrderFromNormalized(
+      db,
+      r.id,
+      { ...normalized(4), externalId: ext },
+      { holdForReview: true },
+    );
+    const res = await closeIfoodOrder(db, r.id, ext, 'concluded');
+    assert.equal(res.ok, true);
+    assert.equal(res.action, 'delivered_external');
+    const { data: o } = await db.from('orders').select('status, delivery_gps_status').eq('id', c.orderId).single();
+    assert.equal(o.status, 'delivered');
+    assert.equal(o.delivery_gps_status, 'external');
+  });
+
+  await t('iFood cancela um pedido segurado → cancela no Leeva', async () => {
+    const ext = `hold-can-${Date.now()}`;
+    const c = await createOrderFromNormalized(
+      db,
+      r.id,
+      { ...normalized(5), externalId: ext },
+      { holdForReview: true },
+    );
+    const res = await closeIfoodOrder(db, r.id, ext, 'cancelled');
+    assert.equal(res.ok, true);
+    const { data: o } = await db.from('orders').select('status').eq('id', c.orderId).single();
+    assert.equal(o.status, 'cancelled');
   });
 
   await t('sem saldo → pedido continua segurado', async () => {

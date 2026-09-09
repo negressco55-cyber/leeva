@@ -225,3 +225,7 @@ export async function getIfoodOrder(token: string, orderId: string): Promise<unk
 
 /** Código de evento que indica um pedido novo chegando. */
 export const IFOOD_EVENT_NEW_ORDER = 'PLC';
+/** Pedido concluído (entregue) no iFood. */
+export const IFOOD_EVENT_CONCLUDED = 'CON';
+/** Pedido cancelado no iFood. */
+export const IFOOD_EVENT_CANCELLED = 'CAN';

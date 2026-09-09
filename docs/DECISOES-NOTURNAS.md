@@ -570,3 +570,22 @@ quiser mandar todos?
 - UI: botão **"Chamar entregador"** no card do pedido (Pedidos); "Cancelar"
   vira "Recusar" pro segurado. Toggle em Configurações → Logística.
 - `npm run test:order-hold` (4 casos).
+
+### 2026-09-09 (cont.) — status do iFood fecha o pedido no Leeva
+
+Requisito da dona: pedido do iFood que ela NÃO mandou pro Leeva (segurado ou
+recusado), quando concluído no iFood, tem que fechar no Leeva também.
+
+- `IFOOD_EVENT_CONCLUDED = 'CON'`, `IFOOD_EVENT_CANCELLED = 'CAN'`.
+- `syncIfoodOrders` agora trata esses eventos → `closeIfoodOrder(db, rid, extId, outcome)`:
+  - `cancelled` → `advanceOrderStatus('cancelled')` (estorna crédito, encerra oferta).
+  - `concluded` + entrega nossa em rota → conclui normal (motoboy ganha).
+  - `concluded` nos demais casos → update direto `status='delivered'`,
+    `delivery_gps_status='external'` (bypass da máquina de estados de propósito).
+- `markOrderHandledExternally` (novo) + `/api/orders/[id]/handle-externally`:
+  o botão "Recusar" no card agora fecha como "entregue por fora" (antes
+  cancelava — e aí o CON do iFood não reabria). Sem custo.
+- `OrderDetail`: bloco "Conclusão — entrega feita por fora do Leeva".
+- Triggers do banco são permissivos (só logam a mudança de status), então o
+  update direto para 'delivered' é seguro e gera o order_event.
+- `test:order-hold` agora 7 casos.

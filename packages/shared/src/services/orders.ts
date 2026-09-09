@@ -316,6 +316,37 @@ export async function callDriverForOrder(
   return { ok: true, cost };
 }
 
+/**
+ * "Recusar" um pedido segurado: o restaurante vai entregar por conta própria.
+ * Fecha o pedido no Leeva como "entregue por fora" — sem custo, sem despacho.
+ * Se o iFood depois mandar "concluído", o pedido já está fechado.
+ */
+export async function markOrderHandledExternally(
+  db: DB,
+  orderId: string,
+  restaurantId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { data: order } = await db
+    .from('orders')
+    .select('id, restaurant_id, dispatch_hold, status')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order || order.restaurant_id !== restaurantId) return { ok: false, error: 'pedido não encontrado' };
+  if (!order.dispatch_hold) return { ok: false, error: 'só um pedido aguardando você pode ser recusado' };
+
+  const { error } = await db
+    .from('orders')
+    .update({
+      status: 'delivered',
+      delivery_gps_status: 'external',
+      dispatch_hold: false,
+      dispatch_state: 'none',
+    })
+    .eq('id', orderId)
+    .eq('dispatch_hold', true);
+  return { ok: !error, error: error ? 'não foi possível recusar' : undefined };
+}
+
 export type TransitionResult = { ok: true } | { ok: false; error: string };
 
 /**

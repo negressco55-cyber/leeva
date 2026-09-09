@@ -227,17 +227,30 @@ export default function OrdersBoard({
                     {busyId === o.id ? '…' : 'Chamar entregador'}
                   </button>
                 )}
-                {!['delivered', 'cancelled'].includes(o.status) && (
+                {o.dispatch_hold ? (
                   <button
                     className="btn sm"
                     disabled={busyId === o.id}
                     onClick={() => {
-                      if (confirm(`Cancelar o pedido #${o.order_number}?`))
-                        act(() => apiPost(`/api/orders/${o.id}/status`, { status: 'cancelled' }), o.id);
+                      if (confirm(`Recusar o #${o.order_number}? Você entrega por conta própria e ele é fechado no Leeva sem custo.`))
+                        act(() => apiPost(`/api/orders/${o.id}/handle-externally`), o.id);
                     }}
                   >
-                    {o.dispatch_hold ? 'Recusar' : 'Cancelar'}
+                    Recusar
                   </button>
+                ) : (
+                  !['delivered', 'cancelled'].includes(o.status) && (
+                    <button
+                      className="btn sm"
+                      disabled={busyId === o.id}
+                      onClick={() => {
+                        if (confirm(`Cancelar o pedido #${o.order_number}?`))
+                          act(() => apiPost(`/api/orders/${o.id}/status`, { status: 'cancelled' }), o.id);
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  )
                 )}
                 <button className="btn sm" onClick={() => setOpenId(openId === o.id ? null : o.id)}>
                   {openId === o.id ? 'Fechar' : 'Detalhes'}

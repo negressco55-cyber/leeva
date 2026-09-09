@@ -25,11 +25,13 @@ import {
   acknowledgeIfoodEvents,
   getIfoodOrder,
   IFOOD_EVENT_NEW_ORDER,
+  IFOOD_EVENT_CONCLUDED,
+  IFOOD_EVENT_CANCELLED,
   IfoodApiError,
   type IfoodPollEvent,
 } from '../integrations/ifood-client';
 import { getValidIfoodAccessToken, IfoodNotLinkedError } from './ifood-link';
-import { createOrderFromNormalized } from './orders';
+import { createOrderFromNormalized, advanceOrderStatus } from './orders';
 import { resolveAndApplyDeliveryLocation, deliveryLocationErrorMessage } from './address';
 import { isValidLatLng } from './geo';
 
@@ -108,6 +110,21 @@ export async function syncIfoodOrders(db: DB, restaurantId: string): Promise<Ifo
         continue;
       }
 
+      // pedido concluído / cancelado no iFood → fecha o pedido no Leeva também,
+      // mesmo que a entrega NÃO tenha sido nossa (segurado / recusado).
+      if ((evt.code === IFOOD_EVENT_CONCLUDED || evt.code === IFOOD_EVENT_CANCELLED) && evt.orderId) {
+        const outcome = evt.code === IFOOD_EVENT_CONCLUDED ? 'concluded' : 'cancelled';
+        const r = await closeIfoodOrder(db, restaurantId, evt.orderId, outcome);
+        await db
+          .from('integration_events')
+          .update({ status: r.ok ? 'processed' : 'failed', processed_at: new Date().toISOString(), error: r.ok ? null : r.action })
+          .eq('provider', 'ifood')
+          .eq('event_id', evt.id);
+        if (r.ok) imported++;
+        else skipped++;
+        continue;
+      }
+
       if (evt.code !== IFOOD_EVENT_NEW_ORDER || !evt.orderId) {
         skipped++;
         continue;
@@ -165,3 +182,60 @@ export async function syncIfoodOrders(db: DB, restaurantId: string): Promise<Ifo
 }
 
 export { IfoodApiError };
+
+/**
+ * Fecha o pedido do Leeva a partir de um status final do iFood.
+ *
+ * - `cancelled`  → cancela no Leeva (estorna crédito, encerra oferta).
+ * - `concluded`  → se a entrega foi NOSSA e está em rota, conclui pelo fluxo
+ *   normal; senão (pedido segurado, recusado, ou sem motoboy) marca como
+ *   entregue "por fora" (`delivery_gps_status = 'external'`), sem cobrar
+ *   entregador nem crédito.
+ */
+export async function closeIfoodOrder(
+  db: DB,
+  restaurantId: string,
+  externalId: string,
+  outcome: 'concluded' | 'cancelled',
+): Promise<{ ok: boolean; action: string }> {
+  const { data: order } = await db
+    .from('orders')
+    .select('id, status, dispatch_hold, motoboy_id')
+    .eq('restaurant_id', restaurantId)
+    .eq('source', 'ifood')
+    .eq('external_id', externalId)
+    .maybeSingle();
+  if (!order) return { ok: false, action: 'not_found' };
+  if (['delivered', 'cancelled'].includes(order.status)) return { ok: true, action: 'already_closed' };
+
+  if (outcome === 'cancelled') {
+    const r = await advanceOrderStatus(
+      db,
+      order.id,
+      'cancelled',
+      { actorType: 'system' },
+      { cancelOrigin: 'system', cancelReason: 'cancelado no iFood' },
+    );
+    return { ok: r.ok, action: 'cancelled' };
+  }
+
+  // concluído
+  if (order.motoboy_id && !order.dispatch_hold && order.status === 'in_route') {
+    const r = await advanceOrderStatus(db, order.id, 'delivered', { actorType: 'system' });
+    return { ok: r.ok, action: 'delivered_by_us' };
+  }
+
+  // não foi entrega nossa — fecha como externa (bypass da máquina de estados,
+  // de propósito: não é uma entrega Leeva normal)
+  const { error } = await db
+    .from('orders')
+    .update({
+      status: 'delivered',
+      delivery_gps_status: 'external',
+      dispatch_hold: false,
+      dispatch_state: 'none',
+    })
+    .eq('id', order.id)
+    .not('status', 'in', '("delivered","cancelled")');
+  return { ok: !error, action: error ? 'update_failed' : 'delivered_external' };
+}
