@@ -48,6 +48,7 @@ type Detail = {
   trackingUrl: string | null;
   notifications: { channel: string; body: string; status: string; error: string | null }[];
   dispatchAttempts?: { attempt_number: number; outcome: string | null; reason: string | null; offered_at: string; score: number | null }[];
+  deliveryPhotoUrl?: string | null;
 };
 
 type GroupPeer = { orderNumber: number | null; customerName: string; seq: number | null };
@@ -200,6 +201,43 @@ export default function OrderDetail({
           ))}
         </ul>
       </div>
+
+      {order.status === 'delivered' && (
+        <div>
+          <div className="card-title">Comprovante de entrega</div>
+          {(() => {
+            const gps = o?.delivery_gps_status as string | undefined;
+            const dist = o?.delivery_distance_m as number | undefined;
+            if (gps === 'ok') {
+              return (
+                <div className="tag green" style={{ marginBottom: 8 }}>
+                  Confirmada no local{dist != null ? ` (${dist} m do endereço)` : ''}
+                </div>
+              );
+            }
+            if (gps === 'no_gps') {
+              return (
+                <div className="tag amber" style={{ marginBottom: 8 }}>
+                  Confirmada sem localização (GPS do entregador indisponível)
+                </div>
+              );
+            }
+            return null;
+          })()}
+          {d?.deliveryPhotoUrl ? (
+            <a href={d.deliveryPhotoUrl} target="_blank" rel="noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={d.deliveryPhotoUrl}
+                alt="Foto da entrega"
+                style={{ maxWidth: 280, borderRadius: 10, border: '1px solid var(--border)', display: 'block' }}
+              />
+            </a>
+          ) : (
+            <span className="muted" style={{ fontSize: 13 }}>Sem foto (entrega anterior a esta função).</span>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <strong style={{ fontSize: 13 }}>Rastreamento do cliente:</strong>

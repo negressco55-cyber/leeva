@@ -15,8 +15,17 @@ export async function getActiveDeliveries(): Promise<Delivery[]> {
   return d.deliveries ?? [];
 }
 
-export function advanceDelivery(orderId: string, status: OrderStatus): Promise<{ ok: boolean }> {
-  return apiSend<{ ok: boolean }>(`/api/deliveries/${orderId}`, 'POST', { action: 'status', status });
+export function advanceDelivery(
+  orderId: string,
+  status: OrderStatus,
+  coords?: { lat: number; lng: number } | null,
+): Promise<{ ok: boolean }> {
+  return apiSend<{ ok: boolean }>(`/api/deliveries/${orderId}`, 'POST', {
+    action: 'status',
+    status,
+    lat: coords?.lat ?? null,
+    lng: coords?.lng ?? null,
+  });
 }
 
 export function getHistorico(): Promise<HistoricoResponse> {

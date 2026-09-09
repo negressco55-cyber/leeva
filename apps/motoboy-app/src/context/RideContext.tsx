@@ -252,11 +252,25 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
     if (!next) return;
     setAdvancing(true);
     try {
-      await advanceDelivery(activeDelivery.id, next);
+      let coords: { lat: number; lng: number } | null = null;
+      if (next === 'delivered') {
+        try {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.LocationAccuracy.Balanced });
+          coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        } catch {
+          coords = null; // sem GPS: o servidor confirma mas marca 'sem localização'
+        }
+      }
+      await advanceDelivery(activeDelivery.id, next, coords);
       await reloadDeliveries();
       if (next === 'delivered') await refreshMe();
     } catch (e) {
-      Alert.alert('Não deu para atualizar', (e as Error).message || 'Tente de novo.');
+      const err = e as { status?: number; message?: string };
+      if (next === 'delivered' && err.status === 422) {
+        Alert.alert('Você está longe do endereço', err.message || 'Chegue mais perto do local para confirmar.');
+        return;
+      }
+      Alert.alert('Não deu para atualizar', err.message || 'Tente de novo.');
     } finally {
       setAdvancing(false);
     }

@@ -36,8 +36,45 @@ type Delivery = {
 const NEXT: Record<string, { to: OrderStatus; label: string; action: string }> = {
   assigned: { to: 'picked_up', label: 'Cheguei / Pedido retirado', action: 'status' },
   picked_up: { to: 'in_route', label: 'Iniciar entrega', action: 'status' },
-  in_route: { to: 'delivered', label: 'Entrega concluída', action: 'status' },
 };
+
+/** Redimensiona a foto no navegador antes de enviar (máx 1280px, JPEG ~0.7). */
+function resizePhoto(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const max = 1280;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('canvas'));
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('imagem inválida'));
+    };
+    img.src = url;
+  });
+}
+
+function getPosition(): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 },
+    );
+  });
+}
 
 export default function DeliveryFlow({
   motoboyId,
@@ -53,6 +90,8 @@ export default function DeliveryFlow({
   const { events } = useRealtimeOrders({ motoboyId });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoErr, setPhotoErr] = useState<string | null>(null);
 
   // realtime → recarrega, mas com debounce e nunca no meio de uma ação
   useEffect(() => {
@@ -82,6 +121,38 @@ export default function DeliveryFlow({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Não foi possível concluir a ação. Tente de novo.');
+      start(() => router.refresh());
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onPickPhoto(file: File | undefined) {
+    if (!file) return;
+    setPhotoErr(null);
+    try {
+      setPhoto(await resizePhoto(file));
+    } catch {
+      setPhotoErr('Não consegui usar essa foto. Tente de novo.');
+    }
+  }
+
+  async function confirmDelivery(id: string) {
+    if (!photo) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const pos = await getPosition();
+      const res = await fetch(`/api/deliveries/${id}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'deliver', photoBase64: photo, lat: pos?.lat ?? null, lng: pos?.lng ?? null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Não foi possível confirmar a entrega.');
+      setPhoto(null);
       start(() => router.refresh());
     } catch (e) {
       setErr((e as Error).message);
@@ -165,6 +236,43 @@ export default function DeliveryFlow({
             >
               {busy ? 'Aguarde…' : step.label}
             </button>
+          )}
+
+          {current.status === 'in_route' && (
+            <div className="grid" style={{ gap: 8 }}>
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+                Para concluir, tire uma foto da entrega (porta, portaria ou o pedido no local).
+                Você precisa estar no endereço.
+              </p>
+              {!photo ? (
+                <label className="button secondary" style={{ textAlign: 'center', cursor: 'pointer' }}>
+                  Tirar foto da entrega
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    hidden
+                    onChange={(e) => onPickPhoto(e.target.files?.[0])}
+                  />
+                </label>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo}
+                    alt="Foto da entrega"
+                    style={{ width: '100%', borderRadius: 10, maxHeight: 260, objectFit: 'cover' }}
+                  />
+                  <button className="button ghost" type="button" disabled={busy} onClick={() => setPhoto(null)}>
+                    Tirar outra
+                  </button>
+                  <button className="button" disabled={busy} onClick={() => confirmDelivery(current.id)}>
+                    {busy ? 'Confirmando…' : 'Confirmar entrega'}
+                  </button>
+                </>
+              )}
+              {photoErr && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{photoErr}</p>}
+            </div>
           )}
         </div>
       </div>

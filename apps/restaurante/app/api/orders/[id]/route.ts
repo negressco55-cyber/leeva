@@ -41,12 +41,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     ]);
 
     const base = process.env.NEXT_PUBLIC_APP_URL ?? '';
+
+    // comprovante de entrega (foto no bucket privado → URL assinada de 1h)
+    let deliveryPhotoUrl: string | null = null;
+    const photoPath = (order as { delivery_photo_path?: string | null }).delivery_photo_path;
+    if (photoPath) {
+      const signed = await db.storage.from('delivery-proof').createSignedUrl(photoPath, 3600);
+      deliveryPhotoUrl = signed.data?.signedUrl ?? null;
+    }
+
     return json({
       order,
       timeline,
       trackingUrl: tracking.data?.token ? `${base}/track/${tracking.data.token}` : null,
       notifications: notifications.data ?? [],
       dispatchAttempts: attempts.data ?? [],
+      deliveryPhotoUrl,
     });
   } catch (e) {
     return serverError(e);

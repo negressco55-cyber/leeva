@@ -524,3 +524,27 @@ da dona sobre cada taxa:
    GanhosScreen (nativo), painel admin de repasses, notificação do repasse.
    Guarda: se `amount ≤ taxa`, lote falha com alerta (não deve acontecer:
    min_payout R$ 6 > taxa R$ 1,99).
+
+### 2026-09-08 (cont.) — comprovação de entrega (GPS + foto)
+
+Antes: motoboy apertava "Entreguei" de qualquer lugar, sem prova. Decisão da
+dona: exigir **GPS + foto**.
+
+1. **Migration 0033**: colunas em `orders` (`delivered_lat/lng`,
+   `delivery_distance_m`, `delivery_gps_status`, `delivery_photo_path`) +
+   bucket privado `delivery-proof` no storage.
+2. **`delivery-proof.ts`**: `confirmDeliveryWithProof` — perto (≤ 150 m,
+   `DELIVERY_PROXIMITY_M`) confirma; longe **bloqueia** (`too_far`, 422);
+   sem GPS confirma mas marca `no_gps`. `min_payout` (R$ 6) > qualquer taxa,
+   sem edge de valor.
+3. **PWA** (`DeliveryFlow.tsx` + `/api/deliveries/[id]` action `deliver`):
+   passo `in_route` abre captura de foto (redimensionada no navegador p/ ~1280px
+   JPEG) + pega GPS, envia base64, servidor sobe pro bucket e confirma.
+   Foto **obrigatória** no PWA.
+4. **Nativo** (`RideContext` + `entregas.ts`): manda o GPS no `delivered`
+   (sem foto — precisa de `expo-image-picker` + rebuild do APK; anotado).
+   O endpoint aceita `action:'status'` delivered com GPS pra não quebrar
+   APKs em campo.
+5. **Restaurante** (`OrderDetail` + `/api/orders/[id]`): mostra a foto (URL
+   assinada 1h) + "confirmada no local (X m)" ou "sem localização".
+6. `npm run test:delivery-proof` (5 casos).

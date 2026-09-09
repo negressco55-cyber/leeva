@@ -1285,7 +1285,12 @@ export type Database = {
           customer_name: string
           customer_phone: string | null
           delivered_at: string | null
+          delivered_lat: number | null
+          delivered_lng: number | null
+          delivery_distance_m: number | null
           delivery_fee: number
+          delivery_gps_status: string | null
+          delivery_photo_path: string | null
           dispatch_attempts: number
           dispatch_state: Database["public"]["Enums"]["dispatch_state"]
           dispatched_at: string | null
@@ -1332,7 +1337,12 @@ export type Database = {
           customer_name: string
           customer_phone?: string | null
           delivered_at?: string | null
+          delivered_lat?: number | null
+          delivered_lng?: number | null
+          delivery_distance_m?: number | null
           delivery_fee?: number
+          delivery_gps_status?: string | null
+          delivery_photo_path?: string | null
           dispatch_attempts?: number
           dispatch_state?: Database["public"]["Enums"]["dispatch_state"]
           dispatched_at?: string | null
@@ -1379,7 +1389,12 @@ export type Database = {
           customer_name?: string
           customer_phone?: string | null
           delivered_at?: string | null
+          delivered_lat?: number | null
+          delivered_lng?: number | null
+          delivery_distance_m?: number | null
           delivery_fee?: number
+          delivery_gps_status?: string | null
+          delivery_photo_path?: string | null
           dispatch_attempts?: number
           dispatch_state?: Database["public"]["Enums"]["dispatch_state"]
           dispatched_at?: string | null
