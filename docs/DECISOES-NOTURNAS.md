@@ -616,3 +616,19 @@ quem não é técnico.
   campos lat/lng viraram `<details>` "ajuste manual (avançado)".
 - É daqui que sai a distância de TODA entrega — a distância do cliente é o
   geocode do endereço digitado em Nova entrega; a origem é este ponto.
+
+### 2026-09-10 — Integrações: página amigável pra conectar cardápio digital
+
+Antes: tabela crua de status + lista de endpoints com jargão. Inútil pra dono
+de restaurante.
+
+- `ConnectMenu.tsx` (novo, substitui `ApiKeys.tsx`): fluxo em 3 passos —
+  (1) gerar chave, (2) copiar a URL `/api/v1/deliveries` + onde colar,
+  (3) mensagem pronta pra mandar pro suporte da plataforma. + botão "Criar
+  pedido de teste" (`POST /api/integrations/test` — cria via provider 'api'
+  com `holdForReview`, endereço = o do restaurante, marcado como teste).
+- `integracoes/page.tsx`: lidera com "como um pedido chega" + ConnectMenu +
+  IfoodLink; tabela técnica + endpoints agora dentro de `<details>` "para o
+  seu desenvolvedor".
+- Arquitetura já suportava: `NormalizedOrder` + `createOrderFromNormalized`
+  é o funil único; qualquer plataforma que faça POST vira entrega Leeva.
