@@ -1,6 +1,7 @@
 import { requireAdminContext } from '@/lib/context';
 import { logout } from '../login/actions';
 import { Nav } from './_lib/Nav';
+import { ThemeToggle } from './_lib/ThemeToggle';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireAdminContext();
@@ -15,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="spacer" />
         <div className="side-foot">
           {ctx.name ?? ctx.email}
+          <ThemeToggle />
           <form action={logout} style={{ marginTop: 6 }}>
             <button className="btn sm" type="submit" style={{ width: '100%' }}>
               Sair
