@@ -589,3 +589,15 @@ recusado), quando concluído no iFood, tem que fechar no Leeva também.
 - Triggers do banco são permissivos (só logam a mudança de status), então o
   update direto para 'delivered' é seguro e gera o order_event.
 - `test:order-hold` agora 7 casos.
+
+### 2026-09-09 (cont.) — APK do motoboy v1.0.1 (com push)
+
+- `google-services.json` agora vem de env var de arquivo da EAS
+  (`GOOGLE_SERVICES_JSON`, secret, criada com `eas env:create --type file`
+  para preview+production). `app.config.js` lê do env var no build, do arquivo
+  local no dev. Build anterior saía sem Firebase (arquivo gitignored não subia).
+- Build `725c8db1` (preview/APK, SDK 57, vc 2, commit 0ba15c8):
+  https://expo.dev/artifacts/eas/Lg3xJUcRYNcEQUL-P47jo3ivC_U7GkItB5EElTZ5xac.apk
+- Inclui: redesign motoboy, GPS na confirmação de entrega, aviso da taxa de saque.
+- Conta EAS logada: leeva-jp (owner). Build via `eas-cli build --profile preview
+  --platform android --non-interactive --no-wait`.
