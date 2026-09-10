@@ -1,17 +1,30 @@
 /**
  * Config dinâmica do Expo.
  *
- * O que muda em relação a um app.json fixo: o app **reconhece sozinho** o
- * arquivo do Firebase assim que ele for colocado na raiz do projeto —
- * `google-services.json` (Android) e/ou `GoogleService-Info.plist` (iOS).
- * Sem esses arquivos o app compila igual (o push nativo só não funciona no
- * build standalone). Ver FIREBASE-SETUP.md.
+ * Arquivo do Firebase (push nativo): no build da EAS vem da env var de
+ * arquivo GOOGLE_SERVICES_JSON / GOOGLE_SERVICES_PLIST (secret, configurada
+ * com `eas env:create --type file`); localmente, do arquivo na raiz. Sem
+ * nenhum dos dois o app compila igual, só sem push. Ver FIREBASE-SETUP.md.
  */
 const fs = require('fs');
 const path = require('path');
 
-const hasAndroidFirebase = fs.existsSync(path.join(__dirname, 'google-services.json'));
-const hasIosFirebase = fs.existsSync(path.join(__dirname, 'GoogleService-Info.plist'));
+// No build da EAS o arquivo do Firebase chega como env var de arquivo
+// (GOOGLE_SERVICES_JSON = caminho). Localmente, cai pro arquivo na raiz.
+const androidFirebasePath =
+  process.env.GOOGLE_SERVICES_JSON && fs.existsSync(process.env.GOOGLE_SERVICES_JSON)
+    ? process.env.GOOGLE_SERVICES_JSON
+    : fs.existsSync(path.join(__dirname, 'google-services.json'))
+      ? path.join(__dirname, 'google-services.json')
+      : null;
+const iosFirebasePath =
+  process.env.GOOGLE_SERVICES_PLIST && fs.existsSync(process.env.GOOGLE_SERVICES_PLIST)
+    ? process.env.GOOGLE_SERVICES_PLIST
+    : fs.existsSync(path.join(__dirname, 'GoogleService-Info.plist'))
+      ? path.join(__dirname, 'GoogleService-Info.plist')
+      : null;
+const hasAndroidFirebase = !!androidFirebasePath;
+const hasIosFirebase = !!iosFirebasePath;
 
 const BRAND = '#1f6f5c';
 const DARK = '#141513';
@@ -23,7 +36,7 @@ module.exports = () => ({
     owner: 'leeva-jp',
     slug: 'leeva',
     scheme: 'leevamotoboy',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'dark',
@@ -33,7 +46,7 @@ module.exports = () => ({
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'br.com.leeva.motoboy',
-      ...(hasIosFirebase ? { googleServicesFile: './GoogleService-Info.plist' } : {}),
+      ...(hasIosFirebase ? { googleServicesFile: iosFirebasePath } : {}),
       infoPlist: {
         UIBackgroundModes: ['location'],
         NSLocationWhenInUseUsageDescription:
@@ -45,8 +58,8 @@ module.exports = () => ({
 
     android: {
       package: 'br.com.leeva.motoboy',
-      versionCode: 1,
-      ...(hasAndroidFirebase ? { googleServicesFile: './google-services.json' } : {}),
+      versionCode: 2,
+      ...(hasAndroidFirebase ? { googleServicesFile: androidFirebasePath } : {}),
       adaptiveIcon: {
         backgroundColor: BRAND,
         foregroundImage: './assets/adaptive-icon.png',
