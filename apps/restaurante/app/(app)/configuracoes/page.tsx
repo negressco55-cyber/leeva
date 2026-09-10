@@ -32,6 +32,7 @@ export default async function ConfiguracoesPage() {
       isOwner={ctx.role === 'restaurant_owner'}
       initial={{
         name: rst?.name ?? '',
+        address: rst?.address ?? '',
         latitude: rst?.latitude ?? null,
         longitude: rst?.longitude ?? null,
         fleetMode: rst?.fleet_mode ?? 'leeva',

@@ -601,3 +601,18 @@ recusado), quando concluído no iFood, tem que fechar no Leeva também.
 - Inclui: redesign motoboy, GPS na confirmação de entrega, aviso da taxa de saque.
 - Conta EAS logada: leeva-jp (owner). Build via `eas-cli build --profile preview
   --platform android --non-interactive --no-wait`.
+
+### 2026-09-09 (cont.) — endereço do restaurante por texto (não mais lat/lng na mão)
+
+Bug relatado: entrega pro "mesmo local" dava 20+ km. Causa: o restaurante demo
+tinha coordenadas placeholder em João Pessoa e `address = null`, e a tela de
+Configurações só tinha 2 campos crus de Latitude/Longitude — impossível pra
+quem não é técnico.
+
+- `POST /api/config/pickup`: recebe `{ address }`, usa `resolvePickupLocation`
+  (mesmo geocode do Bloco 1), grava `address` + `latitude` + `longitude`.
+- ConfigForm "Ponto de coleta" → "Endereço do restaurante": campo de texto +
+  botão "Encontrar no mapa" que mostra o endereço achado pra confirmar. Os
+  campos lat/lng viraram `<details>` "ajuste manual (avançado)".
+- É daqui que sai a distância de TODA entrega — a distância do cliente é o
+  geocode do endereço digitado em Nova entrega; a origem é este ponto.

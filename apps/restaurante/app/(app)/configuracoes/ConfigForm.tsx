@@ -20,7 +20,7 @@ export default function ConfigForm({
   plans,
 }: {
   isOwner: boolean;
-  initial: { name: string; latitude: number | null; longitude: number | null; fleetMode: FleetMode; logistics: LogisticsConfig; payout: PayoutConfig };
+  initial: { name: string; address: string; latitude: number | null; longitude: number | null; fleetMode: FleetMode; logistics: LogisticsConfig; payout: PayoutConfig };
   currentPlan: string;
   plans: Plan[];
 }) {
@@ -30,6 +30,9 @@ export default function ConfigForm({
   const [P, setP] = useState<PayoutConfig>(initial.payout);
   const [lat, setLat] = useState(initial.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
+  const [address, setAddress] = useState(initial.address ?? '');
+  const [pickupBusy, setPickupBusy] = useState(false);
+  const [pickupMsg, setPickupMsg] = useState<{ ok?: string; err?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ warnings?: string[]; ok?: boolean; err?: string } | null>(null);
 
@@ -56,6 +59,29 @@ export default function ConfigForm({
     }
   }
 
+  async function findPickup() {
+    if (address.trim().length < 6) {
+      setPickupMsg({ err: 'Digite o endereço completo: rua, número, bairro e cidade.' });
+      return;
+    }
+    setPickupBusy(true);
+    setPickupMsg(null);
+    try {
+      const r = await apiPost<{ latitude: number; longitude: number; label: string | null }>(
+        '/api/config/pickup',
+        { address: address.trim() },
+      );
+      setLat(String(r.latitude));
+      setLng(String(r.longitude));
+      setPickupMsg({ ok: r.label ? `Encontramos: ${r.label}` : 'Endereço localizado no mapa.' });
+      router.refresh();
+    } catch (e) {
+      setPickupMsg({ err: (e as Error).message });
+    } finally {
+      setPickupBusy(false);
+    }
+  }
+
   async function switchPlan(code: string) {
     if (!confirm(`Mudar para o plano ${code}?`)) return;
     try {
@@ -79,11 +105,36 @@ export default function ConfigForm({
       {!isOwner && <div className="op-alert warning">Apenas o dono do restaurante pode alterar estas configurações.</div>}
 
       <div className="card">
-        <div className="card-title">Ponto de coleta</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input className="input" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} disabled={!isOwner} />
-          <input className="input" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} disabled={!isOwner} />
+        <div className="card-title">Endereço do restaurante (ponto de coleta)</div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+          É daqui que o sistema mede a distância de toda entrega. Precisa estar certo.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            className="input"
+            style={{ flex: '1 1 320px' }}
+            placeholder="Rua, número, bairro, cidade"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            disabled={!isOwner}
+          />
+          <button className="btn primary" type="button" onClick={findPickup} disabled={!isOwner || pickupBusy}>
+            {pickupBusy ? 'Procurando…' : 'Encontrar no mapa'}
+          </button>
         </div>
+        {pickupMsg?.ok && <div className="op-alert ok" style={{ marginTop: 8 }}>{pickupMsg.ok}</div>}
+        {pickupMsg?.err && <div className="op-alert critical" style={{ marginTop: 8 }}>{pickupMsg.err}</div>}
+
+        <details style={{ marginTop: 10 }}>
+          <summary className="muted" style={{ fontSize: 12, cursor: 'pointer' }}>Ajuste manual das coordenadas (avançado)</summary>
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <input className="input sm" placeholder="Latitude" value={lat} onChange={(e) => setLat(e.target.value)} disabled={!isOwner} />
+            <input className="input sm" placeholder="Longitude" value={lng} onChange={(e) => setLng(e.target.value)} disabled={!isOwner} />
+          </div>
+          <p className="muted" style={{ fontSize: 11 }}>
+            Salvo junto com o resto da configuração, no botão Salvar no fim da página.
+          </p>
+        </details>
       </div>
 
       <div className="card">
