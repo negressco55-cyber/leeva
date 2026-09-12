@@ -632,3 +632,18 @@ de restaurante.
   seu desenvolvedor".
 - Arquitetura já suportava: `NormalizedOrder` + `createOrderFromNormalized`
   é o funil único; qualquer plataforma que faça POST vira entrega Leeva.
+
+### 2026-09-12 — refino visual do app do motoboy (PWA + nativo)
+
+Mesma pegada do restaurante/admin, adaptada pro mobile.
+
+- **PWA** (`apps/motoboy`): Inter, verde mais nítido (#0c8a5c claro /
+  #34c98c escuro), elevação discreta (`--shadow-sm/-raise`, `-pop` só no
+  `.offer-card`). Tema: acompanha o celular por padrão, com opção explícita
+  claro/escuro em Perfil → "Aparência" (localStorage `leeva-theme`).
+- **Tab bar corrigida**: antes usava `<Link className="badge">` sem nenhuma
+  lógica de aba ativa — nunca destacava onde você estava. `TabBar.tsx` (novo,
+  client) usa `usePathname` + ícones SVG (era só texto).
+- **Nativo** (`motoboy-app/theme.ts`): paleta escura realinhada aos mesmos
+  tons do PWA. Tipografia (Inter/Space Grotesk) já estava boa, não mexi.
+  Só entra no próximo build do APK.

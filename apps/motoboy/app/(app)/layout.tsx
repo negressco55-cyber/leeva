@@ -1,17 +1,9 @@
-import Link from 'next/link';
 import { requireMotoboyContext, adminDb } from '@/lib/context';
 import { getActiveTerms, needsTermsAcceptance } from '@leeva/shared/services';
 import LocationSender from './LocationSender';
 import OffersPanel from './OffersPanel';
 import { OnboardingGate } from './_lib/OnboardingGate';
-
-const TABS = [
-  { href: '/status', label: 'Status' },
-  { href: '/entrega', label: 'Entrega' },
-  { href: '/historico', label: 'Histórico' },
-  { href: '/pagamentos', label: 'Pagamentos' },
-  { href: '/perfil', label: 'Perfil' },
-];
+import { TabBar } from './_lib/TabBar';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireMotoboyContext();
@@ -31,13 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <OffersPanel motoboyId={ctx.motoboyId} />
       <LocationSender active={ctx.status !== 'offline'} />
 
-      <nav className="tabbar">
-        {TABS.map((t) => (
-          <Link key={t.href} href={t.href} className="badge">
-            {t.label}
-          </Link>
-        ))}
-      </nav>
+      <TabBar />
     </div>
   );
 }

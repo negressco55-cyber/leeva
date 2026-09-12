@@ -3,6 +3,7 @@ import { requireMotoboyContext, adminDb } from '@/lib/context';
 import { getMotoboyPixInfo } from '@leeva/shared/services';
 import { logout } from '../../login/actions';
 import Avatar from '../_lib/Avatar';
+import { ThemeToggle } from '../_lib/ThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,7 @@ export default async function PerfilPage() {
             {ctx.termsAcceptedVersion ? `aceitos (v${ctx.termsAcceptedVersion})` : '—'}
           </span>
         </div>
+        <ThemeToggle />
       </div>
 
       <form action={logout}>

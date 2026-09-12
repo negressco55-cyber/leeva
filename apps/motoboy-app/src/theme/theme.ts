@@ -6,20 +6,20 @@
  */
 
 export const colors = {
-  bg: '#141513',
-  surface: '#1c1e1b',
-  surface2: '#242621',
-  border: '#31332e',
-  borderStrong: '#3d3f39',
-  text: '#e9e9e4',
-  textSecondary: '#a3a39a',
-  brand: '#4fae93',
-  brandHover: '#5cbfa2',
-  brandWeak: '#1e2f2a',
-  onBrand: '#10231d',
-  ok: '#63b98a',
-  warn: '#d3a548',
-  danger: '#e0685f',
+  bg: '#14150f',
+  surface: '#1c1e17',
+  surface2: '#24261f',
+  border: '#303228',
+  borderStrong: '#3d3f34',
+  text: '#ecece4',
+  textSecondary: '#a4a49a',
+  brand: '#34c98c',
+  brandHover: '#46d69b',
+  brandWeak: '#172a20',
+  onBrand: '#052013',
+  ok: '#55c47f',
+  warn: '#d6a951',
+  danger: '#e46a61',
 } as const;
 
 export const theme = {
