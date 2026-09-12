@@ -309,6 +309,78 @@ label .input, label select, label textarea { margin-top: var(--s1); }
   color: var(--text);
 }
 
+/* ---- Início (status) — mapa em destaque ---- */
+.home-map-wrap {
+  position: relative;
+  margin: calc(-1 * var(--s5)) calc(-1 * var(--s4)) var(--s4);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  overflow: hidden;
+}
+.home-topbar {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s2);
+  padding: calc(var(--s3) + env(safe-area-inset-top, 0px)) var(--s3) 0;
+}
+.home-avatar-btn {
+  display: inline-flex;
+  flex: none;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.28);
+}
+.status-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: none;
+  font-weight: 700; font-size: 15px; font-family: inherit; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.status-pill svg { width: 18px; height: 18px; }
+.status-pill.on { background: var(--brand); color: var(--on-brand); }
+.status-pill.off { background: var(--surface); color: var(--text); }
+.status-pill:disabled { opacity: 0.7; }
+.home-bell-spacer { width: 40px; flex: none; }
+
+.home-search-banner, .home-offline-hint {
+  position: absolute; left: var(--s3); right: var(--s3);
+  top: 66px;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.92);
+  color: #14140e;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px; font-weight: 550;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.16);
+}
+.home-search-banner svg { width: 16px; height: 16px; flex: none; color: var(--brand); }
+.home-offline-hint { justify-content: center; text-align: center; top: auto; bottom: var(--s3); }
+
+.live-map-pin {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 22px; height: 22px;
+}
+.live-map-pin-dot {
+  position: absolute; inset: 5px;
+  background: var(--brand);
+  border: 3px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+}
+.live-map-pin-pulse {
+  position: absolute; inset: 0;
+  border-radius: 999px;
+  background: var(--brand);
+  opacity: 0.35;
+  animation: pin-pulse 2s ease-out infinite;
+}
+@keyframes pin-pulse {
+  0% { transform: scale(0.6); opacity: 0.45; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.home-sheet { display: grid; gap: var(--s3); }
+
 .offer-accept {
   width: 100%;
   min-height: 56px;
@@ -411,4 +483,5 @@ a.profile-row, button.profile-row { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
   .button:active { transform: none; }
+  .live-map-pin-pulse { display: none; }
 }

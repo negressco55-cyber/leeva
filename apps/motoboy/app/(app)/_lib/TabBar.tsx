@@ -5,12 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 const I = {
-  status: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </>
-  ),
+  status: <path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5" />,
   scooter: (
     <>
       <circle cx="6" cy="17" r="2.3" />

@@ -647,3 +647,21 @@ Mesma pegada do restaurante/admin, adaptada pro mobile.
 - **Nativo** (`motoboy-app/theme.ts`): paleta escura realinhada aos mesmos
   tons do PWA. Tipografia (Inter/Space Grotesk) já estava boa, não mexi.
   Só entra no próximo build do APK.
+
+### 2026-09-12 (cont.) — tela Início do motoboy: mapa em destaque (estilo 99/Uber)
+
+A dona mandou print de referência (app de corrida: mapa cheio, pill de
+disponibilidade no topo, "procurando rotas" flutuante, ganhos na tela
+inicial). Adaptei mantendo só o que é real — sem promoção fake, sem sino de
+notificação sem função.
+
+- `LiveMap.tsx` (novo): mosaico de tiles real (CARTO, claro/escuro conforme
+  o tema) centrado na posição do próprio motoboy (`navigator.geolocation`),
+  mede o próprio tamanho (ResizeObserver). Diferente do RouteMap (2 pontos,
+  props fixas) — aqui é 1 ponto, responsivo.
+- `StatusToggle.tsx` reescrito: mapa cheio no topo (sangra a tela via margem
+  negativa) com avatar + pill "Disponível/Indisponível" flutuando por cima;
+  banner "Procurando entregas para você" (online) ou dica (offline).
+  Embaixo: ganhos de hoje (real, soma de `driver_earnings`) + entregas hoje.
+- Ícone da aba "Status" virou casinha (era um relógio, confundia com
+  Histórico).
