@@ -95,8 +95,14 @@ export default function LiveMap({ height = 340 }: { height?: number }) {
         ))}
       </div>
       <div className="live-map-pin" aria-hidden>
-        <span className="live-map-pin-dot" />
         <span className="live-map-pin-pulse" />
+        <span className="live-map-pin-dot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="6" cy="17.5" r="2" />
+            <circle cx="18" cy="17.5" r="2" />
+            <path d="M8 17.5h6.5l1.8-5.2H15M17.5 9l-1-3H12m-3.7 8.5c-.3-1.8-1.4-2.8-3.1-2.8" />
+          </svg>
+        </span>
       </div>
       <span className="route-map-attr">© OpenStreetMap · CARTO</span>
     </div>
