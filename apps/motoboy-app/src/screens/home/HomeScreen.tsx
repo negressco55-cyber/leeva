@@ -4,7 +4,9 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '../../components/Avatar';
 import { Card } from '../../components/Card';
+import { LiveMapMini } from '../../components/LiveMapMini';
 import { useAuth } from '../../context/AuthContext';
 import { useRide } from '../../context/RideContext';
 import type { AppStackParamList } from '../../navigation/types';
@@ -32,12 +34,39 @@ export function HomeScreen(): React.JSX.Element {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
       >
-        <Text style={styles.greeting}>Olá, {me?.fullName?.split(' ')[0] ?? 'entregador'}</Text>
+        <View style={styles.mapWrap}>
+          <LiveMapMini height={260} />
+
+          <View style={styles.topbar}>
+            <Avatar name={me?.fullName ?? 'Entregador'} src={me?.avatarUrl} size={40} />
+            <Pressable
+              onPress={() => (online ? void goOffline() : void goOnline())}
+              disabled={!podeFicarOnline || togglingOnline}
+              style={({ pressed }) => [styles.pill, online ? styles.pillOn : styles.pillOff, pressed && styles.pillPressed]}
+            >
+              {togglingOnline ? (
+                <ActivityIndicator size="small" color={online ? theme.colors.onPrimary : theme.colors.text} />
+              ) : (
+                <Text style={styles.pillGlyph}>🛵</Text>
+              )}
+              <Text style={[styles.pillLabel, online ? styles.pillLabelOn : styles.pillLabelOff]}>
+                {togglingOnline ? 'Um instante…' : online ? 'Disponível' : 'Indisponível'}
+              </Text>
+            </Pressable>
+            <View style={styles.topbarSpacer} />
+          </View>
+
+          <View style={online ? styles.banner : styles.bannerHint}>
+            <Text style={online ? styles.bannerText : styles.bannerHintText}>
+              {online ? '🔎  Procurando entregas para você' : 'Toque no botão acima para ficar disponível'}
+            </Text>
+          </View>
+        </View>
 
         {approval !== 'approved' && (
           <Card style={styles.warnCard}>
@@ -61,35 +90,6 @@ export function HomeScreen(): React.JSX.Element {
           </Card>
         )}
 
-        <Pressable
-          onPress={() => (online ? void goOffline() : void goOnline())}
-          disabled={!podeFicarOnline || togglingOnline}
-          style={({ pressed }) => [
-            styles.hero,
-            online ? styles.heroOn : styles.heroOff,
-            (!podeFicarOnline || togglingOnline) && styles.heroDisabled,
-            pressed && styles.heroPressed,
-          ]}
-        >
-          <View style={[styles.heroRing, online && styles.heroRingOn]}>
-            {togglingOnline ? (
-              <ActivityIndicator color={online ? theme.colors.primary : theme.colors.textSecondary} />
-            ) : (
-              <ScooterGlyph color={online ? theme.colors.primary : theme.colors.textSecondary} />
-            )}
-          </View>
-          <Text style={[styles.heroState, online ? styles.heroStateOn : styles.heroStateOff]}>
-            {online ? 'Disponível' : 'Indisponível'}
-          </Text>
-          <Text style={styles.heroHint}>
-            {togglingOnline
-              ? 'Um instante…'
-              : online
-                ? 'Você está recebendo ofertas. Toque para parar.'
-                : 'Toque para começar a receber ofertas.'}
-          </Text>
-        </Pressable>
-
         <View style={styles.statsRow}>
           <Card style={styles.statCard}>
             <Text style={styles.statValue}>{me?.rating != null ? me.rating.toFixed(1) : '—'}</Text>
@@ -105,47 +105,71 @@ export function HomeScreen(): React.JSX.Element {
   );
 }
 
-function ScooterGlyph({ color }: { color: string }): React.JSX.Element {
-  return <Text style={{ fontSize: 42, color }}>🛵</Text>;
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: theme.spacing.lg },
-  greeting: { fontFamily: theme.fonts.heading, fontSize: 26, color: theme.colors.text, marginBottom: theme.spacing.lg },
-  warnCard: { borderColor: theme.colors.accent, marginBottom: theme.spacing.md },
+  content: { paddingBottom: theme.spacing.lg },
+
+  mapWrap: { position: 'relative', marginBottom: theme.spacing.md },
+  topbar: {
+    position: 'absolute',
+    top: theme.spacing.md,
+    left: theme.spacing.md,
+    right: theme.spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  topbarSpacer: { width: 40 },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  pillOn: { backgroundColor: theme.colors.primary },
+  pillOff: { backgroundColor: '#fff' },
+  pillPressed: { opacity: 0.85 },
+  pillGlyph: { fontSize: 16 },
+  pillLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 15 },
+  pillLabelOn: { color: theme.colors.onPrimary },
+  pillLabelOff: { color: '#14140e' },
+
+  banner: {
+    position: 'absolute',
+    left: theme.spacing.md,
+    right: theme.spacing.md,
+    bottom: theme.spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  bannerText: { fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: '#14140e', textAlign: 'center' },
+  bannerHint: {
+    position: 'absolute',
+    left: theme.spacing.md,
+    right: theme.spacing.md,
+    bottom: theme.spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  bannerHintText: { fontFamily: theme.fonts.bodyMedium, fontSize: 13, color: '#14140e', textAlign: 'center' },
+
+  warnCard: { marginHorizontal: theme.spacing.lg, borderColor: theme.colors.accent, marginBottom: theme.spacing.md },
   warnTitle: { fontFamily: theme.fonts.bodySemiBold, color: theme.colors.accent, fontSize: 15, marginBottom: 4 },
   warnText: { fontFamily: theme.fonts.body, color: theme.colors.textSecondary, fontSize: 13, lineHeight: 18 },
 
-  hero: {
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-  },
-  heroOn: { backgroundColor: theme.colors.primaryWeak, borderColor: theme.colors.primary },
-  heroOff: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-  heroDisabled: { opacity: 0.55 },
-  heroPressed: { opacity: 0.85 },
-  heroRing: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    borderWidth: 3,
-    borderColor: theme.colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroRingOn: { borderColor: theme.colors.primary, backgroundColor: theme.colors.surface },
-  heroState: { fontFamily: theme.fonts.heading, fontSize: 24 },
-  heroStateOn: { color: theme.colors.primary },
-  heroStateOff: { color: theme.colors.textSecondary },
-  heroHint: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center', maxWidth: 240 },
-
-  statsRow: { flexDirection: 'row', gap: theme.spacing.md },
+  statsRow: { flexDirection: 'row', gap: theme.spacing.md, marginHorizontal: theme.spacing.lg },
   statCard: { flex: 1, alignItems: 'center' },
   statValue: { fontFamily: theme.fonts.heading, fontSize: 28, color: theme.colors.primary },
   statLabel: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 },

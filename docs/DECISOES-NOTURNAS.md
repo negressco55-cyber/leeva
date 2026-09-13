@@ -665,3 +665,16 @@ notificação sem função.
   Embaixo: ganhos de hoje (real, soma de `driver_earnings`) + entregas hoje.
 - Ícone da aba "Status" virou casinha (era um relógio, confundia com
   Histórico).
+
+### 2026-09-13 — mesma tela Início no app nativo
+
+- `LiveMapMini.tsx` (novo, RN): mesma técnica do PWA (mosaico de tiles Carto,
+  Image absoluto) — mas pega a própria posição via
+  `Location.getCurrentPositionAsync` (não depende do watch do RideContext),
+  atualiza a cada 20s. Pino = emoji de moto num círculo verde.
+- `HomeScreen.tsx` reescrito: mapa no topo, avatar + pill de disponibilidade
+  flutuando por cima (`Pressable`), banner "procurando entregas"/dica.
+  Estatísticas (nota, entregas) continuam abaixo — não inventei "ganhos
+  hoje" no nativo por falta de endpoint (o PWA tem porque a página já
+  carrega esse dado do servidor).
+- Versão do app: 1.0.1 → **1.0.2** (versionCode 3).
