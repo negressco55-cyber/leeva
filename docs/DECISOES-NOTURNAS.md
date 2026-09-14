@@ -698,3 +698,18 @@ pra cadastrar pelo site.
   com o iFood (referência que a dona mandou) — não entrou nesta leva pra não
   empilhar mudança de layout sem conseguir ver o resultado antes de buildar.
 - v1.0.2 → **1.0.3** (versionCode 4).
+
+## 2026-09-14 — tela de oferta estilo iFood (motoboy-app)
+
+- Confirmado com a dona que v1.0.3 corrigiu os 3 problemas (espaço vazio do
+  mapa, barra de status sobrepondo o topo, Pix não salvava pelo app).
+- Segui pro item que tinha ficado pendente: deixar a tela de oferta (quando
+  chega um pedido) mais parecida com o iFood, usando a referência que ela
+  mandou.
+- O que mudou: pinos do mapa agora mostram "A" (coleta) e "B" (entrega) em
+  vez de bolinhas lisas; cartão de preço flutua sobre o mapa (valor grande +
+  km total + valor por km); barra fina no topo da tela esvazia conforme o
+  tempo da oferta passa (reforço visual do timer, que continua mostrando os
+  segundos também); as paradas de coleta/entrega usam o mesmo par de
+  bolinhas A/B do mapa; botão "Aceitar" já mostra o valor da corrida nele.
+- v1.0.3 → **1.0.4** (versionCode 5).
