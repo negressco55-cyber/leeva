@@ -757,6 +757,30 @@ export type Database = {
           },
         ]
       }
+      platform_withdrawals: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
       error_events: {
         Row: {
           created_at: string

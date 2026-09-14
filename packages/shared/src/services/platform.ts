@@ -695,3 +695,120 @@ export async function getNetworkOperation(
     gaps,
   };
 }
+
+// ===========================================================================
+// CAIXA — separa, com clareza, o dinheiro de cada um.
+//
+// A conta (Asaas) é uma só, mas o saldo nela não é "do Leeva": é a soma de
+// três potes.
+//   1) crédito dos restaurantes ainda não usado  → é DELES (serviço a
+//      entregar ou devolver, nunca gasto pelo Leeva)
+//   2) ganhos dos motoboys ainda não sacados      → é DELES (dinheiro já
+//      devido, só esperando o pedido de saque)
+//   3) margem do Leeva já ganha (entregas concluídas) menos o que já foi
+//      sacado antes                              → só isso é seguro tirar
+//
+// Não depende de consultar o saldo real da Asaas: é só ledger — soma o que
+// entrou, o que já foi prometido/pago aos outros dois potes, e o resto é
+// margem. Sacar mais que isso significa mexer no dinheiro alheio.
+// ===========================================================================
+
+export type AdminTreasury = {
+  restaurantCreditLiability: number; // pote 1 — dos restaurantes
+  motoboyPendingLiability: number; // pote 2 — dos motoboys (ainda não sacado)
+  leevaMarginEarned: number; // margem acumulada de TODAS as entregas concluídas
+  leevaMarginWithdrawn: number; // já registrado como sacado (platform_withdrawals)
+  leevaAvailableToWithdraw: number; // = earned - withdrawn — o único número seguro pra tirar
+  restaurantsWithBalance: { id: string; name: string; balance: number }[];
+  motoboysWithPending: { id: string; name: string; pending: number }[];
+};
+
+export async function getAdminTreasury(db: DB): Promise<AdminTreasury> {
+  // pote 1 — crédito dos restaurantes
+  const { data: credits } = await db
+    .from('restaurant_credits')
+    .select('restaurant_id, balance, restaurants(name)')
+    .gt('balance', 0)
+    .limit(5000);
+  const restaurantCreditLiability = round((credits ?? []).reduce((s, c) => s + Number(c.balance), 0));
+  const restaurantsWithBalance = (credits ?? [])
+    .map((c) => ({
+      id: c.restaurant_id,
+      name: (c as { restaurants?: { name?: string } }).restaurants?.name ?? '—',
+      balance: round(Number(c.balance)),
+    }))
+    .sort((a, b) => b.balance - a.balance);
+
+  // pote 2 — ganhos do motoboy ainda não sacados (não fechados em lote +
+  // lotes fechados/em processamento mas ainda não pagos)
+  const [{ data: unbatched }, { data: openBatches }] = await Promise.all([
+    db.from('driver_earnings').select('motoboy_id, amount, motoboys(full_name)').is('batch_id', null).limit(20000),
+    db
+      .from('payout_batches')
+      .select('motoboy_id, amount, motoboys(full_name)')
+      .in('status', ['pending', 'processing'])
+      .limit(5000),
+  ]);
+  const pendingByMotoboy = new Map<string, { name: string; pending: number }>();
+  for (const e of unbatched ?? []) {
+    const cur = pendingByMotoboy.get(e.motoboy_id) ?? { name: (e as { motoboys?: { full_name?: string } }).motoboys?.full_name ?? '—', pending: 0 };
+    cur.pending = round(cur.pending + Number(e.amount));
+    pendingByMotoboy.set(e.motoboy_id, cur);
+  }
+  for (const b of openBatches ?? []) {
+    const cur = pendingByMotoboy.get(b.motoboy_id) ?? { name: (b as { motoboys?: { full_name?: string } }).motoboys?.full_name ?? '—', pending: 0 };
+    cur.pending = round(cur.pending + Number(b.amount));
+    pendingByMotoboy.set(b.motoboy_id, cur);
+  }
+  const motoboyPendingLiability = round([...pendingByMotoboy.values()].reduce((s, m) => s + m.pending, 0));
+  const motoboysWithPending = [...pendingByMotoboy.entries()]
+    .map(([id, v]) => ({ id, name: v.name, pending: v.pending }))
+    .sort((a, b) => b.pending - a.pending);
+
+  // pote 3 — margem do Leeva: só entregas CONCLUÍDAS contam como ganhas de
+  // verdade (canceladas tiveram o crédito estornado — nunca foram receita).
+  const { data: delivered } = await db.from('orders').select('logistics_margin').eq('status', 'delivered').limit(200000);
+  const leevaMarginEarned = round((delivered ?? []).reduce((s, o) => s + Number(o.logistics_margin ?? 0), 0));
+
+  const { data: withdrawals } = await db.from('platform_withdrawals').select('amount').limit(10000);
+  const leevaMarginWithdrawn = round((withdrawals ?? []).reduce((s, w) => s + Number(w.amount), 0));
+
+  return {
+    restaurantCreditLiability,
+    motoboyPendingLiability,
+    leevaMarginEarned,
+    leevaMarginWithdrawn,
+    leevaAvailableToWithdraw: round(leevaMarginEarned - leevaMarginWithdrawn),
+    restaurantsWithBalance,
+    motoboysWithPending,
+  };
+}
+
+export type PlatformWithdrawal = {
+  id: string;
+  amount: number;
+  description: string | null;
+  createdAt: string;
+};
+
+export async function listPlatformWithdrawals(db: DB, limit = 50): Promise<PlatformWithdrawal[]> {
+  const { data } = await db
+    .from('platform_withdrawals')
+    .select('id, amount, description, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return (data ?? []).map((w) => ({ id: w.id, amount: Number(w.amount), description: w.description, createdAt: w.created_at }));
+}
+
+/** Registra que o Leeva sacou `amount` da própria margem (feito por fora, na Asaas). */
+export async function recordPlatformWithdrawal(
+  db: DB,
+  amount: number,
+  description: string,
+  createdBy?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!(amount > 0)) return { ok: false, error: 'valor inválido' };
+  const { error } = await db.from('platform_withdrawals').insert({ amount: round(amount), description, created_by: createdBy ?? null });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

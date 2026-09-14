@@ -46,3 +46,12 @@ export function getDriverDocs(): Promise<DriverDocsStatus> {
 export function uploadDriverDocument(type: 'personal' | 'vehicle' | 'avatar', fileBase64: string): Promise<{ ok: boolean } & DriverDocsStatus> {
   return apiSend('/api/documents', 'POST', { type, fileBase64 });
 }
+
+export type RequestPayoutResult =
+  | { ok: true; amount: number; fee: number; netAmount: number; simulated: boolean }
+  | { ok: false; error: string; code?: string };
+
+/** Solicita o repasse do saldo disponível — por iniciativa do motoboy, 1x por dia. */
+export function requestPayout(): Promise<RequestPayoutResult> {
+  return apiSend('/api/payouts/request', 'POST');
+}

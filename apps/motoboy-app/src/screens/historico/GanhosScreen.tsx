@@ -1,9 +1,11 @@
 import { CheckCircle2, Inbox, Wallet, XCircle } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getHistorico } from '../../api/entregas';
+import { requestPayout } from '../../api/motoboy';
+import { Button } from '../../components/Button';
 import { theme } from '../../theme/theme';
 import type { HistoricoItem } from '../../types';
 
@@ -55,15 +57,39 @@ export function GanhosScreen(): React.JSX.Element {
   const [items, setItems] = useState<HistoricoItem[]>([]);
   const [total, setTotal] = useState(0);
   const [count, setCount] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [requestedToday, setRequestedToday] = useState(false);
+  const [transferFee, setTransferFee] = useState(1.99);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   const load = useCallback(async () => {
     const r = await getHistorico();
     setItems(r.items);
     setTotal(r.totalEarned);
     setCount(r.deliveredCount);
+    setPendingAmount(r.pendingAmount);
+    setRequestedToday(r.requestedToday);
+    setTransferFee(r.transferFee);
   }, []);
+
+  async function onRequestPayout(): Promise<void> {
+    setRequesting(true);
+    try {
+      const r = await requestPayout();
+      if (!r.ok) {
+        Alert.alert('Não deu pra solicitar', r.error);
+        return;
+      }
+      Alert.alert('Pronto', `Repasse de ${brl(r.netAmount)} enviado para sua chave Pix${r.fee > 0 ? ` (taxa de ${brl(r.fee)} descontada)` : ''}.`);
+      await load();
+    } catch (e) {
+      Alert.alert('Erro', (e as Error).message || 'Tente de novo.');
+    } finally {
+      setRequesting(false);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -104,9 +130,23 @@ export function GanhosScreen(): React.JSX.Element {
           <Text style={styles.heroHint}>{count} entrega{count === 1 ? '' : 's'} concluída{count === 1 ? '' : 's'}</Text>
         </View>
 
-        <Text style={styles.feeHint}>
-          O repasse é 1x por dia via Pix. O banco cobra R$ 1,99 por saque, descontado do valor.
-        </Text>
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Saldo disponível</Text>
+          <Text style={styles.balanceValor}>{brl(pendingAmount)}</Text>
+          <Text style={styles.feeHint}>
+            Peça quando quiser — até uma vez por dia. O banco cobra {brl(transferFee)} por transferência Pix, descontado do valor sacado.
+          </Text>
+          <Button
+            label={requesting ? 'Solicitando…' : 'Solicitar repasse'}
+            onPress={() => void onRequestPayout()}
+            loading={requesting}
+            disabled={pendingAmount <= 0 || requestedToday}
+            style={{ marginTop: theme.spacing.sm }}
+          />
+          {requestedToday && (
+            <Text style={[styles.feeHint, { marginTop: 6 }]}>Você já solicitou um repasse hoje. Tente de novo amanhã.</Text>
+          )}
+        </View>
 
         {loading ? (
           <ActivityIndicator color={theme.colors.primary} style={{ marginTop: theme.spacing.xl }} />
@@ -164,6 +204,17 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   heroHint: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
+
+  balanceCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  balanceLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 11, letterSpacing: 1.1, color: theme.colors.textSecondary, textTransform: 'uppercase' },
+  balanceValor: { fontFamily: theme.fonts.heading, fontSize: 30, color: theme.colors.text, marginTop: 4, marginBottom: 6 },
 
   feeHint: {
     fontFamily: theme.fonts.body,

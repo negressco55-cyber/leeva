@@ -348,6 +348,72 @@ async function createPayoutAlert(db: DB, motoboyId: string, batchId: string, mes
 }
 
 // ===========================================================================
+// SAQUE SOB DEMANDA — motoboy pede, não é mais fechamento automático diário
+// ===========================================================================
+
+export type RequestPayoutResult =
+  | { ok: true; amount: number; fee: number; netAmount: number; simulated: boolean }
+  | { ok: false; error: string; code?: 'already_requested_today' | 'nothing_to_withdraw' | 'no_pix' };
+
+/**
+ * O motoboy solicita, por iniciativa própria, o repasse de tudo que tem
+ * disponível — limitado a UMA solicitação por dia (mesma trava que já
+ * existe: unique(motoboy_id, period_date) em payout_batches).
+ */
+export async function requestPayout(db: DB, motoboyId: string): Promise<RequestPayoutResult> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: existing } = await db
+    .from('payout_batches')
+    .select('id')
+    .eq('motoboy_id', motoboyId)
+    .eq('period_date', today)
+    .maybeSingle();
+  if (existing) {
+    return { ok: false, error: 'Você já solicitou um repasse hoje. Tente de novo amanhã.', code: 'already_requested_today' };
+  }
+
+  const pending = await getPendingEarnings(db, motoboyId);
+  if (pending.amount <= 0) {
+    return { ok: false, error: 'Você ainda não tem valor disponível para sacar.', code: 'nothing_to_withdraw' };
+  }
+
+  const { data: moto } = await db.from('motoboys').select('pix_key, pix_key_type').eq('id', motoboyId).maybeSingle();
+  if (!moto?.pix_key) {
+    return { ok: false, error: 'Cadastre sua chave Pix antes de solicitar o repasse.', code: 'no_pix' };
+  }
+
+  const { data: batch, error } = await db
+    .from('payout_batches')
+    .insert({
+      motoboy_id: motoboyId,
+      period_date: today,
+      amount: pending.amount,
+      earnings_count: pending.count,
+      status: 'pending',
+      pix_key: moto.pix_key,
+      pix_key_type: moto.pix_key_type,
+    })
+    .select('id')
+    .single();
+  if (error || !batch) return { ok: false, error: 'não foi possível registrar a solicitação' };
+
+  await db.from('driver_earnings').update({ batch_id: batch.id }).eq('motoboy_id', motoboyId).is('batch_id', null);
+
+  const p = await processPayoutBatch(db, batch.id);
+  if (p.status === 'failed') return { ok: false, error: p.error ?? 'a transferência falhou — tente de novo mais tarde' };
+
+  const { data: final } = await db
+    .from('payout_batches')
+    .select('amount, transfer_fee, simulated')
+    .eq('id', batch.id)
+    .maybeSingle();
+  const gross = round(Number(final?.amount ?? p.amount));
+  const fee = round(Number(final?.transfer_fee ?? 0));
+  return { ok: true, amount: gross, fee, netAmount: round(gross - fee), simulated: !!final?.simulated };
+}
+
+// ===========================================================================
 // LEITURA
 // ===========================================================================
 

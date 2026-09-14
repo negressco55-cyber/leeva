@@ -1,6 +1,7 @@
 import { requireMotoboyContext, adminDb } from '@/lib/context';
 import { getMotoboyPixInfo, getPendingEarnings, getPayoutHistory, payoutTransferFee } from '@leeva/shared/services';
 import { PixForm } from './PixForm';
+import { RequestPayoutButton } from './RequestPayoutButton';
 import { formatCurrencyBRL } from '@leeva/shared';
 
 export const dynamic = 'force-dynamic';
@@ -23,20 +24,32 @@ export default async function PagamentosPage() {
   ]);
 
   const fee = payoutTransferFee();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const requestedToday = history.some((b) => b.periodDate === todayStr);
 
   return (
     <div className="grid" style={{ gap: 14 }}>
       <h1 style={{ margin: 0 }}>Pagamentos</h1>
 
       <div className="panel">
-        <h2 style={{ fontSize: 15, marginTop: 0 }}>A receber</h2>
+        <h2 style={{ fontSize: 15, marginTop: 0 }}>Saldo disponível</h2>
         <div style={{ fontSize: 30, fontWeight: 650 }}>{formatCurrencyBRL(pending.amount)}</div>
         <p className="muted" style={{ fontSize: 12 }}>
-          {pending.count} entrega(s) fechando no próximo repasse. O pagamento é feito uma vez por dia, via Pix.
+          {pending.count} entrega(s) prontas para saque. Peça quando quiser — até uma vez por dia.
         </p>
         <p className="muted" style={{ fontSize: 12 }}>
-          O banco cobra {formatCurrencyBRL(fee)} por saque Pix, descontado uma vez por dia do seu repasse.
+          O banco cobra {formatCurrencyBRL(fee)} por transferência Pix, descontado do valor sacado.
         </p>
+        <RequestPayoutButton
+          disabled={pending.amount <= 0 || requestedToday}
+          disabledReason={
+            requestedToday
+              ? 'Você já solicitou um repasse hoje. Tente de novo amanhã.'
+              : pending.amount <= 0
+                ? 'Nenhum valor disponível ainda.'
+                : undefined
+          }
+        />
       </div>
 
       <PixForm initial={{ masked: pix.masked, type: pix.pixKeyType }} />

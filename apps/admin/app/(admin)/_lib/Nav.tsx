@@ -49,6 +49,13 @@ const I = {
     </>
   ),
   star: <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 17l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5z" />,
+  vault: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 9.8v1.4M16.5 6v2M7.5 6v2" />
+    </>
+  ),
 } as const;
 
 type IconKey = keyof typeof I;
@@ -60,6 +67,7 @@ const NAV: { href: string; label: string; icon: IconKey }[] = [
   { href: '/novos-motoboys', label: 'Novos motoboys', icon: 'sparkle' },
   { href: '/entregadores', label: 'Entregadores', icon: 'scooter' },
   { href: '/repasses', label: 'Repasses', icon: 'transfer' },
+  { href: '/caixa', label: 'Caixa', icon: 'vault' },
   { href: '/financeiro', label: 'Financeiro', icon: 'money' },
   { href: '/planos', label: 'Planos', icon: 'ticket' },
   { href: '/reputacao', label: 'Reputação', icon: 'star' },
