@@ -6,8 +6,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import type { NormalizedOrder } from '../integrations/types';
-import type { OrderStatus } from '../types';
+import type { OrderStatus, LogisticsConfig } from '../types';
 import { canTransition } from '../constants';
+import { DEFAULT_LOGISTICS_CONFIG } from './autodispatch';
 import { regionFromAddress, isValidLatLng } from './geo';
 import { emitEvent, notifyForStatusChange } from './events';
 import { queueNotification } from './notifications';
@@ -265,6 +266,60 @@ export async function createOrderFromNormalized(
 /** Confirma um pedido que estava aguardando (waiting_dispatch -> preparing). */
 export async function confirmOrder(db: DB, orderId: string, actorId?: string) {
   return advanceOrderStatus(db, orderId, 'preparing', { actorType: 'restaurant', actorId });
+}
+
+/**
+ * Restaurante marca "em preparo". Grava a estimativa de tempo (a que ele
+ * informou, ou o padrão configurado em logistics_config.default_prep_minutes)
+ * — usada pelo despacho sincronizado (autodispatch) pra saber quando mandar
+ * a oferta pro motoboy.
+ */
+export async function markPreparing(
+  db: DB,
+  orderId: string,
+  restaurantId: string,
+  opts: { actorId?: string; prepEstimateMinutes?: number } = {},
+): Promise<TransitionResult> {
+  const { data: order } = await db.from('orders').select('id, restaurant_id, status').eq('id', orderId).maybeSingle();
+  if (!order || order.restaurant_id !== restaurantId) return { ok: false, error: 'pedido não encontrado' };
+
+  const result = await advanceOrderStatus(db, orderId, 'preparing', { actorType: 'restaurant', actorId: opts.actorId });
+  if (!result.ok) return result;
+
+  let minutes = opts.prepEstimateMinutes;
+  if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) {
+    const { data: rst } = await db.from('restaurants').select('logistics_config').eq('id', restaurantId).maybeSingle();
+    const cfg = { ...DEFAULT_LOGISTICS_CONFIG, ...((rst?.logistics_config as Partial<LogisticsConfig>) ?? {}) };
+    minutes = cfg.default_prep_minutes;
+  }
+  await db.from('orders').update({ prep_estimate_minutes: Math.round(Math.min(180, Math.max(1, minutes))) }).eq('id', orderId);
+  return { ok: true };
+}
+
+/**
+ * Restaurante marca "pronto". Se o pedido ainda não foi despachado
+ * (waiting_dispatch/preparing), avança o status normalmente. Se já está com
+ * motoboy atribuído (assigned/picked_up/in_route — despacho sincronizado
+ * pode ter mandado a oferta ANTES de ficar pronto), só grava `ready_at`
+ * direto, sem mexer no `status` — assim a entrega não some da tela do
+ * motoboy (que filtra por status, não por ready_at).
+ */
+export async function markReady(db: DB, orderId: string, restaurantId: string, actorId?: string): Promise<TransitionResult> {
+  const { data: order } = await db
+    .from('orders')
+    .select('id, restaurant_id, status, ready_at')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order || order.restaurant_id !== restaurantId) return { ok: false, error: 'pedido não encontrado' };
+  if (['delivered', 'cancelled'].includes(order.status)) return { ok: false, error: 'pedido encerrado' };
+  if (order.ready_at) return { ok: true }; // idempotente
+
+  if (['waiting_dispatch', 'preparing'].includes(order.status)) {
+    return advanceOrderStatus(db, orderId, 'ready', { actorType: 'restaurant', actorId });
+  }
+  const { error } = await db.from('orders').update({ ready_at: new Date().toISOString() }).eq('id', orderId).is('ready_at', null);
+  if (error) return { ok: false, error: 'falha ao marcar como pronto' };
+  return { ok: true };
 }
 
 /**

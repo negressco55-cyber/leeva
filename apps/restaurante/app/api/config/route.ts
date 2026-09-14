@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       ifood_auto_call: L.ifood_auto_call ?? true,
       offer_timeout_seconds: num(L.offer_timeout_seconds, 15, 300, DEFAULT_LOGISTICS_CONFIG.offer_timeout_seconds),
       max_dispatch_attempts: num(L.max_dispatch_attempts, 1, 10, DEFAULT_LOGISTICS_CONFIG.max_dispatch_attempts),
+      default_prep_minutes: num(L.default_prep_minutes, 1, 120, DEFAULT_LOGISTICS_CONFIG.default_prep_minutes),
     };
 
     // --- payout validado + aviso de prejuízo ---

@@ -47,6 +47,7 @@ export const DEFAULT_LOGISTICS_CONFIG: LogisticsConfig = {
   ifood_auto_call: true,
   offer_timeout_seconds: 45,
   max_dispatch_attempts: 4,
+  default_prep_minutes: 15,
 };
 
 export type ScoredCandidate = {

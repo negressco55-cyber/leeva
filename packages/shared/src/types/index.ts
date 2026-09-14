@@ -89,6 +89,8 @@ export type LogisticsConfig = {
   ifood_auto_call: boolean;
   offer_timeout_seconds: number;
   max_dispatch_attempts: number;
+  /** Estimativa padrão (min) de tempo de preparo quando o restaurante não informa uma. */
+  default_prep_minutes: number;
 };
 
 /** Configuração do motor de remuneração (payout_policies.config). */

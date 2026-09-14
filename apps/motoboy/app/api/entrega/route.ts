@@ -13,10 +13,13 @@ export async function GET(req: Request) {
     const { data: orders } = await db
       .from('orders')
       .select(
-        'id, order_number, status, customer_name, customer_phone, customer_address, latitude, longitude, order_amount, driver_payout, payment_method, payment_status, notes, eta_min, eta_max, group_id, group_sequence, restaurant_id',
+        'id, order_number, status, customer_name, customer_phone, customer_address, latitude, longitude, order_amount, driver_payout, payment_method, payment_status, notes, eta_min, eta_max, group_id, group_sequence, restaurant_id, ready_at, prep_estimate_minutes, preparing_at',
       )
       .eq('motoboy_id', ctx.motoboyId)
-      .in('status', ['assigned', 'picked_up', 'in_route'])
+      // 'preparing'/'ready' também contam: o despacho sincronizado pode
+      // atribuir o motoboy ANTES do pedido ficar pronto — ele continua
+      // "minha entrega" mesmo que o status ainda não seja 'assigned'.
+      .in('status', ['preparing', 'ready', 'assigned', 'picked_up', 'in_route'])
       .order('assigned_at', { ascending: true })
       .limit(20);
 
@@ -50,6 +53,9 @@ export async function GET(req: Request) {
         etaMax: o.eta_max,
         groupId: o.group_id,
         groupSequence: o.group_sequence,
+        readyAt: o.ready_at,
+        preparingAt: o.preparing_at,
+        prepEstimateMinutes: o.prep_estimate_minutes,
       };
     });
 

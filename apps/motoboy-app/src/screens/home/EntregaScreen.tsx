@@ -12,7 +12,7 @@ import { usePosition } from '../../context/PositionContext';
 import { useRide } from '../../context/RideContext';
 import type { AppStackParamList } from '../../navigation/types';
 import { theme } from '../../theme/theme';
-import type { OrderStatus } from '../../types';
+import type { Delivery, OrderStatus } from '../../types';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Entrega'>;
 
@@ -22,6 +22,17 @@ const ACAO: Partial<Record<OrderStatus, string>> = {
 };
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
+
+function prepBadge(d: Delivery): { text: string; color: string } | null {
+  if (d.readyAt) return { text: '🔔 Pronto pra retirada', color: theme.colors.success };
+  if (!d.preparingAt) return null;
+  if (!d.prepEstimateMinutes) return { text: 'Em preparo', color: theme.colors.accent };
+  const leftMin = Math.round((new Date(d.preparingAt).getTime() + d.prepEstimateMinutes * 60_000 - Date.now()) / 60_000);
+  return {
+    text: leftMin > 0 ? `Em preparo · pronto em ~${leftMin} min` : 'Em preparo · deveria estar pronto',
+    color: theme.colors.accent,
+  };
+}
 
 async function takeDeliveryPhoto(): Promise<string | null> {
   const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -73,6 +84,16 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
     <ScreenContainer scroll>
       <Text style={styles.title}>{entregue ? 'Entrega concluída' : 'Entrega em andamento'}</Text>
       <StatusBadge status={d.status} />
+      {naColeta &&
+        (() => {
+          const pb = prepBadge(d);
+          if (!pb) return null;
+          return (
+            <View style={[styles.prepBadge, { backgroundColor: pb.color + '22', borderColor: pb.color }]}>
+              <Text style={[styles.prepBadgeText, { color: pb.color }]}>{pb.text}</Text>
+            </View>
+          );
+        })()}
 
       <Card style={styles.valorCard}>
         <Text style={styles.valorLabel}>Você recebe por esta entrega</Text>
@@ -179,6 +200,15 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
 
 const styles = StyleSheet.create({
   title: { fontFamily: theme.fonts.heading, fontSize: 24, color: theme.colors.text, marginBottom: theme.spacing.sm },
+  prepBadge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: theme.radius.pill,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    marginTop: theme.spacing.sm,
+  },
+  prepBadgeText: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12.5 },
   valorCard: { marginTop: theme.spacing.md, marginBottom: theme.spacing.md, alignItems: 'center' },
   valorLabel: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary },
   valor: { fontFamily: theme.fonts.heading, fontSize: 32, color: theme.colors.success, marginTop: 4 },

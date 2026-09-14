@@ -11,6 +11,7 @@ import {
   type PaymentMethod,
   type PaymentStatus,
 } from '@leeva/shared';
+import { computePrepStatus } from '@leeva/shared/services';
 
 type Delivery = {
   id: string;
@@ -29,9 +30,19 @@ type Delivery = {
   notes: string | null;
   eta_min: number | null;
   eta_max: number | null;
+  ready_at: string | null;
+  preparing_at: string | null;
+  prep_estimate_minutes: number | null;
   order_items: { name: string; quantity: number; notes: string | null }[];
   accepted: boolean;
 };
+
+function prepBadge(d: Pick<Delivery, 'ready_at' | 'preparing_at' | 'prep_estimate_minutes'>): { text: string; cls: string } | null {
+  const p = computePrepStatus({ readyAt: d.ready_at, preparingAt: d.preparing_at, prepEstimateMinutes: d.prep_estimate_minutes });
+  if (p.state === 'ready') return { text: p.label, cls: 'ok' };
+  if (p.state === 'preparing') return { text: p.label, cls: 'warn' };
+  return null;
+}
 
 const NEXT: Record<string, { to: OrderStatus; label: string; action: string }> = {
   assigned: { to: 'picked_up', label: 'Cheguei / Pedido retirado', action: 'status' },
@@ -186,6 +197,11 @@ export default function DeliveryFlow({
           <strong>Pedido #{current.order_number}</strong>
           <span className="badge">{ORDER_STATUS_LABELS[current.status]}</span>
         </div>
+        {current.status === 'assigned' &&
+          (() => {
+            const pb = prepBadge(current);
+            return pb ? <span className={`badge ${pb.cls}`} style={{ marginTop: 6 }}>{pb.text}</span> : null;
+          })()}
         <h2 style={{ margin: '8px 0 2px' }}>{current.customer_name}</h2>
         <p style={{ margin: 0 }}>{current.customer_address}</p>
         {current.eta_min != null && (

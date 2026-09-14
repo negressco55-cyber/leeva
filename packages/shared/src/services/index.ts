@@ -21,6 +21,7 @@ export * from './ifood-link';
 // Fase 3 — produto comercial
 export * from './autodispatch';
 export * from './payout';
+export * from './prep-status';
 export * from './billing';
 export * from './map';
 export * from './address';

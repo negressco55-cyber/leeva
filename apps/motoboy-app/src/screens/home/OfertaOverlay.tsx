@@ -14,6 +14,14 @@ const qualityLabel = (q: string): string =>
   : q === 'acceptable' ? '🟡 Oferta razoável'
   : '⚪ Oferta pouco vantajosa';
 
+function prepBadgeText(readyAt: string | null, preparingAt: string | null, prepEstimateMinutes: number | null): string | null {
+  if (readyAt) return '🔔 Pronto pra retirada';
+  if (!preparingAt) return null;
+  if (!prepEstimateMinutes) return 'Em preparo';
+  const leftMin = Math.round((new Date(preparingAt).getTime() + prepEstimateMinutes * 60_000 - Date.now()) / 60_000);
+  return leftMin > 0 ? `Em preparo · pronto em ~${leftMin} min` : 'Em preparo · já deveria estar pronto';
+}
+
 export function OfertaOverlay(): React.JSX.Element | null {
   const { offer, acceptOffer, declineOffer } = useRide();
   const [secs, setSecs] = useState(0);
@@ -81,6 +89,10 @@ export function OfertaOverlay(): React.JSX.Element | null {
                 </Text>
                 {offer.quality ? <Text style={styles.quality}>{qualityLabel(offer.quality)}</Text> : null}
               </View>
+              {(() => {
+                const t = prepBadgeText(offer.readyAt, offer.preparingAt, offer.prepEstimateMinutes);
+                return t ? <Text style={[styles.prepBadge, offer.readyAt && styles.prepBadgeReady]}>{t}</Text> : null;
+              })()}
               <View style={styles.priceRow}>
                 <Text style={styles.priceNum}>{offer.payout != null ? brl(offer.payout) : '—'}</Text>
                 <View style={styles.priceSub}>
@@ -210,6 +222,8 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.sm },
   topRowText: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, flexShrink: 1 },
   quality: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.textSecondary },
+  prepBadge: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.accent, marginTop: 4 },
+  prepBadgeReady: { color: theme.colors.success },
 
   priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: theme.spacing.md },
   priceNum: { fontFamily: theme.fonts.heading, fontSize: 32, color: theme.colors.text, letterSpacing: -0.5 },

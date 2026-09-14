@@ -20,7 +20,7 @@ export async function GET(req: Request) {
       ? await db
           .from('orders')
           .select(
-            'id, order_number, customer_name, customer_address, region, latitude, longitude, order_amount, delivery_fee, driver_payout, payment_method, payment_status, notes, group_id, status, restaurant_id, eta_min, eta_max',
+            'id, order_number, customer_name, customer_address, region, latitude, longitude, order_amount, delivery_fee, driver_payout, payment_method, payment_status, notes, group_id, status, restaurant_id, eta_min, eta_max, ready_at, preparing_at, prep_estimate_minutes',
           )
           .in('id', orderIds)
       : { data: [] };
@@ -68,6 +68,9 @@ export async function GET(req: Request) {
           paymentStatus: o.payment_status,
           orderAmount: Number(o.order_amount),
           notes: o.notes,
+          readyAt: o.ready_at,
+          preparingAt: o.preparing_at,
+          prepEstimateMinutes: o.prep_estimate_minutes,
           grouped: !!o.group_id || !!off.group_order_ids?.length,
           routeStops: Array.isArray(off.group_plan)
             ? (off.group_plan as Array<Record<string, unknown>>).map((s) => ({

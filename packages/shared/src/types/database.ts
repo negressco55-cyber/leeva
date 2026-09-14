@@ -1345,6 +1345,7 @@ export type Database = {
           payment_status: Database["public"]["Enums"]["payment_status"]
           picked_up_at: string | null
           preparing_at: string | null
+          prep_estimate_minutes: number | null
           ready_at: string | null
           region: string | null
           restaurant_id: string
@@ -1399,6 +1400,7 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"]
           picked_up_at?: string | null
           preparing_at?: string | null
+          prep_estimate_minutes?: number | null
           ready_at?: string | null
           region?: string | null
           restaurant_id: string
@@ -1453,6 +1455,7 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"]
           picked_up_at?: string | null
           preparing_at?: string | null
+          prep_estimate_minutes?: number | null
           ready_at?: string | null
           region?: string | null
           restaurant_id?: string

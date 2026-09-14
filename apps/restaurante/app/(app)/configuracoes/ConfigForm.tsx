@@ -156,7 +156,11 @@ export default function ConfigForm({
           <label>Frete grátis acima de (R$, 0 = desligado){num(L.free_delivery_min_order ?? 0, (v) => setL((s) => ({ ...s, free_delivery_min_order: v || null })))}</label>
           <label>Tempo de oferta ao entregador (s){num(L.offer_timeout_seconds, (v) => nL('offer_timeout_seconds', v), '5')}</label>
           <label>Máx. tentativas de despacho{num(L.max_dispatch_attempts, (v) => nL('max_dispatch_attempts', v), '1')}</label>
+          <label>Tempo padrão de preparo (min){num(L.default_prep_minutes, (v) => nL('default_prep_minutes', v), '1')}</label>
         </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          Usado quando você marca um pedido "Em preparo" sem informar um tempo específico.
+        </p>
         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
           <label><input type="checkbox" checked={L.auto_dispatch_enabled} onChange={(e) => setL((s) => ({ ...s, auto_dispatch_enabled: e.target.checked }))} disabled={!isOwner} /> Despacho automático</label>
           <label><input type="checkbox" checked={L.grouping_enabled} onChange={(e) => setL((s) => ({ ...s, grouping_enabled: e.target.checked }))} disabled={!isOwner} /> Agrupamento de entregas</label>

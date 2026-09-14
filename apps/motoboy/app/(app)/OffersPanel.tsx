@@ -11,6 +11,7 @@ import {
   type PaymentMethod,
   type PaymentStatus,
 } from '@leeva/shared';
+import { computePrepStatus } from '@leeva/shared/services';
 import RouteMap from './_lib/RouteMap';
 
 type Offer = {
@@ -37,10 +38,20 @@ type Offer = {
   paymentStatus: PaymentStatus;
   orderAmount: number;
   notes: string | null;
+  readyAt: string | null;
+  preparingAt: string | null;
+  prepEstimateMinutes: number | null;
   grouped: boolean;
   routeStops: { seq: number; address: string; region: string | null; payout: number }[] | null;
   routeTotalKm: number | null;
 };
+
+function prepBadge(o: Pick<Offer, 'readyAt' | 'preparingAt' | 'prepEstimateMinutes'>): { text: string; color: string } | null {
+  const p = computePrepStatus({ readyAt: o.readyAt, preparingAt: o.preparingAt, prepEstimateMinutes: o.prepEstimateMinutes });
+  if (p.state === 'ready') return { text: p.label, color: 'var(--ok)' };
+  if (p.state === 'preparing') return { text: p.label, color: 'var(--warn)' };
+  return null;
+}
 
 const QUALITY_LABEL: Record<string, { text: string; color: string }> = {
   excellent: { text: '🟢 Ótima oferta', color: 'var(--ok)' },
@@ -208,6 +219,10 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                 </div>
               )}
 
+              {(() => {
+                const pb = prepBadge(o);
+                return pb ? <div className="muted" style={{ fontSize: 12.5, color: pb.color, fontWeight: 600 }}>{pb.text}</div> : null;
+              })()}
               {collectOnDelivery && (
                 <div className="offer-collect">
                   💰 Receber do cliente na entrega: {formatCurrencyBRL(o.orderAmount)}

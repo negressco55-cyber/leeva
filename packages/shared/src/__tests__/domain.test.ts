@@ -14,6 +14,16 @@ test('máquina de estados: transições válidas e inválidas', () => {
   assert.equal(canTransition('cancelled', 'preparing'), false);
 });
 
+test('máquina de estados: caminhos que markPreparing/markReady usam (Bloco 1)', () => {
+  // markReady() chama advanceOrderStatus só quando o pedido ainda não foi
+  // despachado — os dois caminhos possíveis precisam estar liberados:
+  assert.equal(canTransition('waiting_dispatch', 'ready'), true); // marcar pronto sem passar por "em preparo"
+  assert.equal(canTransition('preparing', 'ready'), true); // fluxo normal
+  // já despachado (assigned) → markReady() NÃO chama advanceOrderStatus,
+  // só grava ready_at direto (ver services/orders.ts) — o status continua
+  // 'assigned' pra entrega não sumir da tela do motoboy.
+});
+
 test('nextOrderStatus segue o fluxo feliz', () => {
   assert.equal(nextOrderStatus('waiting_dispatch'), 'preparing');
   assert.equal(nextOrderStatus('in_route'), 'delivered');

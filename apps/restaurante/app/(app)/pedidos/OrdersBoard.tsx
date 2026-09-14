@@ -15,6 +15,7 @@ import {
   type OrderSource,
   type DispatchState,
 } from '@leeva/shared';
+import { computePrepStatus } from '@leeva/shared/services';
 import { StatusPill, SourcePill } from '../_lib/ui';
 import { apiPost } from '../_lib/client';
 import NewOrderDialog from './NewOrderDialog';
@@ -38,7 +39,9 @@ type OrderRow = {
   motoboy_id: string | null;
   delivery_confirmation_code: string | null;
   created_at: string;
+  preparing_at: string | null;
   ready_at: string | null;
+  prep_estimate_minutes: number | null;
   eta_min: number | null;
   eta_max: number | null;
   notes: string | null;
@@ -197,6 +200,16 @@ export default function OrdersBoard({
                       rota agrupada · {o.group_sequence}ª de {groupPeers[o.group_id]!.length}
                     </span>
                   )}
+                  {(() => {
+                    const p = computePrepStatus({
+                      readyAt: o.ready_at,
+                      preparingAt: o.preparing_at,
+                      prepEstimateMinutes: o.prep_estimate_minutes,
+                    });
+                    if (p.state === 'ready') return <span className="tag orange">{p.label}</span>;
+                    if (p.state === 'preparing') return <span className="muted" style={{ fontSize: 12 }}>{p.label}</span>;
+                    return null;
+                  })()}
                 </div>
                 <div style={{ marginTop: 4 }}>{o.customer_name} · {o.customer_address}</div>
                 <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
@@ -226,6 +239,29 @@ export default function OrdersBoard({
                     }
                   >
                     {busyId === o.id ? '…' : 'Chamar entregador'}
+                  </button>
+                )}
+                {!o.dispatch_hold && o.status === 'waiting_dispatch' && (
+                  <button
+                    className="btn sm"
+                    disabled={busyId === o.id}
+                    onClick={() => {
+                      const raw = prompt('Quantos minutos até ficar pronto? (deixe em branco para usar o padrão configurado)');
+                      if (raw === null) return; // cancelou o prompt
+                      const minutes = raw.trim() ? Number(raw.trim()) : undefined;
+                      act(() => apiPost(`/api/orders/${o.id}/preparing`, { prepEstimateMinutes: minutes }), o.id);
+                    }}
+                  >
+                    {busyId === o.id ? '…' : 'Marcar em preparo'}
+                  </button>
+                )}
+                {!o.dispatch_hold && !o.ready_at && !['delivered', 'cancelled'].includes(o.status) && (
+                  <button
+                    className="btn sm primary"
+                    disabled={busyId === o.id}
+                    onClick={() => act(() => apiPost(`/api/orders/${o.id}/ready`), o.id)}
+                  >
+                    {busyId === o.id ? '…' : 'Marcar como pronto'}
                   </button>
                 )}
                 {o.dispatch_hold ? (

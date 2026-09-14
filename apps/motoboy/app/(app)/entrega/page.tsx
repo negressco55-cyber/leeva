@@ -10,10 +10,12 @@ export default async function EntregaPage() {
   const { data: orders } = await db
     .from('orders')
     .select(
-      'id, order_number, status, customer_name, customer_phone, customer_address, latitude, longitude, order_amount, delivery_fee, driver_payout, payment_method, payment_status, notes, eta_min, eta_max, order_items(name, quantity, notes)',
+      'id, order_number, status, customer_name, customer_phone, customer_address, latitude, longitude, order_amount, delivery_fee, driver_payout, payment_method, payment_status, notes, eta_min, eta_max, ready_at, preparing_at, prep_estimate_minutes, order_items(name, quantity, notes)',
     )
     .eq('motoboy_id', ctx.motoboyId)
-    .in('status', ['assigned', 'picked_up', 'in_route'])
+    // 'preparing'/'ready' também contam: o despacho sincronizado pode
+    // atribuir o motoboy ANTES do pedido ficar pronto.
+    .in('status', ['preparing', 'ready', 'assigned', 'picked_up', 'in_route'])
     .order('assigned_at', { ascending: true })
     .limit(20);
 

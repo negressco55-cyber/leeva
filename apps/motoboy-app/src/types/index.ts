@@ -74,6 +74,10 @@ export interface Offer {
   notes: string | null;
   grouped: boolean;
   routeStops: OfferStop[] | null;
+  /** null = ainda em preparo; preenchido = já pronto pra retirada. */
+  readyAt: string | null;
+  preparingAt: string | null;
+  prepEstimateMinutes: number | null;
   routeTotalKm: number | null;
 }
 
@@ -99,6 +103,10 @@ export interface Delivery {
   etaMax: number | null;
   groupId: string | null;
   groupSequence: number | null;
+  /** null = ainda em preparo; preenchido = já pronto pra retirada. */
+  readyAt: string | null;
+  preparingAt: string | null;
+  prepEstimateMinutes: number | null;
 }
 
 export interface HistoricoItem {
