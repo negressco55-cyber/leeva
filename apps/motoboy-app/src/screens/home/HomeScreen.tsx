@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '../../components/Avatar';
 import { Card } from '../../components/Card';
@@ -16,6 +16,7 @@ export function HomeScreen(): React.JSX.Element {
   const { me, refreshMe } = useAuth();
   const { online, togglingOnline, goOnline, goOffline, activeDelivery } = useRide();
   const nav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = React.useState(false);
 
   useEffect(() => {
@@ -35,39 +36,42 @@ export function HomeScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right']}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
-      >
-        <View style={styles.mapWrap}>
-          <LiveMapMini height={260} />
+      {/* mapa cheio, sangrando até embaixo da barra de status */}
+      <View style={styles.mapWrap}>
+        <LiveMapMini />
 
-          <View style={styles.topbar}>
-            <Avatar name={me?.fullName ?? 'Entregador'} src={me?.avatarUrl} size={40} />
-            <Pressable
-              onPress={() => (online ? void goOffline() : void goOnline())}
-              disabled={!podeFicarOnline || togglingOnline}
-              style={({ pressed }) => [styles.pill, online ? styles.pillOn : styles.pillOff, pressed && styles.pillPressed]}
-            >
-              {togglingOnline ? (
-                <ActivityIndicator size="small" color={online ? theme.colors.onPrimary : theme.colors.text} />
-              ) : (
-                <Text style={styles.pillGlyph}>🛵</Text>
-              )}
-              <Text style={[styles.pillLabel, online ? styles.pillLabelOn : styles.pillLabelOff]}>
-                {togglingOnline ? 'Um instante…' : online ? 'Disponível' : 'Indisponível'}
-              </Text>
-            </Pressable>
-            <View style={styles.topbarSpacer} />
-          </View>
-
-          <View style={online ? styles.banner : styles.bannerHint}>
-            <Text style={online ? styles.bannerText : styles.bannerHintText}>
-              {online ? '🔎  Procurando entregas para você' : 'Toque no botão acima para ficar disponível'}
+        <View style={[styles.topbar, { paddingTop: insets.top + theme.spacing.sm }]}>
+          <Avatar name={me?.fullName ?? 'Entregador'} src={me?.avatarUrl} size={40} />
+          <Pressable
+            onPress={() => (online ? void goOffline() : void goOnline())}
+            disabled={!podeFicarOnline || togglingOnline}
+            style={({ pressed }) => [styles.pill, online ? styles.pillOn : styles.pillOff, pressed && styles.pillPressed]}
+          >
+            {togglingOnline ? (
+              <ActivityIndicator size="small" color={online ? theme.colors.onPrimary : theme.colors.text} />
+            ) : (
+              <Text style={styles.pillGlyph}>🛵</Text>
+            )}
+            <Text style={[styles.pillLabel, online ? styles.pillLabelOn : styles.pillLabelOff]}>
+              {togglingOnline ? 'Um instante…' : online ? 'Disponível' : 'Indisponível'}
             </Text>
-          </View>
+          </Pressable>
+          <View style={styles.topbarSpacer} />
         </View>
 
+        <View style={online ? styles.banner : styles.bannerHint}>
+          <Text style={online ? styles.bannerText : styles.bannerHintText}>
+            {online ? '🔎  Procurando entregas para você' : 'Toque no botão acima para ficar disponível'}
+          </Text>
+        </View>
+      </View>
+
+      {/* folha inferior — só o que é real */}
+      <ScrollView
+        style={styles.sheet}
+        contentContainerStyle={styles.sheetContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
+      >
         {approval !== 'approved' && (
           <Card style={styles.warnCard}>
             <Text style={styles.warnTitle}>
@@ -107,18 +111,20 @@ export function HomeScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.background },
-  content: { paddingBottom: theme.spacing.lg },
 
-  mapWrap: { position: 'relative', marginBottom: theme.spacing.md },
+  // o mapa ocupa TODO o espaço que sobra (a folha de baixo só pega o que precisa)
+  mapWrap: { flex: 1, position: 'relative' },
+
   topbar: {
     position: 'absolute',
-    top: theme.spacing.md,
-    left: theme.spacing.md,
-    right: theme.spacing.md,
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   topbarSpacer: { width: 40 },
   pill: {
@@ -165,11 +171,14 @@ const styles = StyleSheet.create({
   },
   bannerHintText: { fontFamily: theme.fonts.bodyMedium, fontSize: 13, color: '#14140e', textAlign: 'center' },
 
-  warnCard: { marginHorizontal: theme.spacing.lg, borderColor: theme.colors.accent, marginBottom: theme.spacing.md },
+  sheet: { flexGrow: 0, flexShrink: 0, maxHeight: '42%' },
+  sheetContent: { padding: theme.spacing.lg, paddingTop: theme.spacing.md },
+
+  warnCard: { borderColor: theme.colors.accent, marginBottom: theme.spacing.md },
   warnTitle: { fontFamily: theme.fonts.bodySemiBold, color: theme.colors.accent, fontSize: 15, marginBottom: 4 },
   warnText: { fontFamily: theme.fonts.body, color: theme.colors.textSecondary, fontSize: 13, lineHeight: 18 },
 
-  statsRow: { flexDirection: 'row', gap: theme.spacing.md, marginHorizontal: theme.spacing.lg },
+  statsRow: { flexDirection: 'row', gap: theme.spacing.md },
   statCard: { flex: 1, alignItems: 'center' },
   statValue: { fontFamily: theme.fonts.heading, fontSize: 28, color: theme.colors.primary },
   statLabel: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 },

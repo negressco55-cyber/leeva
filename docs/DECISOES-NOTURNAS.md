@@ -678,3 +678,23 @@ notificação sem função.
   hoje" no nativo por falta de endpoint (o PWA tem porque a página já
   carrega esse dado do servidor).
 - Versão do app: 1.0.1 → **1.0.2** (versionCode 3).
+
+### 2026-09-14 — correções na tela Início do nativo (feedback com print real)
+
+A dona instalou o APK e mandou print: sobrava um espaço preto vazio embaixo,
+o topo (avatar/pill) ficava atrás da barra de status, e a chave Pix só dava
+pra cadastrar pelo site.
+
+- `LiveMapMini`: agora mede largura E altura (`onLayout`) e usa `flex: 1` —
+  preenche todo o espaço que o pai der, em vez de uma altura fixa de 260.
+- `HomeScreen`: mapa em `flex:1` (ocupa o que sobrar), folha inferior com
+  `maxHeight: 42%` só pro essencial (avisos + estatísticas) — acaba com o
+  vazio. Barra superior ganhou `insets.top` (safe area) pra não ficar atrás
+  do relógio/ícones do sistema.
+- **Chave Pix agora dá pra cadastrar direto no app** (`PixEditor` em
+  PerfilScreen, chips de tipo + campo + salvar — espelha o formulário web).
+  Endpoint `/api/pix` já existia e já aceitava a auth do app nativo.
+- Pendente pro próximo passo: deixar a tela de oferta/rota mais parecida
+  com o iFood (referência que a dona mandou) — não entrou nesta leva pra não
+  empilhar mudança de layout sem conseguir ver o resultado antes de buildar.
+- v1.0.2 → **1.0.3** (versionCode 4).

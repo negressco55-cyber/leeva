@@ -18,11 +18,12 @@ function project(lat: number, lng: number, z: number): { x: number; y: number } 
 /**
  * Mapa "onde eu estou" pra tela inicial — mosaico de tiles reais (Carto),
  * centrado na posição do próprio motoboy, com um ícone de moto no meio.
- * Independente do GPS de bordo (RideContext/PositionContext) — pega a
- * própria leitura, só pra exibir; não interfere no rastreamento de entrega.
+ * Preenche TODO o espaço do pai (`style={{ flex: 1 }}` no wrapper de quem
+ * usa) — mede a própria largura E altura, não recebe tamanho fixo.
+ * Independente do GPS de bordo (RideContext/PositionContext), só exibição.
  */
-export function LiveMapMini({ height = 260 }: { height?: number }): React.JSX.Element {
-  const [width, setWidth] = useState(0);
+export function LiveMapMini(): React.JSX.Element {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const mounted = useRef(true);
 
@@ -47,13 +48,15 @@ export function LiveMapMini({ height = 260 }: { height?: number }): React.JSX.El
   }, []);
 
   function onLayout(e: LayoutChangeEvent): void {
-    setWidth(e.nativeEvent.layout.width);
+    const { width, height } = e.nativeEvent.layout;
+    setSize((s) => (s && s.width === width && s.height === height ? s : { width, height }));
   }
 
-  if (!pos || !width) {
-    return <View onLayout={onLayout} style={[styles.empty, { height }]} />;
+  if (!pos || !size || !size.width || !size.height) {
+    return <View onLayout={onLayout} style={styles.empty} />;
   }
 
+  const { width, height } = size;
   const z = ZOOM;
   const c = project(pos.lat, pos.lng, z);
   const originX = c.x * TILE - width / 2;
@@ -83,7 +86,7 @@ export function LiveMapMini({ height = 260 }: { height?: number }): React.JSX.El
   }
 
   return (
-    <View onLayout={onLayout} style={[styles.wrap, { height }]}>
+    <View onLayout={onLayout} style={styles.wrap}>
       {tiles}
       <View style={styles.pin}>
         <Text style={styles.pinGlyph}>🛵</Text>
@@ -93,8 +96,8 @@ export function LiveMapMini({ height = 260 }: { height?: number }): React.JSX.El
 }
 
 const styles = StyleSheet.create({
-  wrap: { overflow: 'hidden', backgroundColor: '#e7e6e1', position: 'relative', width: '100%' },
-  empty: { backgroundColor: theme.colors.surfaceAlt, width: '100%' },
+  wrap: { flex: 1, overflow: 'hidden', backgroundColor: '#e7e6e1', position: 'relative' },
+  empty: { flex: 1, backgroundColor: theme.colors.surfaceAlt },
   pin: {
     position: 'absolute',
     left: '50%',

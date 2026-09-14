@@ -25,3 +25,8 @@ export function acceptTerms(version: number): Promise<{ ok: boolean }> {
 export function registerExpoPush(token: string): Promise<{ ok: boolean }> {
   return apiSend<{ ok: boolean }>('/api/push/expo', 'POST', { token });
 }
+
+/** Cadastra/troca a chave Pix do repasse. */
+export function setPixKey(key: string, type: string): Promise<{ ok: boolean }> {
+  return apiSend<{ ok: boolean }>('/api/pix', 'POST', { key, type });
+}
