@@ -39,7 +39,7 @@ export async function GET() {
   }
 }
 
-export async function PUT(req: Request) {
+export async function POST(req: Request) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
   if (ctx.role !== 'restaurant_owner') return forbidden('Apenas o dono pode alterar a configuração.');
