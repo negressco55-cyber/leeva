@@ -713,3 +713,25 @@ pra cadastrar pelo site.
   segundos também); as paradas de coleta/entrega usam o mesmo par de
   bolinhas A/B do mapa; botão "Aceitar" já mostra o valor da corrida nele.
 - v1.0.3 → **1.0.4** (versionCode 5).
+
+## 2026-09-14 — saída pro travamento do iFood: modelo Centralizado
+
+- A dona reportou uma semana travada no ticket 32820575 (homologação do app
+  Distribuído LEEVA) e pressa real pra destravar a própria doceria.
+- Descoberta: o Portal Desenvolvedor já tem, pra toda conta, dois apps de
+  teste auto-gerados — "Teste (D)" Distribuído (o que já estava travado) e
+  "Teste (C)" **Centralizado**. Testei o Centralizado com credenciais reais
+  (client_credentials) contra a loja de teste — funcionou de primeira: token
+  emitido, merchant listado, **sem nenhum bloqueio de homologação**. Ou seja,
+  só o modelo Distribuído exige homologação; o Centralizado não.
+- Implementado suporte ao modo Centralizado como alternativa por restaurante
+  (não substitui o Distribuído, que continua sendo o certo pra escalar pra
+  múltiplos restaurantes — Centralizado é 1 app = 1 merchant, não dá pra
+  reusar entre lojas). Tela de Integrações agora tem opção "Já tenho um app
+  Centralizado meu" pra colar clientId/clientSecret direto, sem passar pelo
+  Portal do Parceiro.
+- Próximo passo (da dona): criar um app Centralizado de **produção** ligado
+  ao CNPJ real da doceria (o testado foi só a loja de sandbox) e colar as
+  credenciais na tela de Integrações.
+- Ticket 32820575 continua aberto em paralelo — resolve o modelo Distribuído
+  pra quando a Leeva escalar pra outros restaurantes.
