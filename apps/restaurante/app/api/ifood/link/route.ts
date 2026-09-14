@@ -4,6 +4,7 @@ import {
   getIfoodLinkStatus,
   startIfoodLink,
   completeIfoodLink,
+  linkIfoodCentralized,
   unlinkIfood,
 } from '@leeva/shared/services';
 
@@ -21,17 +22,20 @@ export async function GET() {
 
 /**
  * Ações do vínculo:
- *  action=start    → gera o userCode + link do Portal do Parceiro
- *  action=complete → tenta trocar por access/refresh token (depois que o
- *                    dono autorizou no Portal)
- *  action=unlink   → desvincula
+ *  action=start             → gera o userCode + link do Portal do Parceiro (modo distribuído)
+ *  action=complete          → tenta trocar por access/refresh token (depois que o
+ *                             dono autorizou no Portal)
+ *  action=link_centralized  → vincula direto com clientId/clientSecret de um
+ *                             app Centralizado (o próprio restaurante criou no
+ *                             Portal Desenvolvedor do iFood)
+ *  action=unlink            → desvincula
  */
 export async function POST(req: Request) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
   if (ctx.role !== 'restaurant_owner') return forbidden('Apenas o dono pode gerenciar integrações.');
 
-  const body = (await req.json().catch(() => ({}))) as { action?: string };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; clientId?: string; clientSecret?: string };
   const db = adminDb();
 
   try {
@@ -43,11 +47,18 @@ export async function POST(req: Request) {
       const status = await completeIfoodLink(db, ctx.restaurantId);
       return json(status);
     }
+    if (body.action === 'link_centralized') {
+      if (!body.clientId?.trim() || !body.clientSecret?.trim()) {
+        return json({ error: 'informe clientId e clientSecret' }, 400);
+      }
+      const status = await linkIfoodCentralized(db, ctx.restaurantId, body.clientId.trim(), body.clientSecret.trim());
+      return json(status);
+    }
     if (body.action === 'unlink') {
       await unlinkIfood(db, ctx.restaurantId);
       return json({ ok: true });
     }
-    return json({ error: 'action inválida (start | complete | unlink)' }, 400);
+    return json({ error: 'action inválida (start | complete | link_centralized | unlink)' }, 400);
   } catch (e) {
     return serverError(e);
   }

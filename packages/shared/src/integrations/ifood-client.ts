@@ -139,6 +139,30 @@ export async function exchangeIfoodAuthorizationCode(
 // 3. Renovar o accessToken usando o refreshToken guardado.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Apps CENTRALIZADOS (1 app = 1 merchant) — usam client_credentials direto,
+// sem o passo de autorização pelo Portal do Parceiro. Cada restaurante que
+// quiser esse modo precisa criar o próprio app Centralizado no Portal
+// Desenvolvedor do iFood e colar o clientId/clientSecret gerados lá.
+// ---------------------------------------------------------------------------
+
+export async function getCentralizedIfoodToken(
+  clientId: string,
+  clientSecret: string,
+): Promise<{ accessToken: string; expiresIn: number }> {
+  const { status, json } = await postForm('/authentication/v1.0/oauth/token', {
+    grantType: 'client_credentials',
+    clientId,
+    clientSecret,
+  });
+  if (status !== 200) {
+    throw new IfoodApiError(`autenticação do app centralizado falhou (${status})`, status, json);
+  }
+  const accessToken = (json.accessToken ?? json.access_token) as string | undefined;
+  if (!accessToken) throw new IfoodApiError('resposta sem accessToken', status, json);
+  return { accessToken, expiresIn: Number(json.expiresIn ?? json.expires_in ?? 21_600) };
+}
+
 export async function refreshIfoodAccessToken(refreshToken: string): Promise<IfoodTokenSet> {
   const clientId = requireEnv('IFOOD_CLIENT_ID');
   const clientSecret = requireEnv('IFOOD_CLIENT_SECRET');

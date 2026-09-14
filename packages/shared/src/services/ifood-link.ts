@@ -18,6 +18,7 @@ import {
   startIfoodAuthorization,
   exchangeIfoodAuthorizationCode,
   refreshIfoodAccessToken,
+  getCentralizedIfoodToken,
   listIfoodMerchants,
   IfoodAuthorizationPendingError,
   IfoodApiError,
@@ -27,6 +28,8 @@ type DB = SupabaseClient<Database>;
 
 type IfoodConfig = {
   linkStatus?: 'pending' | 'linked' | 'error';
+  /** 'centralized' = app próprio do restaurante (client_credentials, sem autorização pelo Portal). Padrão: 'distributed' (app Leeva). */
+  mode?: 'distributed' | 'centralized';
   userCode?: string;
   authorizationCodeVerifierEnc?: string; // cifrado
   verificationUrl?: string;
@@ -35,6 +38,9 @@ type IfoodConfig = {
   refreshTokenEnc?: string; // cifrado
   accessTokenEnc?: string; // cifrado (cache — evita ida ao iFood a cada chamada)
   accessTokenExpiresAt?: string;
+  // modo centralizado
+  centralizedClientId?: string;
+  centralizedClientSecretEnc?: string; // cifrado
   merchantIds?: string[];
   linkedAt?: string;
   lastError?: string;
@@ -68,6 +74,7 @@ async function saveConfig(db: DB, restaurantId: string, patch: IfoodConfig, opts
 /** Estado seguro pra exibir na tela — nunca inclui segredo. */
 export type IfoodLinkStatus = {
   linkStatus: 'not_linked' | 'pending' | 'linked' | 'error';
+  mode?: 'distributed' | 'centralized';
   userCode?: string;
   verificationUrl?: string;
   verificationUrlComplete?: string;
@@ -81,6 +88,7 @@ export async function getIfoodLinkStatus(db: DB, restaurantId: string): Promise<
   const c = await getConfig(db, restaurantId);
   return {
     linkStatus: c.linkStatus ?? 'not_linked',
+    mode: c.mode,
     userCode: c.userCode,
     verificationUrl: c.verificationUrl,
     verificationUrlComplete: c.verificationUrlComplete,
@@ -89,6 +97,62 @@ export async function getIfoodLinkStatus(db: DB, restaurantId: string): Promise<
     linkedAt: c.linkedAt,
     lastError: c.lastError,
   };
+}
+
+/**
+ * Vínculo direto (modo Centralizado) — o restaurante criou o próprio app no
+ * Portal Desenvolvedor do iFood (tipo Centralizado) e cola aqui o
+ * clientId/clientSecret gerados lá. Sem userCode, sem autorização pelo
+ * Portal do Parceiro: valida na hora buscando um token + a lista de
+ * merchants (se falhar, credenciais erradas ou app sem merchant vinculado).
+ */
+export async function linkIfoodCentralized(
+  db: DB,
+  restaurantId: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<IfoodLinkStatus> {
+  let accessToken: string;
+  let expiresIn: number;
+  try {
+    const tok = await getCentralizedIfoodToken(clientId, clientSecret);
+    accessToken = tok.accessToken;
+    expiresIn = tok.expiresIn;
+  } catch (e) {
+    const msg = e instanceof IfoodApiError ? e.message : (e as Error).message;
+    await saveConfig(db, restaurantId, { linkStatus: 'error', lastError: msg });
+    return { linkStatus: 'error', lastError: msg };
+  }
+
+  let merchantIds: string[] = [];
+  try {
+    merchantIds = (await listIfoodMerchants(accessToken)).map((m) => m.id);
+  } catch {
+    /* não bloqueia — o próximo poll tenta de novo */
+  }
+
+  const [centralizedClientSecretEnc, accessTokenEnc] = await Promise.all([
+    encryptSecret(clientSecret),
+    encryptSecret(accessToken),
+  ]);
+  const linkedAt = new Date().toISOString();
+  await saveConfig(
+    db,
+    restaurantId,
+    {
+      linkStatus: 'linked',
+      mode: 'centralized',
+      centralizedClientId: clientId,
+      centralizedClientSecretEnc,
+      accessTokenEnc,
+      accessTokenExpiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+      merchantIds,
+      linkedAt,
+      lastError: undefined,
+    },
+    { credentialsSet: true },
+  );
+  return { linkStatus: 'linked', mode: 'centralized', merchantIds, linkedAt };
 }
 
 /** Passo 1: gera o userCode e guarda o verifier cifrado. Devolve o que a tela precisa mostrar. */
@@ -182,6 +246,7 @@ export async function unlinkIfood(db: DB, restaurantId: string): Promise<void> {
     restaurantId,
     {
       linkStatus: undefined,
+      mode: undefined,
       userCode: undefined,
       authorizationCodeVerifierEnc: undefined,
       verificationUrl: undefined,
@@ -190,6 +255,8 @@ export async function unlinkIfood(db: DB, restaurantId: string): Promise<void> {
       refreshTokenEnc: undefined,
       accessTokenEnc: undefined,
       accessTokenExpiresAt: undefined,
+      centralizedClientId: undefined,
+      centralizedClientSecretEnc: undefined,
       merchantIds: undefined,
       linkedAt: undefined,
       lastError: undefined,
@@ -212,13 +279,24 @@ export class IfoodNotLinkedError extends Error {
  */
 export async function getValidIfoodAccessToken(db: DB, restaurantId: string): Promise<{ token: string; merchantIds: string[] }> {
   const c = await getConfig(db, restaurantId);
-  if (c.linkStatus !== 'linked' || !c.refreshTokenEnc) throw new IfoodNotLinkedError();
+  if (c.linkStatus !== 'linked') throw new IfoodNotLinkedError();
 
   const stillValid = c.accessTokenEnc && c.accessTokenExpiresAt && new Date(c.accessTokenExpiresAt).getTime() > Date.now() + 30_000;
   if (stillValid) {
     return { token: await decryptSecret(c.accessTokenEnc!), merchantIds: c.merchantIds ?? [] };
   }
 
+  if (c.mode === 'centralized') {
+    if (!c.centralizedClientId || !c.centralizedClientSecretEnc) throw new IfoodNotLinkedError();
+    const clientSecret = await decryptSecret(c.centralizedClientSecretEnc);
+    const tok = await getCentralizedIfoodToken(c.centralizedClientId, clientSecret);
+    const accessTokenEnc = await encryptSecret(tok.accessToken);
+    const accessTokenExpiresAt = new Date(Date.now() + tok.expiresIn * 1000).toISOString();
+    await saveConfig(db, restaurantId, { accessTokenEnc, accessTokenExpiresAt });
+    return { token: tok.accessToken, merchantIds: c.merchantIds ?? [] };
+  }
+
+  if (!c.refreshTokenEnc) throw new IfoodNotLinkedError();
   const refreshToken = await decryptSecret(c.refreshTokenEnc);
   const tokens = await refreshIfoodAccessToken(refreshToken);
   const [refreshTokenEnc, accessTokenEnc] = await Promise.all([
