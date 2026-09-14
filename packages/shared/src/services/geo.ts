@@ -50,6 +50,21 @@ export function minutesForKm(km: number, speedKmh = ASSUMED_MOTO_SPEED_KMH): num
 }
 
 /**
+ * Duração estimada (min) de um trecho: usa a duração real de rota (OSRM/Mapbox)
+ * quando disponível; senão cai para a distância em linha reta × 1.3, na
+ * velocidade assumida. Mesmo fallback usado em toda estimativa de tempo do
+ * despacho (coleta e entrega) — fonte única para esse cálculo.
+ */
+export function legEtaMin(
+  leg: { durationMin: number | null } | null | undefined,
+  straightLineKm: number | null,
+): number | null {
+  if (leg?.durationMin != null) return leg.durationMin;
+  if (straightLineKm == null) return null;
+  return minutesForKm(straightLineKm * 1.3);
+}
+
+/**
  * Extrai uma "região" aproximada de um endereço em texto livre.
  * Heurística simples: usa o trecho após a primeira vírgula (bairro) ou a
  * primeira palavra significativa. Serve para agrupar indicadores por região

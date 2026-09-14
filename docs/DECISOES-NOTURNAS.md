@@ -794,3 +794,44 @@ pra cadastrar pelo site.
   diferentes do mesmo pedido — nativo tem cópia local (fora do
   workspace npm).
 - Migration 0039 pendente de aplicar (SQL Editor).
+
+## 2026-09-14 — CRLV por PDF + aba Carteira separada
+
+- Documento do veículo (CRLV) agora aceita foto OU PDF (até 3,5 MB),
+  no app nativo e no PWA. Documento pessoal/selfie continua só foto.
+  Backend já aceitava PDF (`api/documents/route.ts`), não precisou
+  mudar.
+- Nova aba "Carteira" no app nativo (antes o saldo/saque ficava
+  misturado com "Ganhos" — separei pra ficar igual ao PWA, que já
+  tinha `/pagamentos` como rota própria). Endpoint dedicado
+  `api/payouts/history` no PWA serve os dois: saldo disponível,
+  histórico de repasses, taxa de transferência.
+- "Ganhos" no nativo voltou a ser só histórico de entregas (sem
+  saldo/saque), pra não duplicar a mesma informação em dois lugares.
+
+## 2026-09-14 — Bloco 2: tempos de coleta e entrega calculados de verdade
+
+- Cada motoboy candidato a uma oferta já tinha, no motor de despacho
+  (`autodispatch.ts`), o tempo até a coleta calculado a partir da
+  posição GPS dele no momento — só não estava sendo gravado na oferta
+  nem mostrado ao motoboy. Corrigido: a oferta agora grava
+  `eta_pickup_min` (coleta, por candidato) e `eta_dropoff_min`
+  (entrega, rota real) e os dois aparecem separados e rotulados
+  ("~X min até a coleta" / "~Y min até a entrega") no card de oferta,
+  nativo e PWA.
+- Achei (e corrigi) uma violação de fonte única que já existia: a
+  rota de ofertas (`api/offers/route.ts`) recalculava o tempo de
+  entrega com uma fórmula genérica (`km / 22 × 60 + 6`), e o app
+  nativo/PWA recalculavam o tempo de coleta com outra fórmula ainda
+  (`km / 20 × 60 + 2`) — nenhuma das duas usava a duração real de rota
+  que o Leeva já calcula (OSRM) quando o pedido é criado
+  (`orders.route_duration_min`). Agora tudo lê o valor já calculado
+  uma única vez; nada recalcula em camadas diferentes.
+- Extraí o fallback (linha reta × 1.3 quando o OSRM falha) para uma
+  função só (`legEtaMin`, em `geo.ts`) usada nos dois tempos —
+  garante que coleta e entrega usam exatamente a mesma regra de
+  fallback, e ficou testável sem precisar simular banco de dados.
+- Migration 0040 pendente de aplicar (SQL Editor) — adiciona
+  `eta_pickup_min`/`eta_dropoff_min` em `dispatch_attempts`.
+- Não avancei pro Bloco 3 ainda — combinado parar aqui pra validar
+  esse antes.

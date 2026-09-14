@@ -398,6 +398,8 @@ export type Database = {
           created_at: string
           distance_pickup_km: number | null
           distance_total_km: number | null
+          eta_dropoff_min: number | null
+          eta_pickup_min: number | null
           expires_at: string
           group_order_ids: string[] | null
           group_plan: Json | null
@@ -422,6 +424,8 @@ export type Database = {
           created_at?: string
           distance_pickup_km?: number | null
           distance_total_km?: number | null
+          eta_dropoff_min?: number | null
+          eta_pickup_min?: number | null
           expires_at?: string
           group_order_ids?: string[] | null
           group_plan?: Json | null
@@ -446,6 +450,8 @@ export type Database = {
           created_at?: string
           distance_pickup_km?: number | null
           distance_total_km?: number | null
+          eta_dropoff_min?: number | null
+          eta_pickup_min?: number | null
           expires_at?: string
           group_order_ids?: string[] | null
           group_plan?: Json | null

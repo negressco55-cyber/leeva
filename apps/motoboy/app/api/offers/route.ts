@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const db = adminDb();
     const { data: offers } = await db
       .from('dispatch_attempts')
-      .select('id, order_id, score, offered_at, expires_at, quality, quality_score, counts_for_acceptance, payout_estimate, distance_pickup_km, distance_total_km, group_order_ids, group_plan')
+      .select('id, order_id, score, offered_at, expires_at, quality, quality_score, counts_for_acceptance, payout_estimate, distance_pickup_km, distance_total_km, eta_pickup_min, eta_dropoff_min, group_order_ids, group_plan')
       .eq('motoboy_id', ctx.motoboyId)
       .is('responded_at', null)
       .gt('expires_at', new Date().toISOString())
@@ -39,6 +39,11 @@ export async function GET(req: Request) {
         if (!o || !['waiting_dispatch', 'preparing', 'ready'].includes(o.status)) return null;
         const rest = o.restaurant_id ? restById.get(o.restaurant_id) : null;
         const totalKm = off.distance_total_km != null ? Number(off.distance_total_km) : null;
+        // FONTE ÚNICA: os dois tempos já foram calculados no despacho (posição
+        // real do motoboy até a coleta; rota real até a entrega) e gravados na
+        // oferta — nunca recalculados aqui.
+        const etaPickupMinutes = off.eta_pickup_min != null ? Number(off.eta_pickup_min) : null;
+        const etaDropoffMinutes = off.eta_dropoff_min != null ? Number(off.eta_dropoff_min) : null;
         return {
           offerId: off.id,
           orderId: o.id,
@@ -52,12 +57,16 @@ export async function GET(req: Request) {
           pickupAddress: rest?.address ?? null,
           pickupLat: rest?.latitude != null ? Number(rest.latitude) : null,
           pickupLng: rest?.longitude != null ? Number(rest.longitude) : null,
+          etaPickupMinutes,
+          etaDropoffMinutes,
           etaMinutes:
-            o.eta_min != null
-              ? Number(o.eta_min)
-              : totalKm != null
-                ? Math.round((totalKm / 22) * 60) + 6
-                : null,
+            etaPickupMinutes != null || etaDropoffMinutes != null
+              ? (etaPickupMinutes ?? 0) + (etaDropoffMinutes ?? 0)
+              : o.eta_min != null
+                ? Number(o.eta_min)
+                : totalKm != null
+                  ? Math.round((totalKm / 22) * 60) + 6
+                  : null,
           expiresAt: off.expires_at,
           payout: off.payout_estimate != null ? Number(off.payout_estimate) : o.driver_payout != null ? Number(o.driver_payout) : null,
           quality: off.quality as 'excellent' | 'good' | 'acceptable' | 'poor' | null,

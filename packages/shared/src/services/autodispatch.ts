@@ -16,7 +16,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import type { LogisticsConfig } from '../types';
-import { haversineKm, minutesForKm, isValidLatLng, type LatLng } from './geo';
+import { haversineKm, minutesForKm, legEtaMin, isValidLatLng, type LatLng } from './geo';
 import { getRoutingService } from './routing';
 import { getPayoutPolicy, computeDriverPayout, computeLogisticsFinance } from './payout';
 import { classifyOfferQuality } from './reputation';
@@ -185,7 +185,7 @@ export async function scoreCandidatesForOrder(
     if (here && pickup) {
       const leg = await routing.leg(here, pickup);
       distanceToPickupKm = leg?.distanceKm ?? haversineKm(here, pickup);
-      etaToPickupMin = leg?.durationMin ?? (distanceToPickupKm != null ? minutesForKm(distanceToPickupKm * 1.3) : null);
+      etaToPickupMin = legEtaMin(leg, distanceToPickupKm);
     }
     if (distanceToPickupKm != null && distanceToPickupKm > cfg.service_radius_km * 2) {
       blockers.push(`fora do raio (${distanceToPickupKm.toFixed(1)} km)`);
@@ -443,6 +443,8 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       payout_estimate: offerPayout,
       distance_pickup_km: best.distanceToPickupKm != null ? round(best.distanceToPickupKm) : null,
       distance_total_km: offerTotalKm,
+      eta_pickup_min: best.etaToPickupMin,
+      eta_dropoff_min: quality.etaDropoffMin != null ? Math.round(quality.etaDropoffMin) : null,
       group_order_ids: groupPlan ? groupPlan.orderIds : null,
       group_plan: groupPlan ? (groupPlan.stops as unknown as Database['public']['Tables']['dispatch_attempts']['Insert']['group_plan']) : null,
     });
@@ -520,10 +522,11 @@ async function classifyOfferForCandidate(
   countsForAcceptance: boolean;
   payout: number;
   distanceTotalKm: number | null;
+  etaDropoffMin: number | null;
 }> {
   const { data: order } = await db
     .from('orders')
-    .select('latitude, longitude, group_id, driver_payout, route_distance_km')
+    .select('latitude, longitude, group_id, driver_payout, route_distance_km, route_duration_min')
     .eq('id', orderId)
     .maybeSingle();
   const { data: rst } = await db
@@ -539,14 +542,20 @@ async function classifyOfferForCandidate(
     ? { latitude: order!.latitude as number, longitude: order!.longitude as number }
     : null;
 
+  // FONTE ÚNICA: distância/duração da entrega já foram calculadas com a
+  // integração de rota real (+ fallback linha reta × 1.3) na criação do
+  // pedido (computeDeliveryCharge). Nunca recalcular aqui.
   let distanceDropoffKm: number | null =
     order?.route_distance_km != null ? Number(order.route_distance_km) : null;
   let etaDropoffMin: number | null =
-    distanceDropoffKm != null ? minutesForKm(distanceDropoffKm) : null;
+    order?.route_duration_min != null ? Number(order.route_duration_min) : null;
   if (distanceDropoffKm == null && pickup && dropoff) {
     const leg = await getRoutingService().leg(pickup, dropoff);
-    distanceDropoffKm = leg?.distanceKm ?? haversineKm(pickup, dropoff);
-    etaDropoffMin = leg?.durationMin ?? (distanceDropoffKm != null ? minutesForKm(distanceDropoffKm) : null);
+    const straightKm = haversineKm(pickup, dropoff);
+    distanceDropoffKm = leg?.distanceKm ?? (straightKm != null ? round(straightKm * 1.3) : null);
+    etaDropoffMin = legEtaMin(leg, straightKm);
+  } else if (etaDropoffMin == null && distanceDropoffKm != null) {
+    etaDropoffMin = minutesForKm(distanceDropoffKm);
   }
 
   // FONTE ÚNICA: a remuneração já foi calculada e gravada na criação do pedido.
@@ -583,6 +592,7 @@ async function classifyOfferForCandidate(
     countsForAcceptance: q.countsForAcceptance,
     payout,
     distanceTotalKm,
+    etaDropoffMin,
   };
 }
 

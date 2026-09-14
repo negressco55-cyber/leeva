@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { haversineKm, minutesForKm, regionFromAddress, centroid } from '../services/geo';
+import { haversineKm, minutesForKm, legEtaMin, regionFromAddress, centroid } from '../services/geo';
 
 test('haversineKm: mesma coordenada = 0', () => {
   assert.equal(haversineKm({ latitude: -7.11, longitude: -34.84 }, { latitude: -7.11, longitude: -34.84 }), 0);
@@ -24,6 +24,21 @@ test('regionFromAddress: extrai o bairro', () => {
   assert.equal(regionFromAddress('Rua X, 123, Manaíra, João Pessoa'), 'Manaíra');
   assert.equal(regionFromAddress('Bessa'), 'Bessa');
   assert.equal(regionFromAddress(null), null);
+});
+
+test('legEtaMin: usa a duração real da rota quando disponível', () => {
+  const min = legEtaMin({ durationMin: 12 }, 999); // distância em linha reta é ignorada
+  assert.equal(min, 12);
+});
+
+test('legEtaMin: sem rota real, cai para linha reta × 1.3', () => {
+  const min = legEtaMin(null, 10);
+  assert.equal(Math.round(min!), Math.round(minutesForKm(10 * 1.3)));
+});
+
+test('legEtaMin: sem rota e sem distância = null', () => {
+  assert.equal(legEtaMin(null, null), null);
+  assert.equal(legEtaMin(undefined, null), null);
 });
 
 test('centroid: média dos pontos', () => {

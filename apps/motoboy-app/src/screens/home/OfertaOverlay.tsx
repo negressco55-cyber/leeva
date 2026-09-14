@@ -47,8 +47,8 @@ export function OfertaOverlay(): React.JSX.Element | null {
   const grouped = !!offer.routeStops && offer.routeStops.length > 1;
   const totalKm = offer.distanceTotalKm ?? offer.routeTotalKm;
   const perKm = offer.payout != null && totalKm && totalKm > 0 ? offer.payout / totalKm : null;
-  const pickupEta =
-    offer.distancePickupKm != null ? Math.max(1, Math.round((offer.distancePickupKm / 20) * 60) + 2) : null;
+  const pickupEta = offer.etaPickupMinutes;
+  const dropoffEta = offer.etaDropoffMinutes ?? offer.etaMinutes;
 
   async function handleAccept(): Promise<void> {
     setBusy(true);
@@ -127,7 +127,7 @@ export function OfertaOverlay(): React.JSX.Element | null {
                   </View>
                   <View style={styles.legTextCol}>
                     <Text style={styles.legMeta}>
-                      Coleta{pickupEta != null ? ` · ${pickupEta} min` : ''}
+                      {pickupEta != null ? `~${pickupEta} min até a coleta` : 'Coleta'}
                       {offer.distancePickupKm != null ? ` · ${offer.distancePickupKm.toFixed(1)} km` : ''}
                     </Text>
                     <Text style={styles.legAddr} numberOfLines={2}>
@@ -142,7 +142,7 @@ export function OfertaOverlay(): React.JSX.Element | null {
                   </View>
                   <View style={styles.legTextCol}>
                     <Text style={styles.legMeta}>
-                      Entrega{offer.etaMinutes != null ? ` · ${offer.etaMinutes} min` : ''}
+                      {dropoffEta != null ? `~${dropoffEta} min até a entrega` : 'Entrega'}
                       {totalKm != null ? ` · ${totalKm.toFixed(1)} km` : ''}
                     </Text>
                     <Text style={styles.legAddr} numberOfLines={2}>{offer.address}</Text>

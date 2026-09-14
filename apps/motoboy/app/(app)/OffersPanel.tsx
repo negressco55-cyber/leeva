@@ -28,6 +28,8 @@ type Offer = {
   pickupLat: number | null;
   pickupLng: number | null;
   etaMinutes: number | null;
+  etaPickupMinutes: number | null;
+  etaDropoffMinutes: number | null;
   expiresAt: string;
   payout: number | null;
   quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
@@ -143,8 +145,8 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
         const grouped = !!o.routeStops && o.routeStops.length > 1;
         const totalKm = o.distanceTotalKm ?? o.routeTotalKm;
         const perKm = o.payout != null && totalKm && totalKm > 0 ? o.payout / totalKm : null;
-        const pickupEta =
-          o.distancePickupKm != null ? Math.max(1, Math.round((o.distancePickupKm / 20) * 60) + 2) : null;
+        const pickupEta = o.etaPickupMinutes;
+        const dropoffEta = o.etaDropoffMinutes ?? o.etaMinutes;
 
         return (
           <div key={o.offerId} className="offer-card">
@@ -203,7 +205,7 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                   <div className="offer-leg">
                     <span className="leg-dot warn" />
                     <span className="leg-meta">
-                      {pickupEta != null ? `${pickupEta} min` : 'coleta'}
+                      {pickupEta != null ? `~${pickupEta} min até a coleta` : 'coleta'}
                       {o.distancePickupKm != null ? ` · ${o.distancePickupKm.toFixed(1)} km` : ''}
                     </span>
                     <span className="leg-addr">{o.pickupAddress ?? o.pickupName ?? 'ponto de coleta'}</span>
@@ -211,7 +213,7 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                   <div className="offer-leg">
                     <span className="leg-dot brand" />
                     <span className="leg-meta">
-                      {o.etaMinutes != null ? `${o.etaMinutes} min` : 'entrega'}
+                      {dropoffEta != null ? `~${dropoffEta} min até a entrega` : 'entrega'}
                       {totalKm != null ? ` · ${totalKm.toFixed(1)} km` : ''}
                     </span>
                     <span className="leg-addr">{o.address}</span>

@@ -62,6 +62,8 @@ export interface Offer {
   pickupLat: number | null;
   pickupLng: number | null;
   etaMinutes: number | null;
+  etaPickupMinutes: number | null;
+  etaDropoffMinutes: number | null;
   expiresAt: string;
   payout: number | null;
   quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
