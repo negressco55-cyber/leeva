@@ -913,6 +913,7 @@ export type Database = {
           approval_status: Database["public"]["Enums"]["driver_approval_status"]
           approved_at: string | null
           approved_by: string | null
+          avatar_url: string | null
           avg_delay_min: number
           blocked: boolean
           blocked_reason: string | null
@@ -957,6 +958,7 @@ export type Database = {
           approval_status?: Database["public"]["Enums"]["driver_approval_status"]
           approved_at?: string | null
           approved_by?: string | null
+          avatar_url?: string | null
           avg_delay_min?: number
           blocked?: boolean
           blocked_reason?: string | null
@@ -1001,6 +1003,7 @@ export type Database = {
           approval_status?: Database["public"]["Enums"]["driver_approval_status"]
           approved_at?: string | null
           approved_by?: string | null
+          avatar_url?: string | null
           avg_delay_min?: number
           blocked?: boolean
           blocked_reason?: string | null

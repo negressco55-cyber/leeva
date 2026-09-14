@@ -30,3 +30,19 @@ export function registerExpoPush(token: string): Promise<{ ok: boolean }> {
 export function setPixKey(key: string, type: string): Promise<{ ok: boolean }> {
   return apiSend<{ ok: boolean }>('/api/pix', 'POST', { key, type });
 }
+
+export type DriverDocsStatus = {
+  personalDocUrl: string | null;
+  vehicleDocUrl: string | null;
+  avatarUrl: string | null;
+};
+
+/** Estado atual dos documentos (CNH/RG, CRLV, foto do rosto). */
+export function getDriverDocs(): Promise<DriverDocsStatus> {
+  return apiGet<DriverDocsStatus>('/api/documents');
+}
+
+/** Envia/substitui um documento. type: 'personal' | 'vehicle' | 'avatar'. */
+export function uploadDriverDocument(type: 'personal' | 'vehicle' | 'avatar', fileBase64: string): Promise<{ ok: boolean } & DriverDocsStatus> {
+  return apiSend('/api/documents', 'POST', { type, fileBase64 });
+}

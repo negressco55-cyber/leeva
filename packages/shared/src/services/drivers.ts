@@ -151,6 +151,49 @@ export async function setDriverDocPaths(db: DB, motoboyId: string, personal?: st
 }
 
 // ---------------------------------------------------------------------------
+// DOCUMENTOS (já aprovado) — reenvio/atualização pelo próprio app, fora do
+// cadastro inicial. Mesmo bucket/pastas do self-service (driver-documents/
+// {motoboyId}/{tipo}.ext), upsert (substitui o anterior).
+// ---------------------------------------------------------------------------
+export type DriverDocType = 'personal' | 'vehicle' | 'avatar';
+
+export async function saveDriverDocument(
+  db: DB,
+  motoboyId: string,
+  type: DriverDocType,
+  bytes: Uint8Array,
+  contentType: string,
+  ext: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const path = `${motoboyId}/${type}.${ext}`;
+  const up = await db.storage.from('driver-documents').upload(path, bytes, { contentType, upsert: true });
+  if (up.error) return { ok: false, error: up.error.message };
+  const patch: Database['public']['Tables']['motoboys']['Update'] =
+    type === 'personal' ? { personal_doc_path: path } : type === 'vehicle' ? { vehicle_doc_path: path } : { avatar_url: path };
+  await db.from('motoboys').update(patch).eq('id', motoboyId);
+  return { ok: true };
+}
+
+export type DriverDocsStatus = {
+  personalDocUrl: string | null;
+  vehicleDocUrl: string | null;
+  avatarUrl: string | null;
+};
+
+export async function getDriverDocsStatus(db: DB, motoboyId: string): Promise<DriverDocsStatus> {
+  const { data: m } = await db
+    .from('motoboys')
+    .select('personal_doc_path, vehicle_doc_path, avatar_url')
+    .eq('id', motoboyId)
+    .maybeSingle();
+  return {
+    personalDocUrl: await signDoc(db, m?.personal_doc_path ?? null),
+    vehicleDocUrl: await signDoc(db, m?.vehicle_doc_path ?? null),
+    avatarUrl: await signDoc(db, m?.avatar_url ?? null),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // FILA DE APROVAÇÃO (admin)
 // ---------------------------------------------------------------------------
 export type PendingDriver = {

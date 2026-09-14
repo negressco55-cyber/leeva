@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BadgeCheck, ChevronRight, MapPin, Phone, ShieldCheck, Star, TrendingUp, User, Wallet } from 'lucide-react';
+import { BadgeCheck, ChevronRight, FileText, MapPin, Phone, ShieldCheck, Star, TrendingUp, User, Wallet } from 'lucide-react';
 import { requireMotoboyContext, adminDb } from '@/lib/context';
 import { getMotoboyPixInfo } from '@leeva/shared/services';
 import { logout } from '../../login/actions';
@@ -89,6 +89,18 @@ export default async function PerfilPage() {
             <div className="icon-row-value">{APPROVAL[ctx.approvalStatus] ?? '—'}</div>
           </div>
         </div>
+      </div>
+
+      <div className="section-title">Documentos</div>
+      <div className="icon-rows">
+        <Link href="/documentos" className="icon-row" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <span className="icon-row-icon"><FileText size={16} strokeWidth={2} /></span>
+          <div style={{ flex: 1 }}>
+            <div className="icon-row-label">CRLV e foto do rosto</div>
+            <div className="icon-row-value">Enviar ou atualizar</div>
+          </div>
+          <ChevronRight size={16} color="var(--faint)" />
+        </Link>
       </div>
 
       <div className="section-title">Recebimento</div>

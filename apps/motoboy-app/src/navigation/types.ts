@@ -13,6 +13,7 @@ export type MainTabParamList = {
 export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   Entrega: undefined;
+  Documentos: undefined;
 };
 
 declare global {

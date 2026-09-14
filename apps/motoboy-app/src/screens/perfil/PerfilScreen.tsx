@@ -1,4 +1,6 @@
-import { BadgeCheck, MapPin, Phone, Star, TrendingUp, User, Wallet } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { type NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BadgeCheck, ChevronRight, FileText, MapPin, Phone, Star, TrendingUp, User, Wallet } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +11,7 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { TextField } from '../../components/TextField';
 import { useAuth } from '../../context/AuthContext';
+import type { AppStackParamList } from '../../navigation/types';
 import { theme } from '../../theme/theme';
 
 const PIX_TYPES: { v: string; label: string }[] = [
@@ -126,6 +129,7 @@ function PixEditor({
 
 export function PerfilScreen(): React.JSX.Element {
   const { me, logout, refreshMe } = useAuth();
+  const nav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [showTerms, setShowTerms] = useState(false);
   const [accepting, setAccepting] = useState(false);
 
@@ -184,6 +188,20 @@ export function PerfilScreen(): React.JSX.Element {
             label="Cadastro"
             value={APROVACAO[me?.approvalStatus ?? ''] ?? '—'}
           />
+        </Card>
+
+        <SectionTitle>DOCUMENTOS</SectionTitle>
+        <Card style={styles.fieldsCard}>
+          <Pressable style={styles.field} onPress={() => nav.navigate('Documentos')}>
+            <View style={styles.fieldIcon}>
+              <FileText size={16} color={theme.colors.textSecondary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fieldLabel}>CRLV e foto do rosto</Text>
+              <Text style={styles.fieldValue}>Enviar ou atualizar</Text>
+            </View>
+            <ChevronRight size={16} color={theme.colors.textSecondary} />
+          </Pressable>
         </Card>
 
         <SectionTitle>RECEBIMENTO</SectionTitle>

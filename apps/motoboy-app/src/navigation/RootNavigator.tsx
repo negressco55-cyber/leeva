@@ -3,6 +3,7 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
+import { DocumentosScreen } from '../screens/perfil/DocumentosScreen';
 import { EntregaScreen } from '../screens/home/EntregaScreen';
 import { theme } from '../theme/theme';
 import { AuthNavigator } from './AuthNavigator';
@@ -24,6 +25,15 @@ function AppStack(): React.JSX.Element {
           headerStyle: { backgroundColor: theme.colors.surface },
           headerTintColor: theme.colors.text,
           gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="Documentos"
+        component={DocumentosScreen}
+        options={{
+          title: 'Documentos',
+          headerStyle: { backgroundColor: theme.colors.surface },
+          headerTintColor: theme.colors.text,
         }}
       />
     </Stack.Navigator>
