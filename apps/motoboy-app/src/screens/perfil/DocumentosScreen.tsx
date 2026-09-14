@@ -1,7 +1,8 @@
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { CheckCircle2, Circle, UserRound } from 'lucide-react-native';
+import { CheckCircle2, Circle, FileText, UserRound } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getDriverDocs, uploadDriverDocument, type DriverDocsStatus } from '../../api/motoboy';
@@ -11,21 +12,24 @@ import { theme } from '../../theme/theme';
 
 type DocType = 'personal' | 'vehicle' | 'avatar';
 
-const DOC_META: Record<DocType, { title: string; hint: string; camera: ImagePicker.CameraType }> = {
+const DOC_META: Record<DocType, { title: string; hint: string; camera: ImagePicker.CameraType; allowPdf: boolean }> = {
   personal: {
     title: 'CNH ou RG',
     hint: 'Tire uma foto legível do seu documento com CPF (CNH ou RG).',
     camera: ImagePicker.CameraType.back,
+    allowPdf: false,
   },
   vehicle: {
     title: 'CRLV do veículo',
-    hint: 'Tire uma foto legível do documento do veículo (CRLV).',
+    hint: 'Tire uma foto ou envie o PDF do CRLV.',
     camera: ImagePicker.CameraType.back,
+    allowPdf: true,
   },
   avatar: {
     title: 'Foto do rosto',
     hint: 'Uma foto sua, de rosto, bem iluminada — aparece no seu perfil.',
     camera: ImagePicker.CameraType.front,
+    allowPdf: false,
   },
 };
 
@@ -42,6 +46,17 @@ async function takePhoto(camera: ImagePicker.CameraType): Promise<string | null>
   return `data:${mime};base64,${asset.base64}`;
 }
 
+async function pickPdf(): Promise<string | null> {
+  const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', base64: true });
+  if (result.canceled || !result.assets?.[0]?.base64) return null;
+  const asset = result.assets[0];
+  if (asset.size != null && asset.size > 3.5 * 1024 * 1024) {
+    Alert.alert('Arquivo muito grande', 'Envie um PDF de até 3,5 MB.');
+    return null;
+  }
+  return `data:application/pdf;base64,${asset.base64}`;
+}
+
 function DocCard({
   type,
   url,
@@ -55,6 +70,7 @@ function DocCard({
 }): React.JSX.Element {
   const meta = DOC_META[type];
   const sent = !!url;
+  const isPdf = !!url && /\.pdf(\?|$)/i.test(url);
 
   return (
     <Card style={styles.card}>
@@ -75,7 +91,12 @@ function DocCard({
 
       {sent && (
         <View style={styles.preview}>
-          {type === 'avatar' ? (
+          {isPdf ? (
+            <View style={styles.previewPdf}>
+              <FileText size={22} color={theme.colors.textSecondary} strokeWidth={2} />
+              <Text style={styles.previewPdfText}>PDF enviado</Text>
+            </View>
+          ) : type === 'avatar' ? (
             <Image source={{ uri: url }} style={styles.previewAvatar} />
           ) : (
             <Image source={{ uri: url }} style={styles.previewDoc} resizeMode="cover" />
@@ -92,6 +113,14 @@ function DocCard({
           if (b64) onUploaded(type, b64);
         }}
       />
+      {meta.allowPdf && (
+        <Pressable disabled={busy} onPress={async () => {
+          const b64 = await pickPdf();
+          if (b64) onUploaded(type, b64);
+        }}>
+          <Text style={styles.pdfLink}>ou enviar como PDF</Text>
+        </Pressable>
+      )}
     </Card>
   );
 }
@@ -193,4 +222,21 @@ const styles = StyleSheet.create({
   preview: { alignItems: 'center' },
   previewAvatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: theme.colors.surfaceAlt },
   previewDoc: { width: '100%', height: 140, borderRadius: theme.radius.sm, backgroundColor: theme.colors.surfaceAlt },
+  previewPdf: {
+    width: '100%',
+    height: 80,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  previewPdfText: { fontFamily: theme.fonts.bodyMedium, fontSize: 12, color: theme.colors.textSecondary },
+  pdfLink: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 13,
+    color: theme.colors.primary,
+    textAlign: 'center',
+    marginTop: -4,
+  },
 });

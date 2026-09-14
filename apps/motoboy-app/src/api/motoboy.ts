@@ -55,3 +55,29 @@ export type RequestPayoutResult =
 export function requestPayout(): Promise<RequestPayoutResult> {
   return apiSend('/api/payouts/request', 'POST');
 }
+
+export type PayoutHistoryEntry = {
+  id: string;
+  periodDate: string;
+  amount: number;
+  transferFee: number;
+  netAmount: number;
+  earningsCount: number;
+  status: string;
+  simulated: boolean;
+  paidAt: string | null;
+  error: string | null;
+};
+
+export type WalletInfo = {
+  pendingAmount: number;
+  pendingCount: number;
+  requestedToday: boolean;
+  transferFee: number;
+  history: PayoutHistoryEntry[];
+};
+
+/** Saldo + histórico de repasses — aba Carteira. */
+export function getWallet(): Promise<WalletInfo> {
+  return apiGet<WalletInfo>('/api/payouts/history');
+}

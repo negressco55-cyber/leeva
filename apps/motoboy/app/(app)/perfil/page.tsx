@@ -116,7 +116,7 @@ export default async function PerfilPage() {
         <Link href="/pagamentos" className="icon-row" style={{ textDecoration: 'none', color: 'inherit' }}>
           <span className="icon-row-icon"><Wallet size={16} strokeWidth={2} /></span>
           <div style={{ flex: 1 }}>
-            <div className="icon-row-label">Pagamentos e repasses</div>
+            <div className="icon-row-label">Carteira</div>
           </div>
           <ChevronRight size={16} color="var(--faint)" />
         </Link>

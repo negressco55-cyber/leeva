@@ -8,11 +8,21 @@ type DocType = 'personal' | 'vehicle' | 'avatar';
 
 type Status = { personalDocUrl: string | null; vehicleDocUrl: string | null; avatarUrl: string | null };
 
-const META: Record<DocType, { title: string; hint: string; capture: 'environment' | 'user' }> = {
-  personal: { title: 'CNH ou RG', hint: 'Uma foto legível do seu documento com CPF (CNH ou RG).', capture: 'environment' },
-  vehicle: { title: 'CRLV do veículo', hint: 'Uma foto legível do documento do veículo (CRLV).', capture: 'environment' },
-  avatar: { title: 'Foto do rosto', hint: 'Uma foto sua, de rosto, bem iluminada — aparece no seu perfil.', capture: 'user' },
+const META: Record<DocType, { title: string; hint: string; capture: 'environment' | 'user' | undefined; accept: string }> = {
+  personal: { title: 'CNH ou RG', hint: 'Uma foto legível do seu documento com CPF (CNH ou RG).', capture: 'environment', accept: 'image/*' },
+  vehicle: { title: 'CRLV do veículo', hint: 'Uma foto ou o PDF do CRLV.', capture: undefined, accept: 'image/*,application/pdf' },
+  avatar: { title: 'Foto do rosto', hint: 'Uma foto sua, de rosto, bem iluminada — aparece no seu perfil.', capture: 'user', accept: 'image/*' },
 };
+
+/** Lê um arquivo (PDF) como data URL, sem redimensionar. */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('arquivo inválido'));
+    reader.readAsDataURL(file);
+  });
+}
 
 const STATUS_KEY: Record<DocType, keyof Status> = {
   personal: 'personalDocUrl',
@@ -58,6 +68,7 @@ function DocCard({
 }) {
   const meta = META[type];
   const sent = !!url;
+  const isPdf = sent && /\.pdf(\?|$)/i.test(url);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -66,7 +77,10 @@ function DocCard({
     setBusy(true);
     setErr(null);
     try {
-      const dataUrl = await resizePhoto(file);
+      if (file.type === 'application/pdf' && file.size > 3.5 * 1024 * 1024) {
+        throw new Error('PDF muito grande — envie até 3,5 MB.');
+      }
+      const dataUrl = file.type === 'application/pdf' ? await readAsDataUrl(file) : await resizePhoto(file);
       const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -95,24 +109,30 @@ function DocCard({
 
       {sent && (
         <div style={{ marginBottom: 10, textAlign: type === 'avatar' ? 'center' : undefined }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={meta.title}
-            style={
-              type === 'avatar'
-                ? { width: 84, height: 84, borderRadius: 999, objectFit: 'cover' }
-                : { width: '100%', height: 140, borderRadius: 10, objectFit: 'cover', background: 'var(--surface-2)' }
-            }
-          />
+          {isPdf ? (
+            <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 60, borderRadius: 10, background: 'var(--surface-2)', padding: '0 14px', color: 'var(--text)', textDecoration: 'none', fontSize: 13 }}>
+              📄 PDF enviado — ver arquivo
+            </a>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt={meta.title}
+              style={
+                type === 'avatar'
+                  ? { width: 84, height: 84, borderRadius: 999, objectFit: 'cover' }
+                  : { width: '100%', height: 140, borderRadius: 10, objectFit: 'cover', background: 'var(--surface-2)' }
+              }
+            />
+          )}
         </div>
       )}
 
       {err && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 8px' }}>{err}</p>}
 
       <label className={`button ${sent ? 'secondary' : ''}`} style={{ textAlign: 'center', cursor: 'pointer', display: 'block' }}>
-        {busy ? 'Enviando…' : sent ? 'Enviar outra foto' : 'Tirar foto'}
-        <input type="file" accept="image/*" capture={meta.capture} hidden disabled={busy} onChange={(e) => onPick(e.target.files?.[0])} />
+        {busy ? 'Enviando…' : sent ? 'Enviar outra foto' : meta.accept.includes('pdf') ? 'Tirar foto ou enviar PDF' : 'Tirar foto'}
+        <input type="file" accept={meta.accept} capture={meta.capture} hidden disabled={busy} onChange={(e) => onPick(e.target.files?.[0])} />
       </label>
     </div>
   );

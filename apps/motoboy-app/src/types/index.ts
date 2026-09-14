@@ -124,9 +124,6 @@ export interface HistoricoResponse {
   items: HistoricoItem[];
   deliveredCount: number;
   totalEarned: number;
-  pendingAmount: number;
-  requestedToday: boolean;
-  transferFee: number;
 }
 
 export interface Performance {

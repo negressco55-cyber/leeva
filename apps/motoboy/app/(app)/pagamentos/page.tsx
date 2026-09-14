@@ -29,7 +29,7 @@ export default async function PagamentosPage() {
 
   return (
     <div className="grid" style={{ gap: 14 }}>
-      <h1 style={{ margin: 0 }}>Pagamentos</h1>
+      <h1 style={{ margin: 0 }}>Carteira</h1>
 
       <div className="panel">
         <h2 style={{ fontSize: 15, marginTop: 0 }}>Saldo disponível</h2>

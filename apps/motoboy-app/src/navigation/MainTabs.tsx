@@ -1,6 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Home, Receipt, User, Wallet } from 'lucide-react-native';
 import React from 'react';
 
+import { CarteiraScreen } from '../screens/carteira/CarteiraScreen';
 import { GanhosScreen } from '../screens/historico/GanhosScreen';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { PerfilScreen } from '../screens/perfil/PerfilScreen';
@@ -17,13 +19,29 @@ export function MainTabs(): React.JSX.Element {
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarStyle: { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border },
-        tabBarLabelStyle: { fontFamily: theme.fonts.bodyMedium, fontSize: 12 },
-        tabBarIcon: () => null,
+        tabBarLabelStyle: { fontFamily: theme.fonts.bodyMedium, fontSize: 11 },
       }}
     >
-      <Tab.Screen name="Inicio" component={HomeScreen} options={{ title: 'Início' }} />
-      <Tab.Screen name="Ganhos" component={GanhosScreen} options={{ title: 'Ganhos' }} />
-      <Tab.Screen name="Perfil" component={PerfilScreen} options={{ title: 'Perfil' }} />
+      <Tab.Screen
+        name="Inicio"
+        component={HomeScreen}
+        options={{ title: 'Início', tabBarIcon: ({ color, size }) => <Home color={color} size={size} strokeWidth={2} /> }}
+      />
+      <Tab.Screen
+        name="Ganhos"
+        component={GanhosScreen}
+        options={{ title: 'Ganhos', tabBarIcon: ({ color, size }) => <Receipt color={color} size={size} strokeWidth={2} /> }}
+      />
+      <Tab.Screen
+        name="Carteira"
+        component={CarteiraScreen}
+        options={{ title: 'Carteira', tabBarIcon: ({ color, size }) => <Wallet color={color} size={size} strokeWidth={2} /> }}
+      />
+      <Tab.Screen
+        name="Perfil"
+        component={PerfilScreen}
+        options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <User color={color} size={size} strokeWidth={2} /> }}
+      />
     </Tab.Navigator>
   );
 }

@@ -41,7 +41,7 @@ const TABS: { href: string; label: string; icon: IconKey }[] = [
   { href: '/status', label: 'Status', icon: 'status' },
   { href: '/entrega', label: 'Entrega', icon: 'scooter' },
   { href: '/historico', label: 'Histórico', icon: 'history' },
-  { href: '/pagamentos', label: 'Pagamentos', icon: 'wallet' },
+  { href: '/pagamentos', label: 'Carteira', icon: 'wallet' },
   { href: '/perfil', label: 'Perfil', icon: 'user' },
 ];
 
