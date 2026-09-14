@@ -6,8 +6,8 @@
  * restaurante e a oferta inteira vai para um único motoboy.
  *
  * Preço (config em payout_policies.config, editável no admin):
- *   parada 1 (lead) = tabela cheia  → computeDriverPayout(policy, {distanceKm: rest→p1})
- *   parada k > 1     = max(group_stop_min, kmIncremental(p[k-1] → p[k]) × per_km)
+ *   parada 1 (lead) = max(distanceKm(rest→p1) × per_km, min_payout)
+ *   parada k > 1     = max(kmIncremental(p[k-1] → p[k]) × per_km_grouped, min_payout)
  *   total do motoboy = soma das paradas
  *   restaurante paga por pedido = payout daquela parada + margem do plano
  *
@@ -18,7 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
 import { haversineKm, isValidLatLng, type LatLng } from './geo';
 import { getRoutingService } from './routing';
-import { getPayoutPolicy, computeDriverPayout, getPlanMargin } from './payout';
+import { getPayoutPolicy, computeDriverPayout, computeGroupedStopPayout, getPlanMargin } from './payout';
 import { adjustCredit } from './credits';
 
 type DB = SupabaseClient<Database>;
@@ -63,7 +63,6 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
   const maxStops = Math.max(1, Math.floor(policy.group_max_stops ?? 3));
   if (maxStops < 2) return null;
   const radiusKm = policy.group_radius_km ?? 1.5;
-  const stopMin = policy.group_stop_min ?? 3.5;
 
   const { data: rst } = await db
     .from('restaurants')
@@ -135,12 +134,7 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
     const c = chosen[i]!;
     const leg = await routing.leg(prev, c.point);
     const legKm = round(leg?.distanceKm ?? (haversineKm(prev, c.point) ?? 0) * 1.3);
-    let payout: number;
-    if (i === 0) {
-      payout = computeDriverPayout(policy, { distanceKm: legKm, groupSize: 1 }).total;
-    } else {
-      payout = round(Math.max(stopMin, legKm * policy.per_km));
-    }
+    const payout = i === 0 ? computeDriverPayout(policy, { distanceKm: legKm }).total : computeGroupedStopPayout(policy, legKm);
     stops.push({
       orderId: c.orderId,
       seq: i + 1,

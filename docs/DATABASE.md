@@ -34,8 +34,9 @@ Postgres (Supabase). Migrations em `supabase/migrations/`, aplicadas em ordem.
 
 ### `payout_policies`
 `restaurant_id` NULLABLE (NULL = política global "Padrão Leeva"), `name`,
-`config` (jsonb: `base`, `per_km`, `free_km`, `grouped_extra`, `peak_bonus`,
-`peak_hours`, `min_payout`), `active`. Índice único garante 1 global.
+`config` (jsonb: `per_km`, `per_km_grouped`, `min_payout`, `peak_bonus`,
+`peak_hours`, `group_radius_km`, `group_max_stops`), `active`. Índice único
+garante 1 global. Ver `docs/LOGISTICS.md` pela fórmula vigente.
 
 ### `dispatch_attempts`
 `order_id`, `motoboy_id`, `attempt_number`, `score`, `score_breakdown` (jsonb),

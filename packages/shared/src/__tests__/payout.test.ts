@@ -2,48 +2,85 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeDriverPayout,
+  computeGroupedStopPayout,
   computeLogisticsFinance,
   DEFAULT_PAYOUT_CONFIG,
 } from '../services/payout';
 
-test('payout: entrega simples = valor base (respeitando mínimo)', () => {
-  const r = computeDriverPayout({ ...DEFAULT_PAYOUT_CONFIG, base: 7.5, min_payout: 7.5, per_km: 0 }, {
-    distanceKm: 3,
-  });
-  assert.equal(r.total, 7.5);
+// ---- entrega solta: max(distanciaKm × per_km, min_payout) ----
+
+test('entrega solta: 2 km → R$ 5,00 (mínimo, pois 2×2=4 < 5)', () => {
+  const r = computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 2 });
+  assert.equal(r.total, 5);
 });
 
-test('payout: adicional por km acima do free_km', () => {
-  const r = computeDriverPayout(
-    { ...DEFAULT_PAYOUT_CONFIG, base: 6, per_km: 1, free_km: 2, min_payout: 0 },
-    { distanceKm: 5 },
-  );
-  // 6 + (5-2)*1 = 9
-  assert.equal(r.total, 9);
+test('entrega solta: 3 km → R$ 6,00', () => {
+  const r = computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 3 });
+  assert.equal(r.total, 6);
 });
 
-test('payout: entrega agrupada soma adicional por pedido extra', () => {
-  const r = computeDriverPayout(
-    { ...DEFAULT_PAYOUT_CONFIG, base: 7.5, grouped_extra: 3, per_km: 0, min_payout: 0 },
-    { distanceKm: 2, groupSize: 3 },
-  );
-  // 7.5 + 2*3 = 13.5
-  assert.equal(r.total, 13.5);
-  assert.ok(r.breakdown.some((b) => /Agrupamento/.test(b.label)));
-});
-
-test('payout: bônus de pico só no horário configurado', () => {
-  const cfg = { ...DEFAULT_PAYOUT_CONFIG, base: 7.5, peak_bonus: 2, peak_hours: [[18, 21]] as [number, number][], min_payout: 0, per_km: 0 };
-  const peak = computeDriverPayout(cfg, { distanceKm: 1, at: new Date('2026-01-01T19:00:00') });
-  const off = computeDriverPayout(cfg, { distanceKm: 1, at: new Date('2026-01-01T14:00:00') });
-  assert.equal(peak.total, 9.5);
-  assert.equal(off.total, 7.5);
-});
-
-test('payout: nunca abaixo do mínimo', () => {
-  const r = computeDriverPayout({ ...DEFAULT_PAYOUT_CONFIG, base: 3, min_payout: 8, per_km: 0 }, { distanceKm: 1 });
+test('entrega solta: 4 km → R$ 8,00', () => {
+  const r = computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 4 });
   assert.equal(r.total, 8);
 });
+
+test('entrega solta: 5 km → R$ 10,00', () => {
+  const r = computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 5 });
+  assert.equal(r.total, 10);
+});
+
+test('entrega solta: distância contínua, não em degraus (3,4 km ≠ 3 km)', () => {
+  const a = computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 3 }).total;
+  const b = computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 3.4 }).total;
+  assert.equal(a, 6);
+  assert.equal(b, 6.8); // 3,4 × 2,00
+  assert.notEqual(a, b);
+});
+
+test('entrega solta: valor custom de per_km/min_payout', () => {
+  const cfg = { ...DEFAULT_PAYOUT_CONFIG, per_km: 3, min_payout: 10 };
+  assert.equal(computeDriverPayout(cfg, { distanceKm: 2 }).total, 10); // 2×3=6 < 10
+  assert.equal(computeDriverPayout(cfg, { distanceKm: 5 }).total, 15); // 5×3=15 ≥ 10
+});
+
+test('entrega solta: bônus de pico soma por cima do valor por km/mínimo', () => {
+  const cfg = { ...DEFAULT_PAYOUT_CONFIG, peak_bonus: 2, peak_hours: [[18, 21]] as [number, number][] };
+  const peak = computeDriverPayout(cfg, { distanceKm: 5, at: new Date('2026-01-01T19:00:00') });
+  const off = computeDriverPayout(cfg, { distanceKm: 5, at: new Date('2026-01-01T14:00:00') });
+  assert.equal(peak.total, 12); // 10 + 2
+  assert.equal(off.total, 10);
+});
+
+test('entrega solta: distância zero/nula cai no mínimo', () => {
+  assert.equal(computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 0 }).total, 5);
+  assert.equal(computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: null }).total, 5);
+});
+
+// ---- parada extra de rota agrupada: max(legKm × per_km_grouped, min_payout) ----
+
+test('parada extra: trecho de 2 km → R$ 5,00 (mínimo, pois 2×2,5=5 = mínimo)', () => {
+  assert.equal(computeGroupedStopPayout(DEFAULT_PAYOUT_CONFIG, 2), 5);
+});
+
+test('parada extra: trecho de 3 km → R$ 7,50 (3×2,50)', () => {
+  assert.equal(computeGroupedStopPayout(DEFAULT_PAYOUT_CONFIG, 3), 7.5);
+});
+
+test('parada extra: trecho de 1 km → R$ 5,00 (mínimo, pois 1×2,5=2,5 < 5)', () => {
+  assert.equal(computeGroupedStopPayout(DEFAULT_PAYOUT_CONFIG, 1), 5);
+});
+
+// ---- exemplo de conferência do enunciado: rota com 2 paradas ----
+
+test('exemplo do enunciado: rota 4 km (líder) + 2 km incremental (extra) → total R$ 13,00', () => {
+  const lead = computeDriverPayout(DEFAULT_PAYOUT_CONFIG, { distanceKm: 4 }).total;
+  const extra = computeGroupedStopPayout(DEFAULT_PAYOUT_CONFIG, 2);
+  assert.equal(lead, 8); // 4 × 2,00
+  assert.equal(extra, 5); // 2 × 2,50 = 5,00, empata com o mínimo
+  assert.equal(round(lead + extra), 13);
+});
+
+// ---- margem logística (inalterado pela mudança de tarifa) ----
 
 test('margem logística = taxa cobrada − remuneração', () => {
   const f = computeLogisticsFinance({ customerFee: 9.5, driverPayout: 8 });
@@ -59,36 +96,6 @@ test('margem: valores negativos são zerados', () => {
   assert.equal(f.margin, 0);
 });
 
-// ---- Fase 4: tabela de valores do entregador (base 5 / +1,50 km / mín 6) ----
-const F4 = { ...DEFAULT_PAYOUT_CONFIG, base: 5, per_km: 1.5, free_km: 2, min_payout: 6, grouped_extra: 3, peak_bonus: 0 };
-
-test('fase4: 2 km → mínimo R$ 6,00 (base 5 < mínimo 6)', () => {
-  assert.equal(computeDriverPayout(F4, { distanceKm: 2 }).total, 6);
-});
-
-test('fase4: 3 km → R$ 6,50 (5 + 1×1,50)', () => {
-  assert.equal(computeDriverPayout(F4, { distanceKm: 3 }).total, 6.5);
-});
-
-test('fase4: 2,67 km ainda cai no mínimo (5 + 0,67×1,50 ≈ 6,00)', () => {
-  assert.equal(computeDriverPayout(F4, { distanceKm: 2.67 }).total, 6);
-});
-
-test('fase4: 5 km → R$ 9,50 (5 + 3×1,50)', () => {
-  assert.equal(computeDriverPayout(F4, { distanceKm: 5 }).total, 9.5);
-});
-
-test('fase4: km adicional é contínuo, não em degraus (3,4 km ≠ 3 km)', () => {
-  const a = computeDriverPayout(F4, { distanceKm: 3 }).total;
-  const b = computeDriverPayout(F4, { distanceKm: 3.4 }).total;
-  assert.equal(a, 6.5);
-  assert.equal(b, 7.1); // 5 + 1,4×1,50
-  assert.notEqual(a, b);
-});
-
-test('fase4: exemplo do enunciado — 3 km, plano Pro → total R$ 7,50', () => {
-  const motoboy = computeDriverPayout(F4, { distanceKm: 3 }).total; // 6,50
-  const margemPro = 1.0;
-  assert.equal(motoboy, 6.5);
-  assert.equal(Math.round((motoboy + margemPro) * 100) / 100, 7.5);
-});
+function round(n: number): number {
+  return Math.round(n * 100) / 100;
+}

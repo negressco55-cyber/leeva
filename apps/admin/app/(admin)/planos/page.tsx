@@ -26,11 +26,9 @@ export default async function Planos() {
 
       <FeeTableEditor
         initial={{
-          base: Number(cfg.base),
           per_km: Number(cfg.per_km),
-          free_km: Number(cfg.free_km),
+          per_km_grouped: Number(cfg.per_km_grouped),
           min_payout: Number(cfg.min_payout),
-          group_stop_min: Number(cfg.group_stop_min ?? 3.5),
           group_radius_km: Number(cfg.group_radius_km ?? 1.5),
           group_max_stops: Number(cfg.group_max_stops ?? 3),
         }}

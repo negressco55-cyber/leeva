@@ -172,15 +172,13 @@ export default function ConfigForm({
         <div className="card-title">Remuneração do entregador</div>
         <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>Independente da taxa cobrada do cliente. O sistema avisa se gerar prejuízo.</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <label>Valor base (R$){num(P.base, (v) => nP('base', v))}</label>
-          <label>Mínimo por entrega (R$){num(P.min_payout, (v) => nP('min_payout', v))}</label>
-          <label>Por km (R$){num(P.per_km, (v) => nP('per_km', v), '0.1')}</label>
-          <label>Km grátis (não cobra){num(P.free_km, (v) => nP('free_km', v), '0.5')}</label>
-          <label>Adicional por pedido agrupado (R$){num(P.grouped_extra, (v) => nP('grouped_extra', v))}</label>
+          <label>Por km — entrega solta (R$){num(P.per_km, (v) => nP('per_km', v), '0.1')}</label>
+          <label>Por km — parada extra de rota (R$){num(P.per_km_grouped, (v) => nP('per_km_grouped', v), '0.1')}</label>
+          <label>Mínimo garantido por parada (R$){num(P.min_payout, (v) => nP('min_payout', v))}</label>
           <label>Bônus de pico (R$){num(P.peak_bonus, (v) => nP('peak_bonus', v))}</label>
         </div>
         <p className="muted" style={{ fontSize: 12 }}>
-          Simulação (3 km, entrega simples): <b>{formatCurrencyBRL(Math.max(P.min_payout, P.base + Math.max(0, 3 - P.free_km) * P.per_km))}</b>
+          Simulação (3 km, entrega solta): <b>{formatCurrencyBRL(Math.max(P.min_payout, 3 * P.per_km))}</b>
         </p>
       </div>
 

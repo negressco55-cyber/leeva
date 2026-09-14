@@ -73,24 +73,19 @@ export async function POST(req: Request) {
     // --- payout validado + aviso de prejuízo ---
     const P = body.payout ?? {};
     const payout: PayoutConfig = {
-      base: num(P.base, 0, 100, DEFAULT_PAYOUT_CONFIG.base),
       per_km: num(P.per_km, 0, 20, DEFAULT_PAYOUT_CONFIG.per_km),
-      free_km: num(P.free_km, 0, 20, DEFAULT_PAYOUT_CONFIG.free_km),
-      grouped_extra: num(P.grouped_extra, 0, 50, DEFAULT_PAYOUT_CONFIG.grouped_extra),
+      per_km_grouped: num(P.per_km_grouped, 0, 20, DEFAULT_PAYOUT_CONFIG.per_km_grouped),
       peak_bonus: num(P.peak_bonus, 0, 50, DEFAULT_PAYOUT_CONFIG.peak_bonus),
       peak_hours: Array.isArray(P.peak_hours) ? P.peak_hours : DEFAULT_PAYOUT_CONFIG.peak_hours,
       min_payout: num(P.min_payout, 0, 100, DEFAULT_PAYOUT_CONFIG.min_payout),
     };
 
     // simula uma entrega de 3 km para checar viabilidade
-    const sample = computeDriverPayout(payout, { distanceKm: 3, groupSize: 1 });
+    const sample = computeDriverPayout(payout, { distanceKm: 3 });
     if (sample.total > logistics.customer_fee) {
       warnings.push(
         `A taxa cobrada do cliente (R$ ${logistics.customer_fee.toFixed(2)}) é menor que a remuneração estimada do entregador (R$ ${sample.total.toFixed(2)}). Você teria prejuízo nessa entrega.`,
       );
-    }
-    if (payout.base < payout.min_payout) {
-      warnings.push('O valor base é menor que o mínimo — toda entrega receberá o ajuste ao mínimo.');
     }
 
     const fleetMode = ['own', 'leeva', 'hybrid'].includes(body.fleetMode ?? '')

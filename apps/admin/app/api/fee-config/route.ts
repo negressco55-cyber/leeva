@@ -11,10 +11,10 @@ export async function POST(req: Request) {
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!b) return badRequest('config inválida');
   const num = (k: string) => Number(b[k]);
-  for (const k of ['base', 'per_km', 'free_km', 'min_payout']) {
+  for (const k of ['per_km', 'per_km_grouped', 'min_payout']) {
     if (!Number.isFinite(num(k)) || num(k) < 0) return badRequest(`valor inválido: ${k}`);
   }
-  const GROUP_KEYS = ['group_stop_min', 'group_radius_km', 'group_max_stops'] as const;
+  const GROUP_KEYS = ['group_radius_km', 'group_max_stops'] as const;
   for (const k of GROUP_KEYS) {
     if (b[k] !== undefined && (!Number.isFinite(num(k)) || num(k) < 0)) {
       return badRequest(`valor inválido: ${k}`);
@@ -30,11 +30,15 @@ export async function POST(req: Request) {
       .maybeSingle();
     const merged: Record<string, unknown> = {
       ...((pol?.config as object) ?? {}),
-      base: num('base'),
       per_km: num('per_km'),
-      free_km: num('free_km'),
+      per_km_grouped: num('per_km_grouped'),
       min_payout: num('min_payout'),
     };
+    // campos da fórmula antiga (aposentados) — nunca mais gravar
+    delete merged.base;
+    delete merged.free_km;
+    delete merged.grouped_extra;
+    delete merged.group_stop_min;
     for (const k of GROUP_KEYS) {
       if (b[k] !== undefined) merged[k] = k === 'group_max_stops' ? Math.round(num(k)) : num(k);
     }

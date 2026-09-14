@@ -71,13 +71,25 @@ Independente da taxa cobrada do cliente. Config em `payout_policies.config`
 (por restaurante, ou a global `restaurant_id IS NULL`). **Nada hardcoded.**
 
 ```json
-{ "base": 7.50, "per_km": 0, "free_km": 2, "grouped_extra": 3.00,
-  "peak_bonus": 0, "peak_hours": [[18,21]], "min_payout": 7.50 }
+{ "per_km": 2.00, "per_km_grouped": 2.50, "min_payout": 5.00,
+  "peak_bonus": 0, "peak_hours": [[18,21]],
+  "group_radius_km": 1.5, "group_max_stops": 3 }
 ```
 
-`computeDriverPayout(config, { distanceKm, groupSize, at })`:
-`base + max(0, dist − free_km)·per_km + (groupSize−1)·grouped_extra + peak_bonus(se pico)`,
-nunca abaixo de `min_payout`. Devolve o `breakdown` linha a linha.
+Tabela vigente desde set/2026 (substitui a fórmula "base + km acima da franquia"):
+
+- **Entrega solta** (e 1ª parada/líder de rota agrupada) —
+  `computeDriverPayout(config, { distanceKm, at })`:
+  `max(distanceKm · per_km, min_payout) + peak_bonus (se pico)`.
+- **Parada extra de rota agrupada** (2ª parada em diante, sobre o trecho
+  incremental — da parada anterior até essa) —
+  `computeGroupedStopPayout(config, legKm)`:
+  `max(legKm · per_km_grouped, min_payout)`. Taxa por km mais alta que a
+  entrega solta (compensa o motoboy por aceitar agrupar), mesmo piso mínimo.
+
+Ambas devolvem/usam o mesmo `min_payout` — não existe mais piso separado
+para parada agrupada (`group_stop_min`, aposentado). `computeDriverPayout`
+devolve o `breakdown` linha a linha.
 
 Ao salvar em Configurações, o sistema **avisa** se a taxa cobrada não cobrir a
 remuneração estimada (prejuízo).
@@ -86,8 +98,11 @@ remuneração estimada (prejuízo).
 
 `grouping.ts` (Fase 2, endurecido): candidato precisa estar perto de **todos** os
 membros (não corrente), máx **4** pedidos por grupo, considera rota real quando
-disponível. O `finalizeLogisticsForOrder` conta `group_id` para o adicional de
-remuneração por pedido agrupado.
+disponível — só sugere, quem decide o preço de cada parada é sempre o
+despacho (`grouping-dispatch.ts`, ver acima). `finalizeLogisticsForOrder`
+é a mesma fonte única de sempre (`finalizeDeliveryCharge`) — se o pedido já
+tem `driver_payout` gravado (por já pertencer a uma rota agrupada), não
+recalcula nada.
 
 ## Financeiro da logística (`finance.ts`)
 

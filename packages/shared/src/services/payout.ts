@@ -14,14 +14,11 @@ import { getRoutingService } from './routing';
 type DB = SupabaseClient<Database>;
 
 export const DEFAULT_PAYOUT_CONFIG: PayoutConfig = {
-  base: 5,
-  per_km: 1.5,
-  free_km: 2,
-  grouped_extra: 3,
+  per_km: 2.0,
+  per_km_grouped: 2.5,
+  min_payout: 5,
   peak_bonus: 0,
   peak_hours: [[18, 21]],
-  min_payout: 6,
-  group_stop_min: 3.5,
   group_radius_km: 1.5,
   group_max_stops: 3,
 };
@@ -31,8 +28,6 @@ export const DEFAULT_PLAN_MARGIN = 1.0;
 
 export type PayoutInput = {
   distanceKm: number | null;
-  /** quantos pedidos o motoboy leva nessa rota (1 = entrega simples) */
-  groupSize?: number;
   /** instante da entrega (para bônus de pico); default = agora */
   at?: Date;
 };
@@ -48,43 +43,45 @@ function isPeak(config: PayoutConfig, at: Date): boolean {
   return (config.peak_hours ?? []).some(([start, end]) => h >= start && h < end);
 }
 
-/** Calcula a remuneração para uma entrega, dado uma política. */
+/**
+ * Calcula a remuneração de uma entrega solta (ou da 1ª parada/líder de uma
+ * rota agrupada — mesma fórmula, distância do restaurante até ela):
+ *   max(distanceKm × per_km, min_payout) + peak_bonus (se pico)
+ */
 export function computeDriverPayout(config: PayoutConfig, input: PayoutInput): PayoutResult {
   const c = { ...DEFAULT_PAYOUT_CONFIG, ...config };
   const at = input.at ?? new Date();
-  const groupSize = Math.max(1, Math.round(input.groupSize ?? 1));
+  const distanceKm = Math.max(0, input.distanceKm ?? 0);
   const breakdown: { label: string; amount: number }[] = [];
 
-  breakdown.push({ label: 'Valor base', amount: round(c.base) });
+  const byDistance = round(distanceKm * c.per_km);
+  breakdown.push({ label: `Distância (${distanceKm.toFixed(1)} km × ${money(c.per_km)})`, amount: byDistance });
 
-  if (c.per_km > 0 && input.distanceKm != null) {
-    const billableKm = Math.max(0, input.distanceKm - c.free_km);
-    if (billableKm > 0) {
-      breakdown.push({
-        label: `Distância (${billableKm.toFixed(1)} km × ${money(c.per_km)})`,
-        amount: round(billableKm * c.per_km),
-      });
-    }
-  }
-
-  if (groupSize > 1 && c.grouped_extra > 0) {
-    breakdown.push({
-      label: `Agrupamento (+${groupSize - 1} pedido${groupSize - 1 === 1 ? '' : 's'})`,
-      amount: round((groupSize - 1) * c.grouped_extra),
-    });
-  }
-
-  if (c.peak_bonus > 0 && isPeak(c, at)) {
-    breakdown.push({ label: 'Bônus de pico', amount: round(c.peak_bonus) });
-  }
-
-  let total = round(breakdown.reduce((s, b) => s + b.amount, 0));
+  let total = byDistance;
   if (total < c.min_payout) {
     breakdown.push({ label: 'Ajuste ao mínimo', amount: round(c.min_payout - total) });
     total = round(c.min_payout);
   }
 
+  if (c.peak_bonus > 0 && isPeak(c, at)) {
+    breakdown.push({ label: 'Bônus de pico', amount: round(c.peak_bonus) });
+    total = round(total + c.peak_bonus);
+  }
+
   return { total, breakdown, config: c };
+}
+
+/**
+ * Remuneração de uma parada ADICIONAL (não-líder) de rota agrupada, sobre o
+ * trecho incremental (da parada anterior até esta):
+ *   max(legKm × per_km_grouped, min_payout)
+ * Taxa por km mais alta que a entrega solta — compensa o motoboy por aceitar
+ * agrupar — mas o mesmo piso mínimo.
+ */
+export function computeGroupedStopPayout(config: PayoutConfig, legKm: number): number {
+  const c = { ...DEFAULT_PAYOUT_CONFIG, ...config };
+  const km = Math.max(0, legKm);
+  return round(Math.max(km * c.per_km_grouped, c.min_payout));
 }
 
 /** Carrega a política de payout do restaurante (ou a global). */
@@ -158,7 +155,6 @@ export async function computeDeliveryCharge(
   db: DB,
   restaurantId: string,
   dropoff: { latitude: number; longitude: number } | null,
-  groupSize = 1,
 ): Promise<DeliveryCharge> {
   const { data: rst } = await db
     .from('restaurants')
@@ -184,7 +180,7 @@ export async function computeDeliveryCharge(
   }
 
   const policy = await getPayoutPolicy(db, restaurantId);
-  const payout = computeDriverPayout(policy, { distanceKm, groupSize });
+  const payout = computeDriverPayout(policy, { distanceKm });
   const margin = round(await getPlanMargin(db, restaurantId));
   const total = round(payout.total + margin);
 
@@ -201,9 +197,13 @@ export async function computeDeliveryCharge(
 /**
  * Calcula a taxa da entrega UMA VEZ (na criação do pedido) e grava no pedido.
  *
- *   valor do motoboy = base + max(0, dist − free_km) × per_km, ≥ min_payout
+ *   valor do motoboy = max(distância × per_km, min_payout)
  *   distância        = linha reta × 1,3 (fator de rua) — via RoutingService
  *   total cobrado    = valor do motoboy + margem do plano
+ *
+ * Se o pedido já pertence a uma rota agrupada (group_id), o valor por parada
+ * já foi calculado e gravado por `grouping-dispatch.ts` (applyGroupPlan) —
+ * esta função nunca recalcula um pedido agrupado, só entregas soltas.
  *
  * Depois disso, a oferta, a tela do restaurante e o pagamento leem SEMPRE
  * `orders.driver_payout` / `orders.customer_fee` — nada é recalculado.
@@ -216,19 +216,10 @@ export async function finalizeDeliveryCharge(
 ): Promise<DeliveryCharge | null> {
   const { data: order } = await db
     .from('orders')
-    .select('id, latitude, longitude, driver_payout, group_id')
+    .select('id, latitude, longitude, driver_payout')
     .eq('id', orderId)
     .maybeSingle();
   if (!order || order.driver_payout != null) return null;
-
-  let groupSize = 1;
-  if (order.group_id) {
-    const { count } = await db
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('group_id', order.group_id);
-    groupSize = Math.max(1, count ?? 1);
-  }
 
   const charge = await computeDeliveryCharge(
     db,
@@ -236,7 +227,6 @@ export async function finalizeDeliveryCharge(
     order.latitude != null && order.longitude != null
       ? { latitude: Number(order.latitude), longitude: Number(order.longitude) }
       : null,
-    groupSize,
   );
 
   await db

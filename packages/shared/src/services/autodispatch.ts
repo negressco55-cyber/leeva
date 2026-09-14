@@ -552,16 +552,8 @@ async function classifyOfferForCandidate(
   // A oferta mostra EXATAMENTE esse valor — nunca recalcula.
   let payout = order?.driver_payout != null ? Number(order.driver_payout) : null;
   if (payout == null) {
-    let groupSize = 1;
-    if (order?.group_id) {
-      const { count } = await db
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('group_id', order.group_id);
-      groupSize = Math.max(1, count ?? 1);
-    }
     const policy = await getPayoutPolicy(db, restaurantId);
-    payout = computeDriverPayout(policy, { distanceKm: distanceDropoffKm, groupSize }).total;
+    payout = computeDriverPayout(policy, { distanceKm: distanceDropoffKm }).total;
   }
 
   const etaTotalMin =
@@ -805,20 +797,11 @@ export async function finalizeLogisticsForOrder(db: DB, orderId: string, restaur
     durationMin = leg?.durationMin ?? (distanceKm != null ? minutesForKm(distanceKm) : null);
   }
 
-  let groupSize = 1;
-  if (order.group_id) {
-    const { count } = await db
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('group_id', order.group_id);
-    groupSize = Math.max(1, count ?? 1);
-  }
-
   const policy = await getPayoutPolicy(db, restaurantId);
   const payoutTotal =
     acceptedOffer?.payout_estimate != null
       ? Number(acceptedOffer.payout_estimate) // valor da oferta aceita — nunca recalcula
-      : computeDriverPayout(policy, { distanceKm, groupSize }).total; // fallback: atribuição manual
+      : computeDriverPayout(policy, { distanceKm }).total; // fallback: atribuição manual
 
   // A taxa da LOGÍSTICA cobrada do restaurante é a configurada em
   // logistics_config (não a delivery_fee da venda, que é dinheiro do
