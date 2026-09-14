@@ -735,3 +735,23 @@ pra cadastrar pelo site.
   credenciais na tela de Integrações.
 - Ticket 32820575 continua aberto em paralelo — resolve o modelo Distribuído
   pra quando a Leeva escalar pra outros restaurantes.
+
+## 2026-09-14 — pendência: código de confirmação não cobre pedido do iFood
+
+- Implementado código de confirmação de 4 dígitos (anti-fraude do motoboy) —
+  funciona bem pra pedido manual/WhatsApp, onde o Leeva tem o telefone real
+  do cliente pra mandar o código.
+- A dona notou uma lacuna real: pedido do iFood **não** tem esse contato
+  disponível (número do cliente é mascarado pelo iFood) e o **próprio iFood
+  já tem um código de confirmação de entrega dele** (8 dígitos), dentro do
+  app/fluxo deles — separado e incompatível com o nosso.
+- Decisão: **não mexer agora** (instrução explícita da dona — "pode deixar
+  assim por enquanto"). O código de 4 dígitos do Leeva continua ativo pra
+  todo pedido (incluindo os que vierem do iFood digitados manualmente), mas
+  sem jeito de entregar esse código ao cliente do iFood — motoboy vai travar
+  na confirmação desses casos até resolver isso.
+- **Retomar quando o iFood for destravado** (Centralizado de produção ou
+  ticket 32820575): decidir então se usa o código de 8 dígitos do próprio
+  iFood (mostrar/linkar a tela deles) ou se dá pra pedir o telefone real do
+  cliente via API. Até lá, considerar tornar o código do Leeva opcional
+  (ou dispensável) quando `source = 'ifood'`.
