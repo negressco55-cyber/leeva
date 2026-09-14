@@ -7,7 +7,7 @@ const TYPES: { v: string; label: string }[] = [
   { v: 'cpf', label: 'CPF' },
   { v: 'phone', label: 'Celular' },
   { v: 'email', label: 'E-mail' },
-  { v: 'random', label: 'Chave aleatória' },
+  { v: 'random', label: 'Aleatória' },
   { v: 'cnpj', label: 'CNPJ' },
 ];
 
@@ -55,11 +55,18 @@ export function PixForm({ initial }: { initial: { masked: string | null; type: s
         </>
       ) : (
         <div className="grid" style={{ gap: 8 }}>
-          <select className="input" value={type} onChange={(e) => setType(e.target.value)}>
+          <div className="segmented">
             {TYPES.map((t) => (
-              <option key={t.v} value={t.v}>{t.label}</option>
+              <button
+                key={t.v}
+                type="button"
+                className={type === t.v ? 'active' : ''}
+                onClick={() => setType(t.v)}
+              >
+                {t.label}
+              </button>
             ))}
-          </select>
+          </div>
           <input className="input" placeholder="Sua chave Pix" value={key} onChange={(e) => setKey(e.target.value)} />
           <button className="button" onClick={save} disabled={busy || key.trim().length < 5}>
             {busy ? 'Salvando…' : 'Salvar chave Pix'}
