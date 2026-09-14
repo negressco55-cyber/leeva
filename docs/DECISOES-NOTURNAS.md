@@ -755,3 +755,21 @@ pra cadastrar pelo site.
   iFood (mostrar/linkar a tela deles) ou se dá pra pedir o telefone real do
   cliente via API. Até lá, considerar tornar o código do Leeva opcional
   (ou dispensável) quando `source = 'ifood'`.
+
+## 2026-09-14 — saque sob demanda + painel de Caixa
+
+- Implementado: motoboy solicita o repasse quando quiser (não é mais
+  fechamento automático diário) — reaproveita toda a estrutura de
+  payout_batches/driver_earnings já existente, só troca o gatilho.
+  Limite de 1x/dia vem de graça da constraint unique já existente.
+  Cron diário desligado (migration 0038, idempotente).
+- Nova página /caixa no admin: separa claramente os três donos do
+  dinheiro que passa pela mesma conta Asaas — crédito de restaurante
+  não usado, saldo de motoboy não sacado, e margem do Leeva (só conta
+  entrega concluída — cancelada nunca foi receita, teve o crédito
+  estornado). Mostra o valor seguro pra sacar e um formulário pra
+  registrar (não executar) o saque — a transferência de verdade
+  continua manual, na Asaas.
+- Pendente da usuária: aplicar a migration 0038 no SQL Editor; ligar
+  ASAAS_PAYOUTS_ENABLED + credenciais reais quando quiser sair do modo
+  simulado.
