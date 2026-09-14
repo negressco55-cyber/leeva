@@ -27,6 +27,7 @@ type OrderRow = {
   payment_status: string;
   notes: string | null;
   motoboy_id: string | null;
+  delivery_confirmation_code: string | null;
   leeva_fee: number | null;
   driver_payout: number | null;
   logistics_margin: number | null;
@@ -114,6 +115,32 @@ export default function OrderDetail({
           )}
           {order.customer_phone && <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Tel: {order.customer_phone}</div>}
           {order.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {order.notes}</div>}
+
+          {order.delivery_confirmation_code ? (
+            <div className="section" style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 12 }} className="muted">Código de confirmação de entrega</div>
+              <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.1em' }}>
+                {String(order.delivery_confirmation_code)}
+              </div>
+              <p className="muted" style={{ fontSize: 12, margin: '2px 0 8px' }}>
+                O entregador vai pedir esse código ao cliente na hora de concluir a entrega. Avise o cliente com
+                antecedência.
+              </p>
+              {order.customer_phone && (
+                <a
+                  className="button secondary"
+                  style={{ width: 'auto', display: 'inline-block' }}
+                  target="_blank"
+                  rel="noreferrer"
+                  href={`https://wa.me/${String(order.customer_phone).replace(/\D/g, '')}?text=${encodeURIComponent(
+                    `Olá, ${order.customer_name}! Seu pedido saiu para entrega. Quando o entregador chegar, informe o código ${String(order.delivery_confirmation_code)} para confirmar o recebimento.`,
+                  )}`}
+                >
+                  Enviar código pelo WhatsApp
+                </a>
+              )}
+            </div>
+          ) : null}
 
           <div className="card-title" style={{ marginTop: 14 }}>Pagamento da venda</div>
           {Number(order.order_amount) > 0 ? (

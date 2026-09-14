@@ -36,7 +36,7 @@ module.exports = () => ({
     owner: 'leeva-jp',
     slug: 'leeva',
     scheme: 'leevamotoboy',
-    version: '1.0.4',
+    version: '1.0.5',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'dark',
@@ -58,7 +58,7 @@ module.exports = () => ({
 
     android: {
       package: 'br.com.leeva.motoboy',
-      versionCode: 5,
+      versionCode: 6,
       ...(hasAndroidFirebase ? { googleServicesFile: androidFirebasePath } : {}),
       adaptiveIcon: {
         backgroundColor: BRAND,
@@ -102,6 +102,12 @@ module.exports = () => ({
           locationWhenInUsePermission: 'O Leeva usa sua localização para te oferecer entregas próximas.',
           isAndroidBackgroundLocationEnabled: true,
           isAndroidForegroundServiceEnabled: true,
+        },
+      ],
+      [
+        'expo-image-picker',
+        {
+          cameraPermission: 'O Leeva usa a câmera para você tirar a foto que comprova a entrega.',
         },
       ],
     ],

@@ -36,6 +36,7 @@ type OrderRow = {
   payment_method: string;
   payment_status: string;
   motoboy_id: string | null;
+  delivery_confirmation_code: string | null;
   created_at: string;
   ready_at: string | null;
   eta_min: number | null;

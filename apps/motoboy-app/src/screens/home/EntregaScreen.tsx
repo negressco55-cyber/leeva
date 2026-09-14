@@ -1,6 +1,7 @@
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
-import React from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useState } from 'react';
+import { Alert, Image, Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -18,14 +19,32 @@ type Props = NativeStackScreenProps<AppStackParamList, 'Entrega'>;
 const ACAO: Partial<Record<OrderStatus, string>> = {
   assigned: 'Cheguei — coletar o pedido',
   picked_up: 'Sair para a entrega',
-  in_route: 'Confirmar entrega',
 };
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 
+async function takeDeliveryPhoto(): Promise<string | null> {
+  const perm = await ImagePicker.requestCameraPermissionsAsync();
+  if (!perm.granted) {
+    Alert.alert('Precisamos da câmera', 'Permita o uso da câmera para tirar a foto da entrega.');
+    return null;
+  }
+  const result = await ImagePicker.launchCameraAsync({
+    quality: 0.5,
+    base64: true,
+    exif: false,
+  });
+  if (result.canceled || !result.assets?.[0]?.base64) return null;
+  const asset = result.assets[0];
+  const mime = asset.mimeType ?? 'image/jpeg';
+  return `data:${mime};base64,${asset.base64}`;
+}
+
 export function EntregaScreen({ navigation }: Props): React.JSX.Element {
-  const { activeDelivery, advancing, advanceActive } = useRide();
+  const { activeDelivery, advancing, advanceActive, confirmDelivery } = useRide();
   const { position } = usePosition();
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [code, setCode] = useState('');
 
   if (!activeDelivery) {
     return (
@@ -108,6 +127,50 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
         {!entregue && acaoLabel && (
           <Button label={acaoLabel} onPress={() => void advanceActive()} loading={advancing} />
         )}
+
+        {d.status === 'in_route' && (
+          <View style={{ gap: theme.spacing.sm }}>
+            <Text style={styles.dest}>
+              Para concluir, tire uma foto da entrega e peça pro cliente o código de confirmação dele. Você
+              precisa estar no endereço.
+            </Text>
+            {!photo ? (
+              <Button
+                label="Tirar foto da entrega"
+                variant="outline"
+                onPress={async () => setPhoto(await takeDeliveryPhoto())}
+              />
+            ) : (
+              <>
+                <Image source={{ uri: photo }} style={styles.fotoPreview} />
+                <Button label="Tirar outra" variant="outline" onPress={() => setPhoto(null)} />
+                <TextInput
+                  style={styles.codeInput}
+                  placeholder="Código de confirmação do cliente"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  value={code}
+                  onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 4))}
+                />
+                <Button
+                  label="Confirmar entrega"
+                  disabled={code.trim().length < 4}
+                  loading={advancing}
+                  onPress={async () => {
+                    if (!photo) return;
+                    const ok = await confirmDelivery(photo, code.trim());
+                    if (ok) {
+                      setPhoto(null);
+                      setCode('');
+                    }
+                  }}
+                />
+              </>
+            )}
+          </View>
+        )}
+
         {entregue && <Button label="Concluir" onPress={() => navigation.goBack()} />}
       </View>
     </ScreenContainer>
@@ -122,6 +185,20 @@ const styles = StyleSheet.create({
   card: { marginBottom: theme.spacing.md },
   label: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.accent, marginBottom: 4 },
   endereco: { fontFamily: theme.fonts.body, fontSize: 15, color: theme.colors.text, lineHeight: 20 },
+  fotoPreview: { width: '100%', height: 200, borderRadius: theme.radius.md, resizeMode: 'cover' },
+  codeInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 12,
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 18,
+    letterSpacing: 4,
+    textAlign: 'center',
+    color: theme.colors.text,
+    backgroundColor: theme.colors.surface,
+  },
   dest: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, marginTop: 6 },
   mapa: { height: 240, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.spacing.md },
   actions: { marginTop: theme.spacing.sm, gap: theme.spacing.md },

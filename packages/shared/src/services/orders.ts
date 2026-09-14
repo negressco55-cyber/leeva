@@ -30,6 +30,11 @@ function clampMoney(v: unknown): number {
   return Math.max(0, Math.min(1_000_000, Math.round(n * 100) / 100));
 }
 
+/** Código de confirmação de entrega (4 dígitos) — o motoboy pede pro cliente na hora de concluir. */
+function generateDeliveryConfirmationCode(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 export type CreateResult =
   | { ok: true; orderId: string; orderNumber: number; duplicate: false }
   | { ok: true; orderId: string; orderNumber: number; duplicate: true }
@@ -140,6 +145,7 @@ export async function createOrderFromNormalized(
           : null,
       status: 'waiting_dispatch',
       dispatch_hold: opts.holdForReview ?? false,
+      delivery_confirmation_code: generateDeliveryConfirmationCode(),
     })
     .select('id, order_number')
     .single();

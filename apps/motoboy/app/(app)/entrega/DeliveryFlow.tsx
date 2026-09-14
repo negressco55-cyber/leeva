@@ -92,6 +92,7 @@ export default function DeliveryFlow({
   const [err, setErr] = useState<string | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
+  const [code, setCode] = useState('');
 
   // realtime → recarrega, mas com debounce e nunca no meio de uma ação
   useEffect(() => {
@@ -140,7 +141,7 @@ export default function DeliveryFlow({
   }
 
   async function confirmDelivery(id: string) {
-    if (!photo) return;
+    if (!photo || code.trim().length < 4) return;
     setBusy(true);
     setErr(null);
     try {
@@ -148,11 +149,18 @@ export default function DeliveryFlow({
       const res = await fetch(`/api/deliveries/${id}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'deliver', photoBase64: photo, lat: pos?.lat ?? null, lng: pos?.lng ?? null }),
+        body: JSON.stringify({
+          action: 'deliver',
+          photoBase64: photo,
+          confirmationCode: code.trim(),
+          lat: pos?.lat ?? null,
+          lng: pos?.lng ?? null,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Não foi possível confirmar a entrega.');
       setPhoto(null);
+      setCode('');
       start(() => router.refresh());
     } catch (e) {
       setErr((e as Error).message);
@@ -241,8 +249,8 @@ export default function DeliveryFlow({
           {current.status === 'in_route' && (
             <div className="grid" style={{ gap: 8 }}>
               <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-                Para concluir, tire uma foto da entrega (porta, portaria ou o pedido no local).
-                Você precisa estar no endereço.
+                Para concluir, tire uma foto da entrega (porta, portaria ou o pedido no local) e
+                peça pro cliente o código de confirmação dele. Você precisa estar no endereço.
               </p>
               {!photo ? (
                 <label className="button secondary" style={{ textAlign: 'center', cursor: 'pointer' }}>
@@ -266,7 +274,19 @@ export default function DeliveryFlow({
                   <button className="button ghost" type="button" disabled={busy} onClick={() => setPhoto(null)}>
                     Tirar outra
                   </button>
-                  <button className="button" disabled={busy} onClick={() => confirmDelivery(current.id)}>
+                  <input
+                    className="input"
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="Código de confirmação do cliente"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  />
+                  <button
+                    className="button"
+                    disabled={busy || code.trim().length < 4}
+                    onClick={() => confirmDelivery(current.id)}
+                  >
                     {busy ? 'Confirmando…' : 'Confirmar entrega'}
                   </button>
                 </>

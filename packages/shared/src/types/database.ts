@@ -1287,6 +1287,7 @@ export type Database = {
           delivered_at: string | null
           delivered_lat: number | null
           delivered_lng: number | null
+          delivery_confirmation_code: string | null
           delivery_distance_m: number | null
           delivery_fee: number
           delivery_gps_status: string | null
@@ -1340,6 +1341,7 @@ export type Database = {
           delivered_at?: string | null
           delivered_lat?: number | null
           delivered_lng?: number | null
+          delivery_confirmation_code?: string | null
           delivery_distance_m?: number | null
           delivery_fee?: number
           delivery_gps_status?: string | null
@@ -1393,6 +1395,7 @@ export type Database = {
           delivered_at?: string | null
           delivered_lat?: number | null
           delivered_lng?: number | null
+          delivery_confirmation_code?: string | null
           delivery_distance_m?: number | null
           delivery_fee?: number
           delivery_gps_status?: string | null

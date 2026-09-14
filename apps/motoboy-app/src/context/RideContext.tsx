@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
 
-import { advanceDelivery, getActiveDeliveries, getOffers, respondOffer } from '../api/entregas';
+import { advanceDelivery, deliverWithProof, getActiveDeliveries, getOffers, respondOffer } from '../api/entregas';
 import { sendLocation, setOnline } from '../api/motoboy';
 import { subscribeMotoboyRealtime, unsubscribeMotoboyRealtime } from '../api/realtime';
 import { startBackgroundLocation, stopBackgroundLocation } from '../lib/backgroundLocation';
@@ -24,7 +24,10 @@ interface RideContextValue {
   goOffline: () => Promise<void>;
   acceptOffer: () => Promise<void>;
   declineOffer: () => Promise<void>;
+  /** avança assigned→picked_up ou picked_up→in_route (a entrega em si tem fluxo próprio, ver confirmDelivery). */
   advanceActive: () => Promise<void>;
+  /** conclui a entrega em rota: foto + código de confirmação do cliente. Devolve true se confirmou. */
+  confirmDelivery: (photoBase64: string, confirmationCode: string) => Promise<boolean>;
 }
 
 const RideContext = createContext<RideContextValue | undefined>(undefined);
@@ -249,32 +252,49 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
   const advanceActive = useCallback(async () => {
     if (!activeDelivery) return;
     const next = NEXT_STATUS[activeDelivery.status];
-    if (!next) return;
+    if (!next || next === 'delivered') return; // 'delivered' passa por confirmDelivery (foto + código)
     setAdvancing(true);
     try {
-      let coords: { lat: number; lng: number } | null = null;
-      if (next === 'delivered') {
+      await advanceDelivery(activeDelivery.id, next, null);
+      await reloadDeliveries();
+    } catch (e) {
+      const err = e as { message?: string };
+      Alert.alert('Não deu para atualizar', err.message || 'Tente de novo.');
+    } finally {
+      setAdvancing(false);
+    }
+  }, [activeDelivery, reloadDeliveries]);
+
+  const confirmDelivery = useCallback(
+    async (photoBase64: string, confirmationCode: string): Promise<boolean> => {
+      if (!activeDelivery) return false;
+      setAdvancing(true);
+      try {
+        let coords: { lat: number; lng: number } | null = null;
         try {
           const pos = await Location.getCurrentPositionAsync({ accuracy: Location.LocationAccuracy.Balanced });
           coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         } catch {
           coords = null; // sem GPS: o servidor confirma mas marca 'sem localização'
         }
+        await deliverWithProof(activeDelivery.id, { photoBase64, confirmationCode, lat: coords?.lat, lng: coords?.lng });
+        await reloadDeliveries();
+        await refreshMe();
+        return true;
+      } catch (e) {
+        const err = e as { status?: number; message?: string };
+        if (err.status === 422) {
+          Alert.alert('Não foi possível confirmar', err.message || 'Confira a distância e o código com o cliente.');
+          return false;
+        }
+        Alert.alert('Não deu para confirmar', err.message || 'Tente de novo.');
+        return false;
+      } finally {
+        setAdvancing(false);
       }
-      await advanceDelivery(activeDelivery.id, next, coords);
-      await reloadDeliveries();
-      if (next === 'delivered') await refreshMe();
-    } catch (e) {
-      const err = e as { status?: number; message?: string };
-      if (next === 'delivered' && err.status === 422) {
-        Alert.alert('Você está longe do endereço', err.message || 'Chegue mais perto do local para confirmar.');
-        return;
-      }
-      Alert.alert('Não deu para atualizar', err.message || 'Tente de novo.');
-    } finally {
-      setAdvancing(false);
-    }
-  }, [activeDelivery, reloadDeliveries, refreshMe]);
+    },
+    [activeDelivery, reloadDeliveries, refreshMe],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -299,8 +319,9 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       acceptOffer,
       declineOffer,
       advanceActive,
+      confirmDelivery,
     }),
-    [online, togglingOnline, offer, activeDelivery, advancing, goOnline, goOffline, acceptOffer, declineOffer, advanceActive],
+    [online, togglingOnline, offer, activeDelivery, advancing, goOnline, goOffline, acceptOffer, declineOffer, advanceActive, confirmDelivery],
   );
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>;

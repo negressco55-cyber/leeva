@@ -1,13 +1,17 @@
 /**
- * COMPROVAÇÃO DE ENTREGA — GPS + foto.
+ * COMPROVAÇÃO DE ENTREGA — GPS + foto + código de confirmação.
  *
- * O botão "Entreguei" do app do motoboy chama isto com a localização atual e
- * o caminho da foto (já enviada ao storage). Regras:
+ * O botão "Entreguei" do app do motoboy chama isto com a localização atual,
+ * o caminho da foto (já enviada ao storage) e o código de 4 dígitos que o
+ * cliente informa (mandado pro cliente quando o pedido é criado). Regras:
  *   - tem GPS e está a <= DELIVERY_PROXIMITY_M do endereço  → confirma ('ok')
  *   - tem GPS e está longe demais                            → BLOQUEIA ('far')
  *   - sem GPS (permissão negada / falhou)                    → confirma, mas
  *     marca 'no_gps' pro restaurante/admin verem
  *   - foto é obrigatória sempre
+ *   - código errado (ou pedido sem código gerado)             → BLOQUEIA
+ *     ('wrong_code') — é o que garante que o motoboy falou de verdade com o
+ *     cliente, não só tirou uma foto qualquer perto do endereço.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
@@ -27,11 +31,13 @@ export type ConfirmDeliveryInput = {
   /** caminho da foto no storage. Opcional só para o app nativo em transição —
    *  o PWA sempre envia. */
   photoPath?: string | null;
+  /** código de 4 dígitos que o cliente informa ao motoboy na entrega. */
+  confirmationCode?: string | null;
 };
 
 export type ConfirmDeliveryResult =
   | { ok: true; gpsStatus: 'ok' | 'no_gps'; distanceM: number | null }
-  | { ok: false; error: string; code?: 'too_far' | 'no_photo' | 'invalid_state'; distanceM?: number };
+  | { ok: false; error: string; code?: 'too_far' | 'no_photo' | 'wrong_code' | 'invalid_state'; distanceM?: number };
 
 export async function confirmDeliveryWithProof(
   db: DB,
@@ -39,7 +45,7 @@ export async function confirmDeliveryWithProof(
 ): Promise<ConfirmDeliveryResult> {
   const { data: order } = await db
     .from('orders')
-    .select('id, motoboy_id, status, latitude, longitude')
+    .select('id, motoboy_id, status, latitude, longitude, delivery_confirmation_code')
     .eq('id', input.orderId)
     .maybeSingle();
   if (!order || order.motoboy_id !== input.motoboyId) {
@@ -47,6 +53,14 @@ export async function confirmDeliveryWithProof(
   }
   if (!['picked_up', 'in_route'].includes(order.status)) {
     return { ok: false, error: 'a entrega não está em rota', code: 'invalid_state' };
+  }
+
+  const expectedCode = order.delivery_confirmation_code as string | null;
+  if (expectedCode) {
+    const given = (input.confirmationCode ?? '').trim();
+    if (given !== expectedCode) {
+      return { ok: false, error: 'Código de confirmação incorreto. Peça o código de novo pro cliente.', code: 'wrong_code' };
+    }
   }
 
   const hasGps =

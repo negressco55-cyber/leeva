@@ -11,7 +11,7 @@ const MAX_PHOTO_B64 = 3 * 1024 * 1024;
  * body:
  *   { action: 'accept' }
  *   { action: 'status', status: 'picked_up' | 'in_route' }
- *   { action: 'deliver', lat?, lng?, photoBase64 }   ← confirma a entrega (GPS + foto)
+ *   { action: 'deliver', lat?, lng?, photoBase64, confirmationCode }   ← confirma a entrega (GPS + foto + código)
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -36,6 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       lat?: number | null;
       lng?: number | null;
       photoBase64?: string;
+      confirmationCode?: string;
     };
 
     if (body.action === 'accept') {
@@ -64,27 +65,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         lat: body.lat ?? null,
         lng: body.lng ?? null,
         photoPath: path,
+        confirmationCode: body.confirmationCode ?? null,
       });
       if (!r.ok) {
-        // desfaz o upload se a confirmação foi barrada (ex: longe demais)
+        // desfaz o upload se a confirmação foi barrada (ex: longe demais, código errado)
         await db.storage.from('delivery-proof').remove([path]).catch(() => {});
-        return json({ error: r.error, code: r.code, distanceM: r.distanceM }, r.code === 'too_far' ? 422 : 400);
+        return json({ error: r.error, code: r.code, distanceM: r.distanceM }, r.code === 'too_far' || r.code === 'wrong_code' ? 422 : 400);
       }
       return json({ ok: true, gpsStatus: r.gpsStatus, distanceM: r.distanceM });
     }
 
     if (body.action === 'status' && body.status) {
-      // 'delivered' pelo PWA passa por 'deliver' (foto obrigatória). Aqui só
-      // o app nativo em transição: confirma com GPS (se enviado), sem foto.
       if (body.status === 'delivered') {
-        const r = await confirmDeliveryWithProof(db, {
-          orderId: id,
-          motoboyId: ctx.motoboyId,
-          lat: body.lat ?? null,
-          lng: body.lng ?? null,
-        });
-        if (!r.ok) return json({ error: r.error, code: r.code, distanceM: r.distanceM }, r.code === 'too_far' ? 422 : 400);
-        return json({ ok: true, gpsStatus: r.gpsStatus, distanceM: r.distanceM });
+        return badRequest('use action "deliver" (com foto e código) para concluir a entrega');
       }
       const allowed: OrderStatus[] = ['picked_up', 'in_route'];
       if (!allowed.includes(body.status)) {
