@@ -9,9 +9,14 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { theme } from '../../theme/theme';
 
-type DocType = 'vehicle' | 'avatar';
+type DocType = 'personal' | 'vehicle' | 'avatar';
 
 const DOC_META: Record<DocType, { title: string; hint: string; camera: ImagePicker.CameraType }> = {
+  personal: {
+    title: 'CNH ou RG',
+    hint: 'Tire uma foto legível do seu documento com CPF (CNH ou RG).',
+    camera: ImagePicker.CameraType.back,
+  },
   vehicle: {
     title: 'CRLV do veículo',
     hint: 'Tire uma foto legível do documento do veículo (CRLV).',
@@ -140,6 +145,7 @@ export function DocumentosScreen(): React.JSX.Element {
               </Text>
             </View>
 
+            <DocCard type="personal" url={status?.personalDocUrl ?? null} busy={busyType === 'personal'} onUploaded={handleUpload} />
             <DocCard type="vehicle" url={status?.vehicleDocUrl ?? null} busy={busyType === 'vehicle'} onUploaded={handleUpload} />
             <DocCard type="avatar" url={status?.avatarUrl ?? null} busy={busyType === 'avatar'} onUploaded={handleUpload} />
           </>

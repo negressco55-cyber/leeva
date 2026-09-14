@@ -4,13 +4,20 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Circle } from 'lucide-react';
 
-type DocType = 'vehicle' | 'avatar';
+type DocType = 'personal' | 'vehicle' | 'avatar';
 
 type Status = { personalDocUrl: string | null; vehicleDocUrl: string | null; avatarUrl: string | null };
 
 const META: Record<DocType, { title: string; hint: string; capture: 'environment' | 'user' }> = {
+  personal: { title: 'CNH ou RG', hint: 'Uma foto legível do seu documento com CPF (CNH ou RG).', capture: 'environment' },
   vehicle: { title: 'CRLV do veículo', hint: 'Uma foto legível do documento do veículo (CRLV).', capture: 'environment' },
   avatar: { title: 'Foto do rosto', hint: 'Uma foto sua, de rosto, bem iluminada — aparece no seu perfil.', capture: 'user' },
+};
+
+const STATUS_KEY: Record<DocType, keyof Status> = {
+  personal: 'personalDocUrl',
+  vehicle: 'vehicleDocUrl',
+  avatar: 'avatarUrl',
 };
 
 /** Redimensiona a foto no navegador antes de enviar (máx 1280px, JPEG ~0.7). */
@@ -67,8 +74,7 @@ function DocCard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'erro ao enviar');
-      const key = type === 'vehicle' ? 'vehicleDocUrl' : 'avatarUrl';
-      onUploaded(type, data[key]);
+      onUploaded(type, data[STATUS_KEY[type]]);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Não foi possível enviar. Tente de novo.');
     } finally {
@@ -117,12 +123,13 @@ export function DocumentsForm({ initial }: { initial: Status }) {
   const [status, setStatus] = useState(initial);
 
   function handleUploaded(type: DocType, url: string) {
-    setStatus((s) => ({ ...s, [type === 'vehicle' ? 'vehicleDocUrl' : 'avatarUrl']: url }));
+    setStatus((s) => ({ ...s, [STATUS_KEY[type]]: url }));
     router.refresh();
   }
 
   return (
     <div className="grid" style={{ gap: 12 }}>
+      <DocCard type="personal" url={status.personalDocUrl} onUploaded={handleUploaded} />
       <DocCard type="vehicle" url={status.vehicleDocUrl} onUploaded={handleUploaded} />
       <DocCard type="avatar" url={status.avatarUrl} onUploaded={handleUploaded} />
     </div>
