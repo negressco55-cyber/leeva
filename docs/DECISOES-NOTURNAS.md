@@ -773,3 +773,24 @@ pra cadastrar pelo site.
 - Pendente da usuária: aplicar a migration 0038 no SQL Editor; ligar
   ASAAS_PAYOUTS_ENABLED + credenciais reais quando quiser sair do modo
   simulado.
+
+## 2026-09-14 — Bloco 1: status de preparo visível pro motoboy
+
+- Central de Pedidos ganhou botões reais "Marcar em preparo" (pede
+  minutos, com padrão configurável) e "Marcar como pronto".
+- Decisão de arquitetura: `ready_at` pode ser gravado mesmo com o
+  pedido já despachado (status='assigned'), sem tocar no `status` —
+  evita que a entrega suma da tela do motoboy. `markReady()` só avança
+  o `status` de verdade quando o pedido ainda não tem motoboy.
+- Corrigida (achada durante a implementação, não reportada antes) uma
+  lacuna real: as consultas de "entrega ativa" do motoboy (nativo e
+  PWA) filtravam só por status assigned/picked_up/in_route — não
+  cobriam o caso de motoboy já atribuído a um pedido ainda 'preparing'
+  ou 'ready' (que passa a ser o normal com o despacho sincronizado do
+  Bloco 3, ainda não implementado nesta sessão).
+- Badge "Em preparo/Pronto" nas 4 telas relevantes (oferta e entrega
+  ativa, nativo + PWA), cálculo centralizado (`computePrepStatus`,
+  packages/shared) pro restaurante e o PWA nunca mostrarem coisas
+  diferentes do mesmo pedido — nativo tem cópia local (fora do
+  workspace npm).
+- Migration 0039 pendente de aplicar (SQL Editor).
