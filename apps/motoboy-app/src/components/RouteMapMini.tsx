@@ -83,8 +83,12 @@ export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, 
           { width: lineLen, left: a.x, top: a.y - 2, transform: [{ rotate: `${angle}deg` }] },
         ]}
       />
-      <View style={[styles.pin, styles.pinPickup, { left: a.x - 7, top: a.y - 7 }]} />
-      <View style={[styles.pin, styles.pinDrop, { left: b.x - 7, top: b.y - 7 }]} />
+      <View style={[styles.pin, styles.pinPickup, { left: a.x - 12, top: a.y - 12 }]}>
+        <Text style={styles.pinLabel}>A</Text>
+      </View>
+      <View style={[styles.pin, styles.pinDrop, { left: b.x - 12, top: b.y - 12 }]}>
+        <Text style={styles.pinLabel}>B</Text>
+      </View>
       <Text style={styles.attr}>© OpenStreetMap · CARTO</Text>
     </View>
   );
@@ -100,9 +104,24 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     transformOrigin: 'left center',
   },
-  pin: { position: 'absolute', width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: '#fff' },
+  pin: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2.5,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
   pinPickup: { backgroundColor: theme.colors.accent },
   pinDrop: { backgroundColor: theme.colors.primary },
+  pinLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: '#fff' },
   attr: {
     position: 'absolute',
     right: 4,
