@@ -1,3 +1,4 @@
+import { BadgeCheck, MapPin, Phone, Star, TrendingUp, User, Wallet } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,18 +25,50 @@ const APROVACAO: Record<string, string> = {
   rejected: 'Não aprovado',
 };
 
-function Row({ label, value, last }: { label: string; value: string; last?: boolean }): React.JSX.Element {
+function SectionTitle({ children }: { children: string }): React.JSX.Element {
+  return <Text style={styles.sectionTitle}>{children}</Text>;
+}
+
+function Field({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }): React.JSX.Element {
   return (
-    <View style={[styles.row, last && styles.rowLast]}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue} numberOfLines={1}>
-        {value}
-      </Text>
+    <View style={styles.field}>
+      <View style={styles.fieldIcon}>{icon}</View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        <Text style={styles.fieldValue} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
 
-function PixEditor({ pixKey, pixKeyType, onSaved }: { pixKey: string | null; pixKeyType: string | null; onSaved: () => Promise<void> }): React.JSX.Element {
+function PixSegmented({ value, onChange }: { value: string; onChange: (v: string) => void }): React.JSX.Element {
+  return (
+    <View style={styles.segmented}>
+      {PIX_TYPES.map((t) => {
+        const active = value === t.v;
+        return (
+          <Pressable key={t.v} onPress={() => onChange(t.v)} style={[styles.segment, active && styles.segmentActive]}>
+            <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]} numberOfLines={1}>
+              {t.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function PixEditor({
+  pixKey,
+  pixKeyType,
+  onSaved,
+}: {
+  pixKey: string | null;
+  pixKeyType: string | null;
+  onSaved: () => Promise<void>;
+}): React.JSX.Element {
   const [editing, setEditing] = useState(!pixKey);
   const [type, setType] = useState(pixKeyType ?? 'cpf');
   const [key, setKey] = useState('');
@@ -63,24 +96,29 @@ function PixEditor({ pixKey, pixKeyType, onSaved }: { pixKey: string | null; pix
   if (!editing && pixKey) {
     return (
       <Card style={styles.pixCard}>
-        <Text style={styles.rowLabel}>Chave Pix (repasse)</Text>
-        <Text style={styles.pixValue}>{pixKey}</Text>
-        <Button label="Trocar chave" variant="outline" onPress={() => setEditing(true)} style={{ marginTop: theme.spacing.sm }} />
+        <View style={styles.pixCurrentRow}>
+          <View style={styles.fieldIcon}>
+            <Wallet size={16} color={theme.colors.primary} strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fieldLabel}>Chave Pix (repasse)</Text>
+            <Text style={styles.fieldValue} numberOfLines={1}>
+              {pixKey}
+            </Text>
+          </View>
+        </View>
+        <Button label="Trocar chave" variant="outline" onPress={() => setEditing(true)} style={{ marginTop: theme.spacing.md }} />
       </Card>
     );
   }
 
   return (
     <Card style={styles.pixCard}>
-      <Text style={styles.rowLabel}>Cadastrar chave Pix (repasse)</Text>
-      <View style={styles.pixTypes}>
-        {PIX_TYPES.map((t) => (
-          <Pressable key={t.v} onPress={() => setType(t.v)} style={[styles.pixTypeChip, type === t.v && styles.pixTypeChipActive]}>
-            <Text style={[styles.pixTypeLabel, type === t.v && styles.pixTypeLabelActive]}>{t.label}</Text>
-          </Pressable>
-        ))}
+      <Text style={styles.fieldLabel}>Tipo da chave</Text>
+      <PixSegmented value={type} onChange={setType} />
+      <View style={{ marginTop: theme.spacing.sm }}>
+        <TextField label="Sua chave Pix" value={key} onChangeText={setKey} autoCapitalize="none" placeholder="Cole ou digite aqui" />
       </View>
-      <TextField label="Sua chave Pix" value={key} onChangeText={setKey} autoCapitalize="none" placeholder="Cole ou digite aqui" />
       <Button label="Salvar chave Pix" onPress={() => void save()} loading={saving} disabled={key.trim().length < 5} />
     </Card>
   );
@@ -112,37 +150,48 @@ export function PerfilScreen(): React.JSX.Element {
         <Text style={styles.title}>Perfil</Text>
 
         <View style={styles.idBlock}>
-          <Avatar name={me?.fullName ?? '?'} src={me?.avatarUrl} size={60} />
+          <Avatar name={me?.fullName ?? '?'} src={me?.avatarUrl} size={56} />
           <View style={{ flexShrink: 1 }}>
             <Text style={styles.nome}>{me?.fullName ?? '—'}</Text>
-            {me?.phone ? <Text style={styles.sub}>{me.phone}</Text> : null}
             {me?.city ? <Text style={styles.sub}>{me.city}</Text> : null}
           </View>
         </View>
 
+        <SectionTitle>DESEMPENHO</SectionTitle>
         <View style={styles.statsRow}>
-          <Card style={styles.statCard}>
+          <View style={styles.statCard}>
+            <Star size={15} color={theme.colors.textSecondary} strokeWidth={2} />
             <Text style={styles.statValue}>{me?.rating != null ? me.rating.toFixed(1) : '—'}</Text>
             <Text style={styles.statLabel}>Nota média</Text>
-          </Card>
-          <Card style={styles.statCard}>
+          </View>
+          <View style={styles.statCard}>
+            <TrendingUp size={15} color={theme.colors.textSecondary} strokeWidth={2} />
             <Text style={styles.statValue}>{me?.deliveriesCompleted ?? 0}</Text>
             <Text style={styles.statLabel}>Entregas</Text>
-          </Card>
+          </View>
         </View>
 
-        <View style={styles.list}>
-          <Row label="Nome" value={me?.fullName ?? '—'} />
-          <Row label="Telefone" value={me?.phone ?? 'Não informado'} />
-          <Row label="Cidade" value={me?.city ?? 'Não informada'} />
-          <Row label="Cadastro" value={APROVACAO[me?.approvalStatus ?? ''] ?? '—'} last />
-        </View>
+        <SectionTitle>DADOS PESSOAIS</SectionTitle>
+        <Card style={styles.fieldsCard}>
+          <Field icon={<User size={16} color={theme.colors.textSecondary} strokeWidth={2} />} label="Nome" value={me?.fullName ?? '—'} />
+          <View style={styles.fieldDivider} />
+          <Field icon={<Phone size={16} color={theme.colors.textSecondary} strokeWidth={2} />} label="Telefone" value={me?.phone ?? 'Não informado'} />
+          <View style={styles.fieldDivider} />
+          <Field icon={<MapPin size={16} color={theme.colors.textSecondary} strokeWidth={2} />} label="Cidade" value={me?.city ?? 'Não informada'} />
+          <View style={styles.fieldDivider} />
+          <Field
+            icon={<BadgeCheck size={16} color={theme.colors.textSecondary} strokeWidth={2} />}
+            label="Cadastro"
+            value={APROVACAO[me?.approvalStatus ?? ''] ?? '—'}
+          />
+        </Card>
 
+        <SectionTitle>RECEBIMENTO</SectionTitle>
         <PixEditor pixKey={me?.pixKey ?? null} pixKeyType={me?.pixKeyType ?? null} onSaved={refreshMe} />
 
         {me?.terms && (
           <Card style={[styles.termsCard, { borderColor: theme.colors.accent }]}>
-            <Text style={styles.rowLabel}>Termos de uso (versão {me.terms.version})</Text>
+            <Text style={styles.fieldLabel}>Termos de uso (versão {me.terms.version})</Text>
             {showTerms ? (
               <>
                 <ScrollView style={styles.termsBox}>
@@ -166,53 +215,64 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.background },
   content: { padding: theme.spacing.lg },
   title: { fontFamily: theme.fonts.heading, fontSize: 26, color: theme.colors.text, marginBottom: theme.spacing.lg },
-  idBlock: { marginBottom: theme.spacing.md, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
-  nome: { fontFamily: theme.fonts.headingSemiBold, fontSize: 20, color: theme.colors.text },
-  sub: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, marginTop: 4 },
-  statsRow: { flexDirection: 'row', gap: theme.spacing.md, marginBottom: theme.spacing.md },
-  statCard: { flex: 1, alignItems: 'center' },
-  statValue: { fontFamily: theme.fonts.heading, fontSize: 26, color: theme.colors.primary },
-  statLabel: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 },
+  idBlock: { marginBottom: theme.spacing.lg, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
+  nome: { fontFamily: theme.fonts.headingSemiBold, fontSize: 19, color: theme.colors.text },
+  sub: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, marginTop: 2 },
 
-  list: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    overflow: 'hidden',
+  sectionTitle: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 11,
+    letterSpacing: 1.1,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
   },
-  row: {
+
+  statsRow: { flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.lg },
+  statCard: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: theme.spacing.md,
-    paddingVertical: 14,
-    paddingHorizontal: theme.spacing.md,
-    minHeight: 52,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  rowLast: { borderBottomWidth: 0 },
-  rowLabel: { fontFamily: theme.fonts.body, fontSize: 14, color: theme.colors.textSecondary },
-  rowValue: { fontFamily: theme.fonts.bodySemiBold, fontSize: 14, color: theme.colors.text, flexShrink: 1, textAlign: 'right' },
-  hint: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: theme.spacing.sm },
-
-  pixCard: { marginTop: theme.spacing.md },
-  pixValue: { fontFamily: theme.fonts.bodySemiBold, fontSize: 16, color: theme.colors.text, marginTop: 4 },
-  pixTypes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm },
-  pixTypeChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    gap: 8,
     backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
-  pixTypeChipActive: { backgroundColor: theme.colors.primaryWeak, borderColor: theme.colors.primary },
-  pixTypeLabel: { fontFamily: theme.fonts.bodyMedium, fontSize: 13, color: theme.colors.textSecondary },
-  pixTypeLabelActive: { color: theme.colors.primary },
+  statValue: { fontFamily: theme.fonts.bodySemiBold, fontSize: 15, color: theme.colors.text },
+  statLabel: { fontFamily: theme.fonts.body, fontSize: 11, color: theme.colors.textSecondary, flexShrink: 1 },
 
-  termsCard: { marginTop: theme.spacing.md },
+  fieldsCard: { padding: 0, marginBottom: theme.spacing.lg, overflow: 'hidden' },
+  field: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, padding: theme.spacing.md },
+  fieldDivider: { height: 1, backgroundColor: theme.colors.border, marginLeft: theme.spacing.md + 32 + theme.spacing.sm },
+  fieldIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldLabel: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary },
+  fieldValue: { fontFamily: theme.fonts.bodySemiBold, fontSize: 14, color: theme.colors.text, marginTop: 1 },
+
+  pixCard: { marginBottom: theme.spacing.lg },
+  pixCurrentRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
+
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.sm,
+    padding: 3,
+    marginTop: 6,
+    marginBottom: theme.spacing.sm,
+  },
+  segment: { flex: 1, paddingVertical: 8, borderRadius: theme.radius.sm - 2, alignItems: 'center' },
+  segmentActive: { backgroundColor: theme.colors.primary },
+  segmentLabel: { fontFamily: theme.fonts.bodyMedium, fontSize: 11, color: theme.colors.textSecondary },
+  segmentLabelActive: { color: theme.colors.onPrimary, fontFamily: theme.fonts.bodySemiBold },
+
+  termsCard: { marginBottom: theme.spacing.md },
   termsBox: { maxHeight: 220, marginTop: theme.spacing.sm, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radius.sm, padding: theme.spacing.sm },
   termsText: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.text, lineHeight: 19 },
 });
