@@ -835,3 +835,40 @@ pra cadastrar pelo site.
   `eta_pickup_min`/`eta_dropoff_min` em `dispatch_attempts`.
 - Não avancei pro Bloco 3 ainda — combinado parar aqui pra validar
   esse antes.
+
+## 2026-09-14 — km da coleta e da entrega separados na oferta
+
+- A oferta já mostrava km, mas a perna de entrega mostrava o km TOTAL
+  da rota (coleta + entrega somados), não só o trecho até o cliente —
+  achei isso ao responder uma pergunta direta da usuária. Adicionei
+  `distanceDropoffKm` (rota total menos a perna de coleta) na rota de
+  ofertas e troquei nos dois cards. Não se aplica a rota agrupada
+  (várias paradas) — aí continua mostrando só o total, que já fazia
+  sentido nesse caso.
+
+## 2026-09-14 — Bloco 3: despacho sincronizado com o horário de pronto
+
+- Cada candidato a uma oferta só é chamado dentro de uma janela: tempo
+  dele até a coleta + antecedência configurável (`dispatch_lead_minutes`,
+  configurável em Configurações do restaurante, padrão 5 min) precisa
+  encaixar antes do horário estimado de pronto do pedido. Isso faz o
+  motoboy mais longe ser chamado mais cedo que o mais próximo — os dois
+  chegam perto da hora do pedido ficar pronto, ninguém espera parado.
+- Se o pedido já está pronto (`ready_at`) ou não tem estimativa de
+  preparo, despacha na hora, sem essa espera — igual já era antes do
+  Bloco 3.
+- Decisão de arquitetura: quando NENHUM candidato está na janela ainda
+  (só "cedo demais"), isso não conta como tentativa de despacho nem
+  aciona o alerta de "sem entregador" — o pedido só aguarda o próximo
+  tick do cron (já roda a cada ~30s) até algum candidato entrar na
+  janela. Só conta tentativa/falha quando é falta de entregador de
+  verdade (offline, no limite, fora do raio).
+- Testado com um cenário concreto (`autodispatch.test.ts`, "Bloco 3"):
+  pedido em preparo com dois motoboys a distâncias diferentes — o mais
+  longe fica elegível na hora, o mais próximo fica bloqueado
+  ("cedo demais") até faltar menos tempo pro pedido ficar pronto; mais
+  os casos de pedido já pronto e sem estimativa (despacho imediato) e
+  de todo mundo ainda cedo (`waitingForTiming`, não conta como falha).
+- Isso fecha os 3 blocos do despacho sincronizado combinados nesta
+  sessão. Falta a usuária validar os 3 na prática (nenhum foi testado
+  por ela ainda) e aplicar as migrations 0036–0040 pendentes.

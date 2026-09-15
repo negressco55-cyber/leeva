@@ -157,9 +157,16 @@ export default function ConfigForm({
           <label>Tempo de oferta ao entregador (s){num(L.offer_timeout_seconds, (v) => nL('offer_timeout_seconds', v), '5')}</label>
           <label>Máx. tentativas de despacho{num(L.max_dispatch_attempts, (v) => nL('max_dispatch_attempts', v), '1')}</label>
           <label>Tempo padrão de preparo (min){num(L.default_prep_minutes, (v) => nL('default_prep_minutes', v), '1')}</label>
+          <label>Antecedência da chamada do motoboy (min){num(L.dispatch_lead_minutes, (v) => nL('dispatch_lead_minutes', v), '0')}</label>
         </div>
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
           Usado quando você marca um pedido "Em preparo" sem informar um tempo específico.
+        </p>
+        <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          Com o pedido ainda em preparo, o Leeva chama o motoboy com essa
+          folga antes do horário estimado de pronto (considerando o tempo de
+          cada um até a coleta) — quem está mais longe é chamado mais cedo.
+          Se o pedido já estiver pronto, chama na hora.
         </p>
         <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
           <label><input type="checkbox" checked={L.auto_dispatch_enabled} onChange={(e) => setL((s) => ({ ...s, auto_dispatch_enabled: e.target.checked }))} disabled={!isOwner} /> Despacho automático</label>

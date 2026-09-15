@@ -48,6 +48,7 @@ export const DEFAULT_LOGISTICS_CONFIG: LogisticsConfig = {
   offer_timeout_seconds: 45,
   max_dispatch_attempts: 4,
   default_prep_minutes: 15,
+  dispatch_lead_minutes: 5,
 };
 
 export type ScoredCandidate = {
@@ -58,6 +59,9 @@ export type ScoredCandidate = {
   breakdown: Record<string, number>;
   distanceToPickupKm: number | null;
   etaToPickupMin: number | null;
+  /** Bloco 3: minutos até a janela certa de chamar este candidato (0 = já é
+   *  hora). null quando não se aplica (pedido pronto/sem estimativa/sem GPS). */
+  minutesUntilDispatch: number | null;
   activeDeliveries: number;
   maxDeliveries: number;
   reliability: number;
@@ -79,10 +83,15 @@ export async function scoreCandidatesForOrder(
   candidates: ScoredCandidate[];
   order: { id: string; restaurantId: string; orderNumber: number | null };
   note?: string;
+  /** Bloco 3: só há candidatos elegíveis fora do horário certo de chamada —
+   *  ninguém aceito ainda, mas não é falta de entregador; é aguardar. */
+  waitingForTiming?: boolean;
 }> {
   const { data: order } = await db
     .from('orders')
-    .select('id, order_number, restaurant_id, latitude, longitude, status, motoboy_id, group_id')
+    .select(
+      'id, order_number, restaurant_id, latitude, longitude, status, motoboy_id, group_id, ready_at, preparing_at, prep_estimate_minutes',
+    )
     .eq('id', orderId)
     .maybeSingle();
   if (!order) throw new Error('pedido não encontrado');
@@ -99,6 +108,15 @@ export async function scoreCandidatesForOrder(
     ...(((rst?.logistics_config as { dispatch_weights?: Partial<DispatchWeights> })?.dispatch_weights) ?? {}),
   };
   const fleetMode = rst?.fleet_mode ?? 'leeva';
+
+  // --- BLOCO 3: despacho sincronizado com o horário estimado de pronto ---
+  // Já pronto ou sem estimativa de preparo = despacha na hora (sem atraso).
+  // Só com preparo em andamento + estimativa é que calculamos uma janela de
+  // chamada por candidato (quem está mais longe é chamado mais cedo).
+  const readyEstimateAt: Date | null =
+    !order.ready_at && order.preparing_at && order.prep_estimate_minutes != null
+      ? new Date(new Date(order.preparing_at).getTime() + order.prep_estimate_minutes * 60_000)
+      : null;
 
   const pickup: LatLng | null = isValidLatLng(rst?.latitude, rst?.longitude)
     ? { latitude: rst!.latitude as number, longitude: rst!.longitude as number }
@@ -191,6 +209,20 @@ export async function scoreCandidatesForOrder(
       blockers.push(`fora do raio (${distanceToPickupKm.toFixed(1)} km)`);
     }
 
+    // BLOCO 3: só chama este candidato dentro da janela certa — cedo o
+    // bastante pra chegar quando o pedido ficar pronto, sem deixar o
+    // motoboy esperando parado no restaurante. Quem está mais longe entra
+    // na janela mais cedo que quem está perto.
+    let minutesUntilDispatch: number | null = null;
+    if (readyEstimateAt && etaToPickupMin != null) {
+      const triggerAt = readyEstimateAt.getTime() - (cfg.dispatch_lead_minutes + etaToPickupMin) * 60_000;
+      const waitMin = (triggerAt - Date.now()) / 60_000;
+      if (waitMin > 0) {
+        minutesUntilDispatch = Math.ceil(waitMin);
+        blockers.push(`pedido ainda em preparo — chamar em ~${minutesUntilDispatch} min`);
+      }
+    }
+
     // impacto na rota: quão perto o novo destino fica das entregas atuais
     let routeImpactScore = 0.6; // neutro
     if (dropoff && load.drops.length) {
@@ -236,6 +268,7 @@ export async function scoreCandidatesForOrder(
       breakdown,
       distanceToPickupKm,
       etaToPickupMin: etaToPickupMin != null ? Math.round(etaToPickupMin) : null,
+      minutesUntilDispatch,
       activeDeliveries: load.count,
       maxDeliveries: max,
       reliability: round(reliability),
@@ -249,11 +282,22 @@ export async function scoreCandidatesForOrder(
   candidates.sort((a, b) => b.score - a.score);
 
   let note: string | undefined;
+  let waitingForTiming = false;
   const eligible = candidates.filter((c) => c.blockers.length === 0);
   if (!eligible.length) {
-    note = candidates.length
-      ? 'Nenhum entregador disponível no momento (todos offline, no limite ou fora do raio).'
-      : 'Nenhum entregador na frota / rede para este restaurante.';
+    // BLOCO 3: se o único motivo de ninguém estar elegível é "ainda não é a
+    // hora de chamar" (pedido em preparo), isso NÃO é falta de entregador —
+    // é só esperar a janela certa. Não deve contar como tentativa de despacho.
+    const waiting = candidates.filter((c) => c.blockers.length === 1 && c.minutesUntilDispatch != null);
+    if (waiting.length) {
+      waitingForTiming = true;
+      const soonest = Math.min(...waiting.map((c) => c.minutesUntilDispatch!));
+      note = `Pedido ainda em preparo — chamada do motoboy mais próximo em ~${soonest} min.`;
+    } else {
+      note = candidates.length
+        ? 'Nenhum entregador disponível no momento (todos offline, no limite ou fora do raio).'
+        : 'Nenhum entregador na frota / rede para este restaurante.';
+    }
   } else if (!pickup) {
     note = 'Defina a localização do restaurante para o cálculo de proximidade ficar preciso.';
   }
@@ -262,6 +306,7 @@ export async function scoreCandidatesForOrder(
     candidates,
     order: { id: order.id, restaurantId: order.restaurant_id, orderNumber: order.order_number },
     note,
+    waitingForTiming,
   };
 }
 
@@ -368,13 +413,19 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       .eq('order_id', o.id);
     const exclude = [...new Set((prev ?? []).map((p) => p.motoboy_id))];
 
-    const { candidates, note } = await scoreCandidatesForOrder(db, o.id, {
+    const { candidates, note, waitingForTiming } = await scoreCandidatesForOrder(db, o.id, {
       excludeMotoboyIds: exclude,
       tickLoad,
     });
     const best = candidates.find((c) => c.blockers.length === 0);
     if (!best) {
       res.details.push(`#${o.id.slice(0, 6)}: ${note ?? 'sem candidato'}`);
+      if (waitingForTiming) {
+        // pedido ainda em preparo: só aguardando a janela certa de chamar o
+        // motoboy — NÃO conta como tentativa de despacho nem se aproxima de
+        // "sem entregador".
+        continue;
+      }
       // mantém 'searching'; próxima tentativa contará como attempt
       await db
         .from('orders')

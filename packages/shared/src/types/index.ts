@@ -91,6 +91,11 @@ export type LogisticsConfig = {
   max_dispatch_attempts: number;
   /** Estimativa padrão (min) de tempo de preparo quando o restaurante não informa uma. */
   default_prep_minutes: number;
+  /** Despacho sincronizado (Bloco 3): quantos minutos ANTES do horário
+   *  estimado de pronto o motoboy deve ser chamado, considerando o tempo
+   *  dele até a coleta — folga de segurança pra não deixar o pedido esperando
+   *  nem o motoboy esperando o pedido. */
+  dispatch_lead_minutes: number;
 };
 
 /** Configuração do motor de remuneração (payout_policies.config). */
