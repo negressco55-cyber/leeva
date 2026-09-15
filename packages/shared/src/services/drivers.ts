@@ -164,14 +164,30 @@ export async function saveDriverDocument(
   bytes: Uint8Array,
   contentType: string,
   ext: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; requiresReview: boolean } | { ok: false; error: string }> {
   const path = `${motoboyId}/${type}.${ext}`;
   const up = await db.storage.from('driver-documents').upload(path, bytes, { contentType, upsert: true });
   if (up.error) return { ok: false, error: up.error.message };
   const patch: Database['public']['Tables']['motoboys']['Update'] =
     type === 'personal' ? { personal_doc_path: path } : type === 'vehicle' ? { vehicle_doc_path: path } : { avatar_url: path };
+
+  // Documento (CNH/RG, CRLV ou selfie) reenviado depois de já aprovado
+  // precisa passar por revisão de novo — sem isso, dava pra trocar o
+  // documento sem ninguém do Leeva checar. Volta pra mesma fila de
+  // aprovação do admin (getPendingDrivers) — motoboy fica sem receber
+  // ofertas até ser reaprovado (autodispatch já exige approval_status
+  // 'approved').
+  const { data: current } = await db.from('motoboys').select('approval_status').eq('id', motoboyId).maybeSingle();
+  let requiresReview = false;
+  if (current?.approval_status === 'approved') {
+    patch.approval_status = 'pending_approval';
+    patch.approval_reason = 'Documento reenviado — aguardando revisão';
+    patch.approved_at = null;
+    requiresReview = true;
+  }
+
   await db.from('motoboys').update(patch).eq('id', motoboyId);
-  return { ok: true };
+  return { ok: true, requiresReview };
 }
 
 export type DriverDocsStatus = {

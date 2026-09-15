@@ -951,3 +951,31 @@ pra cadastrar pelo site.
   continua valendo — o padrão do código só entra quando não há nada
   salvo. Pra restaurantes que já têm política salva, precisa reabrir
   a tela de Planos e salvar de novo (ou ajustar direto o campo lá).
+
+## 2026-09-15 — documento reenviado depois de aprovado volta pra revisão
+
+- Usuária pediu: documento enviado pelo motoboy precisa passar por
+  análise do admin antes. Isso já acontecia no cadastro inicial
+  (self-service nasce 'pending_approval', só o admin aprova). O que
+  faltava: se um motoboy JÁ aprovado reenviasse CNH/RG, CRLV ou selfie
+  depois (ex: renovou o veículo, corrigiu foto ruim), o documento novo
+  substituía o antigo silenciosamente — sem ninguém checar de novo.
+- Corrigido: reenviar documento depois de já aprovado volta o cadastro
+  pra 'pending_approval' automaticamente — motoboy some da fila de
+  despacho (autodispatch já exige approval_status='approved') até o
+  admin revisar de novo na mesma fila que já existe. Ele vê um aviso
+  na hora ("documento entrou em análise de novo"), nativo e PWA.
+
+## 2026-09-15 — produção quebrada ~12h achada ao investigar sumiço de campo
+
+- Usuária disse que não achou o campo "Antecedência da chamada do
+  motoboy" na tela de Configurações — motivo real: o deploy de
+  produção do app do motoboy E do restaurante estava falhando desde
+  ontem à noite (Bloco 1), não só nesse commit específico. Ver commit
+  "fix(build)" — causa raiz era um import de barrel puxando a lib
+  web-push (só roda no servidor) pro bundle do navegador. Corrigido e
+  confirmado com build local antes de subir. Isso significa que
+  praticamente nada do que foi feito nesta sessão desde ontem à noite
+  (Blocos 1/2/3, CRLV/Carteira no PWA, corrida extra, etc.) estava de
+  fato no ar em produção até agora — só o app nativo (build próprio
+  via EAS, não Vercel) recebia as mudanças de verdade.

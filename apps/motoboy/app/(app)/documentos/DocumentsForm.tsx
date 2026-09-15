@@ -71,11 +71,13 @@ function DocCard({
   const isPdf = sent && /\.pdf(\?|$)/i.test(url);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function onPick(file: File | undefined) {
     if (!file) return;
     setBusy(true);
     setErr(null);
+    setNotice(null);
     try {
       if (file.type === 'application/pdf' && file.size > 3.5 * 1024 * 1024) {
         throw new Error('PDF muito grande — envie até 3,5 MB.');
@@ -89,6 +91,9 @@ function DocCard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'erro ao enviar');
       onUploaded(type, data[STATUS_KEY[type]]);
+      if (data.requiresReview) {
+        setNotice('Como você já estava aprovado, esse documento precisa passar por uma nova revisão antes de você voltar a receber ofertas.');
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Não foi possível enviar. Tente de novo.');
     } finally {
@@ -129,6 +134,7 @@ function DocCard({
       )}
 
       {err && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 8px' }}>{err}</p>}
+      {notice && <p style={{ color: 'var(--warn)', fontSize: 13, margin: '0 0 8px' }}>{notice}</p>}
 
       <label className={`button ${sent ? 'secondary' : ''}`} style={{ textAlign: 'center', cursor: 'pointer', display: 'block' }}>
         {busy ? 'Enviando…' : sent ? 'Enviar outra foto' : meta.accept.includes('pdf') ? 'Tirar foto ou enviar PDF' : 'Tirar foto'}

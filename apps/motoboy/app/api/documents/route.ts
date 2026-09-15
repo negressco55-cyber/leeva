@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     if (!r.ok) return serverError(r.error);
 
     const status = await getDriverDocsStatus(adminDb(), ctx.motoboyId);
-    return json({ ok: true, ...status });
+    return json({ ok: true, requiresReview: r.requiresReview, ...status });
   } catch (e) {
     return serverError(e);
   }

@@ -43,7 +43,10 @@ export function getDriverDocs(): Promise<DriverDocsStatus> {
 }
 
 /** Envia/substitui um documento. type: 'personal' | 'vehicle' | 'avatar'. */
-export function uploadDriverDocument(type: 'personal' | 'vehicle' | 'avatar', fileBase64: string): Promise<{ ok: boolean } & DriverDocsStatus> {
+export function uploadDriverDocument(
+  type: 'personal' | 'vehicle' | 'avatar',
+  fileBase64: string,
+): Promise<{ ok: boolean; requiresReview: boolean } & DriverDocsStatus> {
   return apiSend('/api/documents', 'POST', { type, fileBase64 });
 }
 

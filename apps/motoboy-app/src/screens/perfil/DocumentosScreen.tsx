@@ -150,7 +150,14 @@ export function DocumentosScreen(): React.JSX.Element {
     try {
       const r = await uploadDriverDocument(type, base64);
       setStatus(r);
-      Alert.alert('Pronto', 'Documento enviado.');
+      if (r.requiresReview) {
+        Alert.alert(
+          'Documento enviado',
+          'Como você já estava aprovado, esse documento precisa passar por uma nova revisão antes de você voltar a receber ofertas.',
+        );
+      } else {
+        Alert.alert('Pronto', 'Documento enviado.');
+      }
     } catch (e) {
       Alert.alert('Não deu certo', (e as Error).message || 'Tente de novo.');
     } finally {
