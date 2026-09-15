@@ -910,3 +910,32 @@ pra cadastrar pelo site.
   expirou/foi recusada). Sem teste automatizado ainda — a lógica de
   agrupamento com banco de dados não tem suíte de testes mockada nesta
   sessão (igual o motor de despacho antes do Bloco 3).
+
+## 2026-09-15 — "corrida extra" pro motoboy que já está em rota perto
+
+- Pergunta da usuária: se um motoboy já aceitou uma corrida e, minutos
+  depois, aparece outra perto de onde ele já está indo, isso ficava
+  cobrado como entrega solta (preço cheio) — mesmo ele não estando
+  fazendo o trajeto do zero. Ela pediu pra cobrar como parada
+  incremental de rota agrupada nesse caso, não como solta.
+- Implementado: o motor de despacho já sabia identificar quando o
+  destino novo cai perto (raio padrão 1,5 km, mesmo da rota agrupada)
+  de uma entrega ativa do candidato — só usava isso pra pontuar, não
+  pro preço. Agora, se a oferta pra esse candidato sair mais barata
+  calculada como parada incremental (mesma fórmula de
+  `per_km_grouped` das rotas agrupadas de verdade) do que como entrega
+  solta, é esse valor menor que aparece na oferta — nunca aumenta o
+  valor, só reduz quando faz sentido.
+  Se ele ACEITAR, o pedido é reprecificado pra bater com o que ele viu
+  (driver_payout/customer_fee) e a diferença é devolvida como crédito
+  pro restaurante — mesma lógica que já existia pra rota agrupada de
+  verdade (`applyGroupPlan`), só que aplicada na hora do aceite em vez
+  da formação do grupo, porque aqui o pedido nunca chega a ser
+  "agrupado" de verdade (o motoboy já tinha aceitado o 1º sozinho).
+  Se ele RECUSAR, nada muda no pedido — o próximo candidato é avaliado
+  do zero com o preço padrão.
+- Teste cobrindo a detecção da "entrega ativa mais próxima" por
+  candidato (`autodispatch.test.ts`). O caminho completo do desconto +
+  devolução de crédito não tem teste automatizado (precisa mockar
+  RPC de crédito e política de planos) — mesma limitação de cobertura
+  já registrada pro motor de despacho com banco de dados.

@@ -18,7 +18,8 @@ import type { Database } from '../types/database';
 import type { LogisticsConfig } from '../types';
 import { haversineKm, minutesForKm, legEtaMin, isValidLatLng, type LatLng } from './geo';
 import { getRoutingService } from './routing';
-import { getPayoutPolicy, computeDriverPayout, computeLogisticsFinance } from './payout';
+import { getPayoutPolicy, computeDriverPayout, computeGroupedStopPayout, computeLogisticsFinance, getPlanMargin } from './payout';
+import { adjustCredit } from './credits';
 import { classifyOfferQuality } from './reputation';
 import { sendPushToMotoboy } from './push';
 import { planGroupForOrder, applyGroupPlan, dissolveGroup, type GroupPlan } from './grouping-dispatch';
@@ -62,6 +63,11 @@ export type ScoredCandidate = {
   /** Bloco 3: minutos até a janela certa de chamar este candidato (0 = já é
    *  hora). null quando não se aplica (pedido pronto/sem estimativa/sem GPS). */
   minutesUntilDispatch: number | null;
+  /** Ponto de entrega da entrega ativa mais próxima do novo destino (se o
+   *  candidato já estiver em rota) — usado pra decidir se esta oferta é uma
+   *  "corrida extra" no caminho dele, cobrada como parada incremental. */
+  nearestActiveDrop: LatLng | null;
+  nearestActiveDropKm: number | null;
   activeDeliveries: number;
   maxDeliveries: number;
   reliability: number;
@@ -225,10 +231,22 @@ export async function scoreCandidatesForOrder(
 
     // impacto na rota: quão perto o novo destino fica das entregas atuais
     let routeImpactScore = 0.6; // neutro
+    let nearestActiveDrop: LatLng | null = null;
+    let nearestActiveDropKm: number | null = null;
     if (dropoff && load.drops.length) {
-      const minDist = Math.min(...load.drops.map((d) => haversineKm(d, dropoff) ?? 99));
-      routeImpactScore = minDist <= 1.5 ? 1 : minDist <= 3 ? 0.75 : minDist <= 6 ? 0.4 : 0.15;
-      if (minDist <= 1.5) reasons.push(`entrega a ${minDist.toFixed(1)} km de uma já em rota — agrupável`);
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      load.drops.forEach((d, i) => {
+        const dist = haversineKm(d, dropoff) ?? 99;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = i;
+        }
+      });
+      nearestActiveDrop = load.drops[bestIdx]!;
+      nearestActiveDropKm = bestDist;
+      routeImpactScore = bestDist <= 1.5 ? 1 : bestDist <= 3 ? 0.75 : bestDist <= 6 ? 0.4 : 0.15;
+      if (bestDist <= 1.5) reasons.push(`entrega a ${bestDist.toFixed(1)} km de uma já em rota — corrida extra no caminho`);
     } else if (load.count === 0) {
       routeImpactScore = 0.8; // sem rota atual = zero desvio
     }
@@ -269,6 +287,8 @@ export async function scoreCandidatesForOrder(
       distanceToPickupKm,
       etaToPickupMin: etaToPickupMin != null ? Math.round(etaToPickupMin) : null,
       minutesUntilDispatch,
+      nearestActiveDrop,
+      nearestActiveDropKm,
       activeDeliveries: load.count,
       maxDeliveries: max,
       reliability: round(reliability),
@@ -610,12 +630,33 @@ async function classifyOfferForCandidate(
   }
 
   // FONTE ÚNICA: a remuneração já foi calculada e gravada na criação do pedido.
-  // A oferta mostra EXATAMENTE esse valor — nunca recalcula.
+  // A oferta mostra EXATAMENTE esse valor — nunca recalcula, EXCETO na
+  // "corrida extra" abaixo (candidato já em rota perto daqui), que é uma
+  // decisão de negócio deliberada, não uma divergência — igual já acontece
+  // pra rota agrupada de verdade (grouping-dispatch.ts).
   let payout = order?.driver_payout != null ? Number(order.driver_payout) : null;
+  const policy = await getPayoutPolicy(db, restaurantId);
   if (payout == null) {
-    const policy = await getPayoutPolicy(db, restaurantId);
     payout = computeDriverPayout(policy, { distanceKm: distanceDropoffKm }).total;
   }
+
+  // CORRIDA EXTRA: o candidato já está em rota perto deste destino — cobra
+  // como parada incremental de rota agrupada (mais barato que entrega solta,
+  // já que ele não vai fazer o trajeto do zero) em vez do valor padrão. Só
+  // aplica se ficar mais barato; nunca aumenta o valor da entrega. O desconto
+  // (se aceito) é repassado ao restaurante em acceptOffer().
+  let rideAlongPayout: number | null = null;
+  const groupRadiusKm = policy.group_radius_km ?? 1.5;
+  if (best.nearestActiveDrop && dropoff && best.nearestActiveDropKm != null && best.nearestActiveDropKm <= groupRadiusKm) {
+    const leg = await getRoutingService().leg(best.nearestActiveDrop, dropoff);
+    const straightKm = haversineKm(best.nearestActiveDrop, dropoff);
+    const legKm = leg?.distanceKm ?? (straightKm != null ? straightKm * 1.3 : null);
+    if (legKm != null) {
+      const incremental = computeGroupedStopPayout(policy, legKm);
+      if (incremental < payout) rideAlongPayout = incremental;
+    }
+  }
+  if (rideAlongPayout != null) payout = rideAlongPayout;
 
   const etaTotalMin =
     best.etaToPickupMin != null || etaDropoffMin != null
@@ -736,10 +777,10 @@ export async function acceptOffer(db: DB, offerId: string, motoboyId: string) {
     .eq('id', offerId)
     .eq('motoboy_id', motoboyId)
     .is('responded_at', null)
-    .select('order_id, restaurant_id, group_order_ids');
+    .select('order_id, restaurant_id, group_order_ids, payout_estimate');
   if (!closed?.length) return { ok: false as const, error: 'oferta expirada ou já respondida' };
 
-  const { order_id, restaurant_id, group_order_ids } = closed[0]!;
+  const { order_id, restaurant_id, group_order_ids, payout_estimate } = closed[0]!;
   const orderIds = group_order_ids?.length ? group_order_ids : [order_id];
 
   const { data: assigned } = await db
@@ -755,6 +796,14 @@ export async function acceptOffer(db: DB, offerId: string, motoboyId: string) {
   }
 
   await db.from('motoboys').update({ status: 'on_delivery' }).eq('id', motoboyId);
+
+  // CORRIDA EXTRA aceita: a oferta era mais barata que o valor padrão do
+  // pedido (candidato já em rota perto) — repassa o desconto ao restaurante,
+  // igual já acontece pra rota agrupada de verdade (applyGroupPlan).
+  if (!group_order_ids?.length && payout_estimate != null) {
+    await applyRideAlongDiscount(db, order_id, restaurant_id, Number(payout_estimate));
+  }
+
   for (const oid of assigned.map((a) => a.id)) {
     await finalizeLogisticsForOrder(db, oid, restaurant_id);
     await db.from('order_events').insert({
@@ -774,6 +823,42 @@ export async function acceptOffer(db: DB, offerId: string, motoboyId: string) {
   }
 
   return { ok: true as const, orderId: order_id };
+}
+
+/**
+ * Repassa ao restaurante o desconto de uma "corrida extra" aceita: o pedido
+ * tinha sido cobrado como entrega solta na criação, mas o motoboy aceitou
+ * por um valor menor (já estava em rota perto) — ajusta driver_payout e
+ * customer_fee/leeva_fee pra bater com o que foi realmente pago, e credita
+ * a diferença de volta (mesma lógica de applyGroupPlan, aplicada agora em
+ * vez de na formação do grupo, já que aqui o pedido nunca foi agrupado).
+ * Nunca aumenta a cobrança — só corrige pra baixo.
+ */
+async function applyRideAlongDiscount(db: DB, orderId: string, restaurantId: string, acceptedPayout: number) {
+  const { data: order } = await db
+    .from('orders')
+    .select('driver_payout, customer_fee')
+    .eq('id', orderId)
+    .maybeSingle();
+  const currentPayout = order?.driver_payout != null ? Number(order.driver_payout) : null;
+  if (currentPayout == null || acceptedPayout >= currentPayout - 0.01) return; // não é desconto — nada a ajustar
+
+  const margin = round(await getPlanMargin(db, restaurantId));
+  const newTotal = round(acceptedPayout + margin);
+  const prevTotal = order?.customer_fee != null ? Number(order.customer_fee) : null;
+
+  await db.from('orders').update({ driver_payout: acceptedPayout, customer_fee: newTotal, leeva_fee: newTotal }).eq('id', orderId);
+
+  if (prevTotal != null) {
+    const delta = round(prevTotal - newTotal); // positivo = devolve ao restaurante
+    if (delta >= 0.01) {
+      try {
+        await adjustCredit(db, restaurantId, delta, `Corrida extra (motoboy já em rota) — pedido ${orderId.slice(0, 8)}`);
+      } catch {
+        /* ajuste de crédito nunca bloqueia o aceite */
+      }
+    }
+  }
 }
 
 /** Motoboy recusa. A oferta fecha; o loop tenta o próximo. */

@@ -157,6 +157,32 @@ test('Bloco 3: pedido já pronto (ready_at) despacha na hora, sem esperar ningu�
   }
 });
 
+test('corrida extra: candidato já em rota perto do novo destino fica marcado (nearestActiveDrop)', async () => {
+  // pedido novo: PICKUP + 5km de longitude. Entrega ativa do motoboy "busy"
+  // cai a ~0,4 km dali → deve virar candidato a "corrida extra" (perto o
+  // bastante pro raio padrão de agrupamento, 1,5 km).
+  const newDropoffLng = PICKUP.longitude + 5 / 111;
+  const activeDropoffLng = PICKUP.longitude + 5.4 / 111;
+
+  const db = makeFakeDb({
+    orderRow: baseOrder({ status: 'waiting_dispatch' }),
+    restaurantRow: RESTAURANT,
+    motoboys: [motoboy('busy', 'Ocupado', PICKUP), motoboy('free', 'Livre', PICKUP)],
+    activeOrders: [
+      { id: 'active-1', motoboy_id: 'busy', latitude: PICKUP.latitude, longitude: activeDropoffLng, status: 'in_route' },
+    ],
+  });
+
+  const { candidates } = await scoreCandidatesForOrder(db, 'order-1');
+  const busy = candidates.find((c) => c.motoboyId === 'busy')!;
+  const free = candidates.find((c) => c.motoboyId === 'free')!;
+
+  assert.ok(busy.nearestActiveDrop != null, 'motoboy ocupado devia ter uma entrega ativa próxima marcada');
+  assert.ok(busy.nearestActiveDropKm != null && busy.nearestActiveDropKm < 1.5, `esperado <1,5km, veio ${busy.nearestActiveDropKm}`);
+  assert.equal(free.nearestActiveDrop, null);
+  assert.equal(free.nearestActiveDropKm, null);
+});
+
 test('Bloco 3: pedido sem estimativa de preparo despacha na hora (fallback já usado no Bloco 1)', async () => {
   const db = makeFakeDb({
     orderRow: baseOrder({ status: 'waiting_dispatch', preparing_at: null, prep_estimate_minutes: null }),
