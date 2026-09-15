@@ -73,7 +73,13 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
   const origin: LatLng = { latitude: rst!.latitude as number, longitude: rst!.longitude as number };
 
   // candidatos: mesmo restaurante, ainda sem motoboy, sem grupo, prontos p/ despacho,
-  // mesma condição de pagamento do lead (não misturar "receber na entrega" com pago online)
+  // mesma condição de pagamento do lead (não misturar "receber na entrega" com pago online).
+  // 'offered' fica de fora de propósito: um pedido com oferta em aberto para
+  // um motoboy (dentro da janela de aceitar/recusar) não pode ser "roubado"
+  // pra dentro de um grupo novo — isso deixaria a oferta original dele
+  // desatualizada (valor errado, pedido já em outro grupo). Só entra no
+  // agrupamento se ainda não foi ofertado a ninguém, ou se a oferta anterior
+  // já expirou/foi recusada (aí volta pra 'searching').
   const { data: siblings } = await db
     .from('orders')
     .select('id, latitude, longitude, customer_address, region, created_at')
@@ -83,7 +89,7 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
     .is('group_id', null)
     .eq('dispatch_hold', false)
     .in('status', ['waiting_dispatch', 'preparing', 'ready'])
-    .in('dispatch_state', ['none', 'searching', 'offered'])
+    .in('dispatch_state', ['none', 'searching'])
     .eq('payment_method', lead.payment_method)
     .eq('payment_status', lead.payment_status)
     .order('created_at', { ascending: true })

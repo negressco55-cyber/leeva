@@ -897,3 +897,16 @@ pra cadastrar pelo site.
   (`scripts/generate-offer-sound.mjs` → `assets/sounds/offer.wav`),
   tocado mesmo com o celular no silencioso — motoboy não pode perder
   oferta por isso. Isso precisa de um novo build do APK pra valer.
+
+## 2026-09-15 — pedido com oferta em aberto não entra mais em grupo novo
+
+- Achei isso respondendo uma pergunta da usuária sobre o timing do
+  agrupamento: um pedido cuja oferta já estava com um motoboy (dentro
+  da janela de aceitar/recusar) podia ser "puxado" pra dentro de um
+  grupo novo formado por um pedido seguinte — a oferta antiga continuava
+  aberta pro motoboy original, mas com o pedido já reatribuído a outro
+  grupo/motoboy por baixo. Corrigido: agrupamento só pega pedidos que
+  ainda NÃO foram ofertados a ninguém (ou cuja oferta anterior já
+  expirou/foi recusada). Sem teste automatizado ainda — a lógica de
+  agrupamento com banco de dados não tem suíte de testes mockada nesta
+  sessão (igual o motor de despacho antes do Bloco 3).
