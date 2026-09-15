@@ -9,6 +9,9 @@ import {
   resolveApiKey,
   resolveAndApplyDeliveryLocation,
   deliveryLocationErrorMessage,
+  isRestaurantOpen,
+  closedMessage,
+  type BusinessHours,
 } from '@leeva/shared/services';
 import { isValidLatLng } from '@leeva/shared/services';
 
@@ -51,6 +54,10 @@ export async function POST(req: Request) {
     // rate limit por restaurante (janela deslizante no banco)
     const rl = await checkRateLimit(db, 'deliveries', restaurantId);
     if (!rl.allowed) return tooManyRequests(rl.retryAfter);
+
+    const { data: rst0 } = await db.from('restaurants').select('business_hours').eq('id', restaurantId).maybeSingle();
+    const hours = rst0?.business_hours as BusinessHours | null;
+    if (!isRestaurantOpen(hours)) return businessError(closedMessage(hours));
 
     const provider = getOrderProvider('api');
     const parsed = await provider.parse(body);

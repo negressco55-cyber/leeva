@@ -8,7 +8,9 @@ import {
   type FleetMode,
   type LogisticsConfig,
 } from '@leeva/shared';
+import { defaultBusinessHours, type BusinessHours } from '@leeva/shared/services/business-hours';
 import { apiPost } from '../_lib/client';
+import { BusinessHoursEditor } from '../_lib/BusinessHoursEditor';
 
 type Plan = { code: string; name: string; monthly_price: number; per_delivery_price: number; features: unknown };
 
@@ -19,13 +21,22 @@ export default function ConfigForm({
   plans,
 }: {
   isOwner: boolean;
-  initial: { name: string; address: string; latitude: number | null; longitude: number | null; fleetMode: FleetMode; logistics: LogisticsConfig };
+  initial: {
+    name: string;
+    address: string;
+    latitude: number | null;
+    longitude: number | null;
+    fleetMode: FleetMode;
+    logistics: LogisticsConfig;
+    businessHours: BusinessHours | null;
+  };
   currentPlan: string;
   plans: Plan[];
 }) {
   const router = useRouter();
   const [fleetMode, setFleetMode] = useState(initial.fleetMode);
   const [L, setL] = useState<LogisticsConfig>(initial.logistics);
+  const [hours, setHours] = useState<BusinessHours>(initial.businessHours ?? defaultBusinessHours());
   const [lat, setLat] = useState(initial.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
   const [address, setAddress] = useState(initial.address ?? '');
@@ -45,6 +56,7 @@ export default function ConfigForm({
         latitude: lat ? Number(lat) : undefined,
         longitude: lng ? Number(lng) : undefined,
         logistics: L,
+        businessHours: hours,
       });
       setMsg({ ok: true, warnings: r.warnings });
       router.refresh();
@@ -171,6 +183,13 @@ export default function ConfigForm({
         </div>
       </div>
 
+      <div className="card">
+        <div className="card-title">Horário de funcionamento</div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+          Fora desse horário o Leeva não despacha pedidos e novos pedidos não podem ser criados.
+        </p>
+        <BusinessHoursEditor value={hours} onChange={setHours} disabled={!isOwner} />
+      </div>
 
       {msg?.warnings?.length ? (
         <div className="op-alert warning">

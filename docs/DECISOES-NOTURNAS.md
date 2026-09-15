@@ -1061,3 +1061,58 @@ pra cadastrar pelo site.
   textos na tela do motoboy prometem um e-mail que ainda não sai.
 - Textos atualizados avisando sobre o e-mail: tela "Cadastro em
   análise" do PWA (`OnboardingGate.tsx`) e do nativo (`HomeScreen.tsx`).
+
+## 2026-09-15 — completar cadastro do restaurante (horário, termos, volume)
+
+Pacote grande pedido pela usuária, tudo nesta entrada:
+
+**Chave Pix fora do cadastro do motoboy** — não é mais exigida em
+`/quero-entregar`; ele cadastra depois na aba Carteira (o sistema já
+tratava chave ausente como "awaiting_pix", não precisou mexer em mais
+nada).
+
+**Etapa 3 (config logística) removida do cadastro do restaurante** —
+taxa cobrada e raio saíram do onboarding porque taxa já não é mais
+editável pelo restaurante (fica no padrão do sistema / admin ajusta
+depois). Raio de atendimento volta ao padrão (8km) e o restaurante
+ajusta em Configurações se precisar.
+
+**Campo "valor por entrega" faltando no editor de planos do admin** —
+a API já aceitava e salvava `per_delivery_price`, mas o formulário em
+Planos não tinha o campo pra editar (só existia "margem por entrega").
+Adicionado o input que faltava — não inventei nenhum valor, só destravei
+a edição do que já existia no banco.
+
+**Horário de funcionamento** — novo (`restaurants.business_hours`,
+JSON por dia da semana, sem múltiplos turnos). Função pura
+`isRestaurantOpen()` (packages/shared/services/business-hours.ts, BR
+= UTC-3 fixo, sem depender de timezone do servidor) decide se está
+aberto; usada pra: (1) motor de despacho pular pedido de restaurante
+fechado sem contar tentativa nem gerar alerta; (2) bloquear criação
+manual de pedido (`/api/orders`) e a API externa (`/api/v1/deliveries`)
+fora do expediente, com mensagem clara. Editável no cadastro (nova
+etapa 3, com o campo de volume esperado junto) e depois em
+Configurações. 8 testes cobrindo a função pura (dentro/fora do
+horário, dia fechado, dia sem configurar, virada de noite, 24h).
+
+**Termos de uso do restaurante** — mesmo mecanismo do motoboy,
+reaproveitando `terms_versions` (agora com coluna `audience`
+'motoboy'/'restaurant' pra não misturar as duas versões — achei e
+corrigi de propósito um bug que isso quase causou: a query de
+elegibilidade do motoboy em `autodispatch.ts` pegava a versão ativa
+mais alta SEM filtrar por audience, o que ia quebrar todo mundo assim
+que a versão de restaurante nascesse com número maior). Tabela nova
+`restaurant_terms_acceptance` (audit) + `restaurants.terms_accepted_version`.
+Bloqueia o painel (`(app)/layout.tsx`, mesmo padrão do gate do
+motoboy) até aceitar; texto placeholder
+"[TEXTO PROVISÓRIO — substituir pelo texto jurídico definitivo antes
+de produção real]"; se sair versão nova, quem aceitou a antiga é
+barrado até re-aceitar (mesma lógica de `needsTermsAcceptance`, já
+existia pro motoboy).
+
+**Volume esperado de pedidos** — campo numérico livre e opcional
+no cadastro (`restaurants.expected_daily_orders`), só informativo,
+visível na página do restaurante no admin — nunca aparece de volta
+pro restaurante.
+
+Migration 0042 pendente de aplicar no Supabase.

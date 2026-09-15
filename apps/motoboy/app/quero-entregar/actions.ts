@@ -26,8 +26,6 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   const phone = onlyDigits(String(form.get('phone') ?? ''));
   const cpf = String(form.get('cpf') ?? '');
   const city = String(form.get('city') ?? 'João Pessoa - PB').trim() || 'João Pessoa - PB';
-  const pixKey = String(form.get('pixKey') ?? '').trim();
-  const pixKeyType = String(form.get('pixKeyType') ?? 'cpf');
   const personalDoc = form.get('personalDoc') as File | null;
   const vehicleDoc = form.get('vehicleDoc') as File | null;
 
@@ -36,7 +34,6 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   if (password.length < 6) return { error: 'A senha precisa ter ao menos 6 caracteres.' };
   if (phone.length < 10) return { error: 'Telefone inválido (com DDD).' };
   if (!isValidCpf(cpf)) return { error: 'CPF inválido.' };
-  if (pixKey.length < 5) return { error: 'Informe sua chave Pix.' };
   for (const [label, f] of [['pessoal', personalDoc], ['do veículo', vehicleDoc]] as const) {
     if (!f || f.size === 0) return { error: `Anexe o documento ${label}.` };
     if (f.size > MAX_FILE) return { error: `O documento ${label} passa de 5 MB.` };
@@ -65,8 +62,6 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
     phone,
     cpf,
     city,
-    pixKey,
-    pixKeyType,
   });
   if (!res.ok) {
     await admin.auth.admin.deleteUser(userId).catch(() => {});

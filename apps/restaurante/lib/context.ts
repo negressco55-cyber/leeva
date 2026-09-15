@@ -10,6 +10,7 @@ export type RestaurantContext = {
   restaurantId: string;
   restaurantName: string;
   fullName: string | null;
+  termsAcceptedVersion: number | null;
 };
 
 /**
@@ -27,7 +28,7 @@ export const requireRestaurantContext = cache(async function requireRestaurantCo
 
   const { data: profile } = await supabase
     .from('users')
-    .select('role, full_name, restaurant_id, restaurants(name)')
+    .select('role, full_name, restaurant_id, restaurants(name, terms_accepted_version)')
     .eq('id', user.id)
     .single();
 
@@ -43,6 +44,9 @@ export const requireRestaurantContext = cache(async function requireRestaurantCo
     restaurantName:
       (profile as { restaurants?: { name?: string } | null }).restaurants?.name ?? 'Restaurante',
     fullName: profile.full_name,
+    termsAcceptedVersion:
+      (profile as { restaurants?: { terms_accepted_version?: number | null } | null }).restaurants
+        ?.terms_accepted_version ?? null,
   };
 });
 
@@ -58,7 +62,7 @@ export const getApiContext = cache(async function getApiContext(): Promise<Resta
   if (!user) return null;
   const { data: profile } = await supabase
     .from('users')
-    .select('role, full_name, restaurant_id, restaurants(name)')
+    .select('role, full_name, restaurant_id, restaurants(name, terms_accepted_version)')
     .eq('id', user.id)
     .single();
   if (!profile?.restaurant_id || profile.role === 'motoboy') return null;
@@ -70,6 +74,9 @@ export const getApiContext = cache(async function getApiContext(): Promise<Resta
     restaurantName:
       (profile as { restaurants?: { name?: string } | null }).restaurants?.name ?? 'Restaurante',
     fullName: profile.full_name,
+    termsAcceptedVersion:
+      (profile as { restaurants?: { terms_accepted_version?: number | null } | null }).restaurants
+        ?.terms_accepted_version ?? null,
   };
 });
 

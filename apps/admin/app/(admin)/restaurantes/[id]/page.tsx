@@ -48,6 +48,8 @@ export default async function RestaurantDetail({ params }: { params: Promise<{ i
             <dd>{r.onboarding_completed ? 'Concluído' : 'Pendente'}</dd>
             <dt>Cadastro</dt>
             <dd>{new Date(r.created_at).toLocaleString('pt-BR')}</dd>
+            <dt>Volume esperado</dt>
+            <dd>{r.expected_daily_orders != null ? `~${r.expected_daily_orders} pedidos/dia` : '— (não informado)'}</dd>
             <dt>Equipe</dt>
             <dd>{d.team.map((u) => `${u.full_name ?? '—'} (${u.role})`).join(', ') || '—'}</dd>
           </dl>

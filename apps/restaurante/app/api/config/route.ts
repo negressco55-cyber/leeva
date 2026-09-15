@@ -1,6 +1,7 @@
 import { getApiContext, adminDb } from '@/lib/context';
 import { json, unauthorized, forbidden, serverError } from '@/lib/api';
 import { DEFAULT_LOGISTICS_CONFIG, getPayoutPolicy } from '@leeva/shared/services';
+import { sanitizeBusinessHours } from '@leeva/shared/services/business-hours';
 import type { LogisticsConfig } from '@leeva/shared';
 import type { Database } from '@leeva/shared/types';
 
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
       latitude?: number;
       longitude?: number;
       logistics?: Partial<LogisticsConfig>;
+      businessHours?: unknown;
     };
     const db = adminDb();
 
@@ -82,9 +84,12 @@ export async function POST(req: Request) {
       ? body.fleetMode
       : undefined;
 
+    const businessHours = sanitizeBusinessHours(body.businessHours);
+
     const upd: Database['public']['Tables']['restaurants']['Update'] = {
       logistics_config: logistics as unknown as Database['public']['Tables']['restaurants']['Update']['logistics_config'],
     };
+    if (businessHours) upd.business_hours = businessHours as unknown as Database['public']['Tables']['restaurants']['Update']['business_hours'];
     if (fleetMode) upd.fleet_mode = fleetMode as 'own' | 'leeva' | 'hybrid';
     if (typeof body.latitude === 'number' && typeof body.longitude === 'number') {
       upd.latitude = body.latitude;

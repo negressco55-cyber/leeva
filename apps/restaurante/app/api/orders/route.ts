@@ -6,6 +6,9 @@ import {
   resolveDeliveryLocation,
   deliveryLocationErrorMessage,
   regionFromAddress,
+  isRestaurantOpen,
+  closedMessage,
+  type BusinessHours,
 } from '@leeva/shared/services';
 
 /** Cria um pedido manual. */
@@ -13,6 +16,11 @@ export async function POST(req: Request) {
   try {
     const ctx = await getApiContext();
     if (!ctx) return unauthorized();
+
+    const db = adminDb();
+    const { data: rst0 } = await db.from('restaurants').select('business_hours').eq('id', ctx.restaurantId).maybeSingle();
+    const hours = rst0?.business_hours as BusinessHours | null;
+    if (!isRestaurantOpen(hours)) return businessError(closedMessage(hours));
 
     let body: Record<string, unknown>;
     try {
@@ -25,8 +33,6 @@ export async function POST(req: Request) {
     const provider = getOrderProvider('manual');
     const parsed = await provider.parse(body);
     if (!parsed.ok) return badRequest(parsed.error);
-
-    const db = adminDb();
 
     // VALIDAÇÃO DO ENDEREÇO — antes de criar/calcular. Endereço inventado
     // não passa; instabilidade do geocoder pede confirmação, não bloqueia.

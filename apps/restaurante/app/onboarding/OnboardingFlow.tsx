@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FLEET_MODE_LABELS, formatCurrencyBRL, type FleetMode } from '@leeva/shared';
+import { defaultBusinessHours, type BusinessHours } from '@leeva/shared/services/business-hours';
 import { apiGet, apiPost } from '../(app)/_lib/client';
+import { BusinessHoursEditor } from '../(app)/_lib/BusinessHoursEditor';
 
 type Plan = {
   code: string;
@@ -39,8 +41,8 @@ export default function OnboardingFlow({
   const [geoMsg, setGeoMsg] = useState<string | null>(null);
   const [located, setLocated] = useState(initial.latitude != null && initial.longitude != null);
   const [fleetMode, setFleetMode] = useState<FleetMode>(initial.fleetMode);
-  const [customerFee, setCustomerFee] = useState(String((initial.logistics.customer_fee as number) ?? 9.5));
-  const [radius, setRadius] = useState(String((initial.logistics.service_radius_km as number) ?? 8));
+  const [hours, setHours] = useState<BusinessHours>(defaultBusinessHours());
+  const [expectedOrders, setExpectedOrders] = useState('');
   const [planCode, setPlanCode] = useState(plans[0]?.code ?? 'start');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -75,8 +77,8 @@ export default function OnboardingFlow({
         latitude: lat ? Number(lat) : null,
         longitude: lng ? Number(lng) : null,
         fleetMode,
-        customerFee: Number(customerFee) || 9.5,
-        serviceRadiusKm: Number(radius) || 8,
+        businessHours: hours,
+        expectedDailyOrders: expectedOrders ? Number(expectedOrders) : null,
         planCode,
       });
       router.push('/dashboard');
@@ -161,18 +163,21 @@ export default function OnboardingFlow({
 
       {step === 3 && (
         <div className="card" style={{ display: 'grid', gap: 10 }}>
-          <div className="card-title">Configuração de logística</div>
-          <label>
-            Taxa de entrega cobrada (R$)
-            <input className="input" type="number" step="0.5" value={customerFee} onChange={(e) => setCustomerFee(e.target.value)} />
-          </label>
-          <label>
-            Raio de atendimento (km)
-            <input className="input" type="number" step="1" value={radius} onChange={(e) => setRadius(e.target.value)} />
+          <div className="card-title">Horário de funcionamento</div>
+          <BusinessHoursEditor value={hours} onChange={setHours} />
+          <label style={{ marginTop: 4 }}>
+            Quantos pedidos por dia você espera fazer, aproximadamente? (opcional)
+            <input
+              className="input"
+              type="number"
+              min={0}
+              placeholder="ex: 20"
+              value={expectedOrders}
+              onChange={(e) => setExpectedOrders(e.target.value)}
+            />
           </label>
           <div className="muted" style={{ fontSize: 12 }}>
-            Você pode ajustar tudo depois em Configurações (remuneração do entregador, agrupamento,
-            timeout de oferta, frete grátis, etc.).
+            Só pra gente se preparar — não trava nada e não aparece de volta pra você depois.
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn" onClick={() => setStep(2)}>Voltar</button>

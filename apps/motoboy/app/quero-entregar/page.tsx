@@ -43,23 +43,6 @@ export default function QueroEntregarPage() {
           <input className="input" name="city" defaultValue="João Pessoa - PB" required />
         </label>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <label style={{ flex: 1 }}>
-            Chave Pix
-            <input className="input" name="pixKey" required />
-          </label>
-          <label style={{ width: 130 }}>
-            Tipo
-            <select className="input" name="pixKeyType" defaultValue="cpf">
-              <option value="cpf">CPF</option>
-              <option value="phone">Celular</option>
-              <option value="email">E-mail</option>
-              <option value="random">Aleatória</option>
-              <option value="cnpj">CNPJ</option>
-            </select>
-          </label>
-        </div>
-
         <label>
           Documento pessoal (CNH ou RG) — foto ou PDF
           <input className="input" type="file" name="personalDoc" accept="image/*,application/pdf" required />
@@ -68,6 +51,10 @@ export default function QueroEntregarPage() {
           Documento do veículo (CRLV) — foto ou PDF
           <input className="input" type="file" name="vehicleDoc" accept="image/*,application/pdf" required />
         </label>
+
+        <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+          A chave Pix pra receber os repasses você cadastra depois, na aba Carteira.
+        </p>
 
         {state.error && <p style={{ color: 'var(--danger)' }}>{state.error}</p>}
 

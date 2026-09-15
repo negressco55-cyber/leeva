@@ -34,11 +34,15 @@ export function isValidCpf(v: string): boolean {
 // ---------------------------------------------------------------------------
 // TERMOS DE USO
 // ---------------------------------------------------------------------------
-export async function getActiveTerms(db: DB): Promise<{ version: number; content: string } | null> {
+export async function getActiveTerms(
+  db: DB,
+  audience: 'motoboy' | 'restaurant' = 'motoboy',
+): Promise<{ version: number; content: string } | null> {
   const { data } = await db
     .from('terms_versions')
     .select('version, content')
     .eq('active', true)
+    .eq('audience', audience)
     .order('version', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -100,8 +104,9 @@ export type SelfServiceDriverInput = {
   phone: string;
   cpf: string;
   city: string;
-  pixKey: string;
-  pixKeyType: string;
+  /** Cadastra depois, na Carteira — não é mais pedido no cadastro inicial. */
+  pixKey?: string;
+  pixKeyType?: string;
 };
 
 export async function createSelfServiceDriver(
@@ -135,8 +140,8 @@ export async function createSelfServiceDriver(
       phone: input.phone.slice(0, 40),
       cpf,
       city: input.city.slice(0, 120),
-      pix_key: input.pixKey.slice(0, 140),
-      pix_key_type: input.pixKeyType,
+      pix_key: input.pixKey ? input.pixKey.slice(0, 140) : null,
+      pix_key_type: input.pixKeyType ?? null,
     })
     .select('id')
     .single();

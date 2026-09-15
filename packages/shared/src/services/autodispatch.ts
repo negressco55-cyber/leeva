@@ -20,6 +20,7 @@ import { haversineKm, minutesForKm, legEtaMin, isValidLatLng, type LatLng } from
 import { getRoutingService } from './routing';
 import { getPayoutPolicy, computeDriverPayout, computeGroupedStopPayout, computeLogisticsFinance, getPlanMargin } from './payout';
 import { adjustCredit } from './credits';
+import { isRestaurantOpen, type BusinessHours } from './business-hours';
 import { classifyOfferQuality } from './reputation';
 import { sendPushToMotoboy } from './push';
 import { planGroupForOrder, applyGroupPlan, dissolveGroup, type GroupPlan } from './grouping-dispatch';
@@ -146,6 +147,7 @@ export async function scoreCandidatesForOrder(
     .from('terms_versions')
     .select('version')
     .eq('active', true)
+    .eq('audience', 'motoboy')
     .order('version', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -413,11 +415,14 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
     // config do restaurante
     const { data: rst } = await db
       .from('restaurants')
-      .select('logistics_config')
+      .select('logistics_config, business_hours')
       .eq('id', o.restaurant_id)
       .maybeSingle();
     const cfg = { ...DEFAULT_LOGISTICS_CONFIG, ...((rst?.logistics_config as Partial<LogisticsConfig>) ?? {}) };
     if (!cfg.auto_dispatch_enabled) continue;
+    // fora do horário de funcionamento — não despacha (a cozinha nem deve
+    // estar preparando; quando reabrir, o pedido volta a ser considerado).
+    if (!isRestaurantOpen(rst?.business_hours as BusinessHours | null)) continue;
 
     // motoboys já recusados/timeout neste pedido
     const { data: prev } = await db

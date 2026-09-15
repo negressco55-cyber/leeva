@@ -16,6 +16,7 @@
     "./constants": "./src/constants.ts",
     "./services": "./src/services/index.ts",
     "./services/prep-status": "./src/services/prep-status.ts",
+    "./services/business-hours": "./src/services/business-hours.ts",
     "./integrations": "./src/integrations/index.ts",
     "./lib/crypto": "./src/lib/crypto.ts"
   },

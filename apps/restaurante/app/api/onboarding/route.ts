@@ -7,6 +7,7 @@ import {
   resolvePickupLocation,
   deliveryLocationErrorMessage,
 } from '@leeva/shared/services';
+import { sanitizeBusinessHours } from '@leeva/shared/services/business-hours';
 
 export async function POST(req: Request) {
   const ctx = await getApiContext();
@@ -18,8 +19,8 @@ export async function POST(req: Request) {
       latitude?: number;
       longitude?: number;
       fleetMode?: string;
-      customerFee?: number;
-      serviceRadiusKm?: number;
+      businessHours?: unknown;
+      expectedDailyOrders?: number | null;
       planCode?: string;
       addressConfirmed?: boolean;
     };
@@ -46,6 +47,12 @@ export async function POST(req: Request) {
       ['own', 'leeva', 'hybrid'].includes(b.fleetMode ?? '') ? b.fleetMode : 'leeva'
     ) as 'own' | 'leeva' | 'hybrid';
 
+    const businessHours = sanitizeBusinessHours(b.businessHours);
+    const expectedDailyOrders =
+      b.expectedDailyOrders != null && Number.isFinite(Number(b.expectedDailyOrders))
+        ? Math.max(0, Math.round(Number(b.expectedDailyOrders)))
+        : null;
+
     await db
       .from('restaurants')
       .update({
@@ -54,11 +61,9 @@ export async function POST(req: Request) {
         latitude: pickup.latitude,
         longitude: pickup.longitude,
         fleet_mode: fleetMode,
-        logistics_config: {
-          ...DEFAULT_LOGISTICS_CONFIG,
-          customer_fee: Math.min(100, Math.max(0, Number(b.customerFee) || DEFAULT_LOGISTICS_CONFIG.customer_fee)),
-          service_radius_km: Math.min(50, Math.max(1, Number(b.serviceRadiusKm) || DEFAULT_LOGISTICS_CONFIG.service_radius_km)),
-        },
+        logistics_config: { ...DEFAULT_LOGISTICS_CONFIG },
+        business_hours: businessHours as never,
+        expected_daily_orders: expectedDailyOrders,
         onboarding_completed: true,
       })
       .eq('id', ctx.restaurantId);

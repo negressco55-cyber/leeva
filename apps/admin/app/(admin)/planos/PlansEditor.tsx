@@ -79,6 +79,7 @@ export function PlansEditor({ initial }: { initial: Plan[] }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
             <label>Nome<input className="input" value={p.name} onChange={(e) => update(i, { name: e.target.value })} /></label>
             <label>Mensalidade (R$)<input className="input" type="number" step="0.01" value={p.monthly_price} onChange={(e) => update(i, { monthly_price: Number(e.target.value) })} /></label>
+            <label>Valor por entrega (R$)<input className="input" type="number" step="0.01" value={p.per_delivery_price} onChange={(e) => update(i, { per_delivery_price: Number(e.target.value) })} /></label>
             <label>Margem por entrega (R$)<input className="input" type="number" step="0.01" value={p.per_delivery_margin} onChange={(e) => update(i, { per_delivery_margin: Number(e.target.value) })} /></label>
             <label>Trial (dias)<input className="input" type="number" value={p.trial_days} onChange={(e) => update(i, { trial_days: Number(e.target.value) })} /></label>
             <label>Ordem<input className="input" type="number" value={p.sort_order} onChange={(e) => update(i, { sort_order: Number(e.target.value) })} /></label>

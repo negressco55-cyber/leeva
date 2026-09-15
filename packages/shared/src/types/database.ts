@@ -1776,7 +1776,9 @@ export type Database = {
       restaurants: {
         Row: {
           address: string | null
+          business_hours: Json | null
           created_at: string
+          expected_daily_orders: number | null
           fleet_mode: Database["public"]["Enums"]["fleet_mode"]
           id: string
           latitude: number | null
@@ -1786,11 +1788,14 @@ export type Database = {
           onboarding_completed: boolean
           phone: string | null
           settings: Json
+          terms_accepted_version: number | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          business_hours?: Json | null
           created_at?: string
+          expected_daily_orders?: number | null
           fleet_mode?: Database["public"]["Enums"]["fleet_mode"]
           id?: string
           latitude?: number | null
@@ -1800,11 +1805,14 @@ export type Database = {
           onboarding_completed?: boolean
           phone?: string | null
           settings?: Json
+          terms_accepted_version?: number | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          business_hours?: Json | null
           created_at?: string
+          expected_daily_orders?: number | null
           fleet_mode?: Database["public"]["Enums"]["fleet_mode"]
           id?: string
           latitude?: number | null
@@ -1814,6 +1822,7 @@ export type Database = {
           onboarding_completed?: boolean
           phone?: string | null
           settings?: Json
+          terms_accepted_version?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -1875,6 +1884,7 @@ export type Database = {
       terms_versions: {
         Row: {
           active: boolean
+          audience: string
           content: string
           id: string
           published_at: string
@@ -1882,6 +1892,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          audience?: string
           content: string
           id?: string
           published_at?: string
@@ -1889,12 +1900,45 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          audience?: string
           content?: string
           id?: string
           published_at?: string
           version?: number
         }
         Relationships: []
+      }
+      restaurant_terms_acceptance: {
+        Row: {
+          accepted_at: string
+          id: string
+          ip: string | null
+          restaurant_id: string
+          terms_version: number
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          ip?: string | null
+          restaurant_id: string
+          terms_version: number
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          ip?: string | null
+          restaurant_id?: string
+          terms_version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_terms_acceptance_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tracking_tokens: {
         Row: {
