@@ -43,7 +43,7 @@ export async function requestPasswordReset(
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const supabase = await createLeevaServerClient();
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${base}/auth/callback?next=/redefinir-senha`,
+    redirectTo: `${base}/redefinir-senha`,
   });
   // sempre "ok", exista ou não a conta — não revela se o e-mail está cadastrado.
   return { ok: true };
