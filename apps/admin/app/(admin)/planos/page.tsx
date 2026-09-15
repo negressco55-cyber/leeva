@@ -29,7 +29,7 @@ export default async function Planos() {
           per_km: Number(cfg.per_km),
           per_km_grouped: Number(cfg.per_km_grouped),
           min_payout: Number(cfg.min_payout),
-          group_radius_km: Number(cfg.group_radius_km ?? 1.5),
+          group_radius_km: Number(cfg.group_radius_km ?? 1),
           group_max_stops: Number(cfg.group_max_stops ?? 3),
         }}
       />

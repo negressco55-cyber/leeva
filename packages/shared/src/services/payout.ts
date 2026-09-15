@@ -19,7 +19,7 @@ export const DEFAULT_PAYOUT_CONFIG: PayoutConfig = {
   min_payout: 5,
   peak_bonus: 0,
   peak_hours: [[18, 21]],
-  group_radius_km: 1.5,
+  group_radius_km: 1,
   group_max_stops: 3,
 };
 

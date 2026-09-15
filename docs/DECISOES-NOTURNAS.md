@@ -939,3 +939,15 @@ pra cadastrar pelo site.
   devolução de crédito não tem teste automatizado (precisa mockar
   RPC de crédito e política de planos) — mesma limitação de cobertura
   já registrada pro motor de despacho com banco de dados.
+
+## 2026-09-15 — raio de agrupamento/corrida extra: 1,5 km → 1 km
+
+- Usuária pediu pra apertar o raio padrão pra 1 km. Mudei o padrão do
+  código (`DEFAULT_PAYOUT_CONFIG.group_radius_km`, em `payout.ts`) —
+  vale tanto pra rota agrupada de verdade quanto pra "corrida extra"
+  (são o mesmo campo, "Raio p/ agrupar" na aba Planos do admin).
+  IMPORTANTE: se já existir uma linha salva em `payout_policies`
+  (global ou por restaurante) com 1,5 km explícito, esse valor salvo
+  continua valendo — o padrão do código só entra quando não há nada
+  salvo. Pra restaurantes que já têm política salva, precisa reabrir
+  a tela de Planos e salvar de novo (ou ajustar direto o campo lá).
