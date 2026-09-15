@@ -1027,3 +1027,15 @@ pra cadastrar pelo site.
   do restaurante usar no dia a dia); e o card "Taxas e remuneração"
   em Configurações (que eu tinha deixado como leitura — ela pediu
   pra tirar de vez, não só travar a edição).
+
+## 2026-09-15 — cadastro de motoboy quebrado (limite de 1 MB do Next.js)
+
+- Usuária tentou se cadastrar como motoboy (`/quero-entregar`) e caiu
+  em "Application error: a server-side exception has occurred" —
+  bug antigo, não era desta sessão. O formulário manda os documentos
+  (CNH/RG + CRLV, até 5 MB cada) direto por Server Action do Next.js,
+  que por padrão só aceita até 1 MB no corpo da requisição — qualquer
+  foto de documento de celular já estoura isso.
+- Corrigido: `experimental.serverActions.bodySizeLimit: '12mb'` em
+  `apps/motoboy/next.config.mjs`. Precisa validar em produção depois
+  do deploy — usuária vai tentar cadastrar de novo.
