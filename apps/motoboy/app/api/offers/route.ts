@@ -96,6 +96,9 @@ export async function GET(req: Request) {
                 address: String(s.address ?? ''),
                 region: (s.region as string | null) ?? null,
                 payout: Number(s.payout),
+                // km desta parada até a anterior (ou até a coleta, na 1ª parada) —
+                // já calculado no plano de agrupamento (grouping-dispatch.ts).
+                legKm: s.legKm != null ? Number(s.legKm) : null,
               }))
             : null,
           routeTotalKm: off.distance_total_km != null ? Number(off.distance_total_km) : null,

@@ -45,7 +45,7 @@ type Offer = {
   preparingAt: string | null;
   prepEstimateMinutes: number | null;
   grouped: boolean;
-  routeStops: { seq: number; address: string; region: string | null; payout: number }[] | null;
+  routeStops: { seq: number; address: string; region: string | null; payout: number; legKm: number | null }[] | null;
   routeTotalKm: number | null;
 };
 
@@ -54,6 +54,37 @@ function prepBadge(o: Pick<Offer, 'readyAt' | 'preparingAt' | 'prepEstimateMinut
   if (p.state === 'ready') return { text: p.label, color: 'var(--ok)' };
   if (p.state === 'preparing') return { text: p.label, color: 'var(--warn)' };
   return null;
+}
+
+let offerAudioCtx: AudioContext | null = null;
+
+/** Bipe de duas notas ao chegar oferta — sem depender de arquivo de áudio.
+ *  Navegador só libera som depois de alguma interação do usuário na página;
+ *  se ainda não houve, falha em silêncio (a vibração continua funcionando). */
+function playOfferSound(): void {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    if (!offerAudioCtx) offerAudioCtx = new Ctx();
+    const ctx = offerAudioCtx;
+    if (ctx.state === 'suspended') void ctx.resume();
+    const now = ctx.currentTime;
+    [880, 1180].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const start = now + i * 0.16;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.18);
+    });
+  } catch {
+    /* ambiente sem áudio (ex.: preview em SSR) — ignora */
+  }
 }
 
 const QUALITY_LABEL: Record<string, { text: string; color: string }> = {
@@ -88,6 +119,7 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
             } catch {
               /* ok */
             }
+            playOfferSound();
           }
         }
       }
@@ -195,7 +227,12 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                   {o.routeStops!.map((s) => (
                     <div key={s.seq} className="offer-leg">
                       <span className="leg-dot brand" />
-                      <span className="leg-meta">{s.seq}ª parada</span>
+                      <span className="leg-meta">
+                        {s.seq}ª parada
+                        {s.legKm != null
+                          ? ` · ${s.legKm.toFixed(1)} km ${s.seq === 1 ? 'da coleta' : 'da parada anterior'}`
+                          : ''}
+                      </span>
                       <span className="leg-addr">{s.region ?? s.address}</span>
                       <span className="leg-pay">{formatCurrencyBRL(s.payout)}</span>
                     </div>

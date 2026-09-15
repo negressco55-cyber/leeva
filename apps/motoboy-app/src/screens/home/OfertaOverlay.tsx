@@ -112,7 +112,10 @@ export function OfertaOverlay(): React.JSX.Element | null {
                       <Text style={styles.legBadgeLabel}>{i === 0 ? 'A' : String.fromCharCode(65 + i)}</Text>
                     </View>
                     <View style={styles.legTextCol}>
-                      <Text style={styles.legMeta}>{s.seq}ª parada</Text>
+                      <Text style={styles.legMeta}>
+                        {s.seq}ª parada
+                        {s.legKm != null ? ` · ${s.legKm.toFixed(1)} km ${s.seq === 1 ? 'da coleta' : 'da parada anterior'}` : ''}
+                      </Text>
                       <Text style={styles.legAddr} numberOfLines={2}>{s.region ?? s.address}</Text>
                     </View>
                     <Text style={styles.legPay}>{brl(s.payout)}</Text>

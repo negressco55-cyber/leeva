@@ -6,6 +6,7 @@ import { advanceDelivery, deliverWithProof, getActiveDeliveries, getOffers, resp
 import { sendLocation, setOnline } from '../api/motoboy';
 import { subscribeMotoboyRealtime, unsubscribeMotoboyRealtime } from '../api/realtime';
 import { startBackgroundLocation, stopBackgroundLocation } from '../lib/backgroundLocation';
+import { playOfferAlert } from '../lib/offerAlert';
 import { NEXT_STATUS, type Delivery, type Offer } from '../types';
 import { useAuth } from './AuthContext';
 import { usePosition } from './PositionContext';
@@ -61,7 +62,12 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
   const hasActiveRef = useRef(false);
 
   const setOffer = useCallback((next: Offer | null) => {
-    setOfferState((prev) => (sameOffer(prev, next) ? prev : next));
+    setOfferState((prev) => {
+      if (sameOffer(prev, next)) return prev;
+      // oferta nova de verdade (não é a mesma sendo re-lida no polling) → avisa.
+      if (next && next.offerId !== prev?.offerId) playOfferAlert();
+      return next;
+    });
   }, []);
   const setActive = useCallback((next: Delivery | null) => {
     hasActiveRef.current = next != null;

@@ -872,3 +872,28 @@ pra cadastrar pelo site.
 - Isso fecha os 3 blocos do despacho sincronizado combinados nesta
   sessão. Falta a usuária validar os 3 na prática (nenhum foi testado
   por ela ainda) e aplicar as migrations 0036–0040 pendentes.
+
+## 2026-09-14 — km entre paradas da rota agrupada + timer + som na oferta
+
+- Rota agrupada (várias entregas pro mesmo motoboy) já calculava o km
+  de cada parada até a anterior (`legKm`, em `grouping-dispatch.ts`) —
+  só não estava chegando até a tela do motoboy. Agora aparece: "2ª
+  parada · 1,2 km da parada anterior" (a 1ª mostra "da coleta").
+- Agrupamento continua 100% automático — o motor de despacho junta
+  pedidos próximos do mesmo restaurante na hora de montar a oferta.
+  O restaurante NÃO pede agrupamento manualmente; hoje ele só cria
+  pedido por pedido, sem opção de montar uma rota com várias paradas
+  na mão. Expliquei isso pra usuária em vez de construir uma tela
+  nova sem ela ter confirmado que quer esse fluxo manual.
+- Tempo pro motoboy aceitar/recusar a oferta: baixei o padrão de 45s
+  pra 20s (`offer_timeout_seconds`), como pedido. O relógio/contagem
+  regressiva já existia nos dois cards de oferta (nativo e PWA) —
+  não precisou de tela nova, só o valor padrão mudou. Continua
+  configurável em Configurações (min. 15s).
+- Som ao chegar oferta nova: PWA usa um bipe de duas notas gerado por
+  Web Audio (sem depender de arquivo de terceiros) tocado junto com a
+  vibração já existente. Nativo ganhou `expo-audio` (o app já tinha
+  vibração no card, mas nenhum som) + um .wav gerado localmente
+  (`scripts/generate-offer-sound.mjs` → `assets/sounds/offer.wav`),
+  tocado mesmo com o celular no silencioso — motoboy não pode perder
+  oferta por isso. Isso precisa de um novo build do APK pra valer.

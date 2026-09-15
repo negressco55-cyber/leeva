@@ -45,7 +45,7 @@ export const DEFAULT_LOGISTICS_CONFIG: LogisticsConfig = {
   grouping_enabled: true,
   auto_dispatch_enabled: true,
   ifood_auto_call: true,
-  offer_timeout_seconds: 45,
+  offer_timeout_seconds: 20,
   max_dispatch_attempts: 4,
   default_prep_minutes: 15,
   dispatch_lead_minutes: 5,

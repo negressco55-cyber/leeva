@@ -46,6 +46,7 @@ export interface OfferStop {
   address: string;
   region: string | null;
   payout: number;
+  legKm: number | null;
 }
 
 export interface Offer {
