@@ -41,5 +41,6 @@ export * from './asaas';
 export * from './driverpayouts';
 export * from './drivers';
 export * from './push';
+export * from './mailer';
 export * from './notify-driver';
 export * from './grouping-dispatch';

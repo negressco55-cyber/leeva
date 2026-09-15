@@ -47,6 +47,9 @@ export function OnboardingGate({
               Recebemos seu cadastro. Nossa equipe está conferindo seus documentos. Assim que aprovarmos,
               você poderá ficar online e receber ofertas de entrega.
             </p>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Você vai receber um e-mail assim que sua conta for aprovada.
+            </p>
           </>
         )}
 

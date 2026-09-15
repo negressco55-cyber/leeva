@@ -113,7 +113,7 @@ export function HomeScreen(): React.JSX.Element {
             </Text>
             <Text style={styles.warnText}>
               {approval === 'pending_approval'
-                ? 'Estamos conferindo seus documentos. Assim que for aprovado você poderá ficar disponível.'
+                ? 'Estamos conferindo seus documentos. Você vai receber um e-mail assim que for aprovado, e aí já pode ficar disponível.'
                 : (me?.approvalReason ?? 'Fale com o suporte para regularizar seu cadastro.')}
             </Text>
           </Card>

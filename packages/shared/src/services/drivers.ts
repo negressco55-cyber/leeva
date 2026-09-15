@@ -8,6 +8,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
+import { sendDriverApprovedEmail, sendDriverRejectedEmail } from './mailer';
 
 type DB = SupabaseClient<Database>;
 export type ApprovalStatus = Database['public']['Enums']['driver_approval_status'];
@@ -255,13 +256,29 @@ export async function getPendingDrivers(db: DB): Promise<PendingDriver[]> {
   );
 }
 
+/** Busca o e-mail do usuário (fica no Auth, não na tabela motoboys). */
+async function driverEmail(db: DB, userId: string | null): Promise<string | null> {
+  if (!userId) return null;
+  try {
+    const { data } = await db.auth.admin.getUserById(userId);
+    return data.user?.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function approveDriver(db: DB, motoboyId: string, adminId: string) {
   const { data } = await db
     .from('motoboys')
     .update({ approval_status: 'approved', approved_by: adminId, approved_at: new Date().toISOString(), approval_reason: null })
     .eq('id', motoboyId)
     .eq('approval_status', 'pending_approval')
-    .select('id');
+    .select('id, user_id, full_name');
+  const row = data?.[0];
+  if (row) {
+    const email = await driverEmail(db, row.user_id);
+    if (email) await sendDriverApprovedEmail(email, row.full_name).catch(() => {});
+  }
   return { ok: !!data?.length };
 }
 
@@ -277,6 +294,11 @@ export async function rejectDriver(db: DB, motoboyId: string, adminId: string, r
     })
     .eq('id', motoboyId)
     .in('approval_status', ['pending_approval', 'approved'])
-    .select('id');
+    .select('id, user_id, full_name');
+  const row = data?.[0];
+  if (row) {
+    const email = await driverEmail(db, row.user_id);
+    if (email) await sendDriverRejectedEmail(email, row.full_name, reason).catch(() => {});
+  }
   return { ok: !!data?.length };
 }

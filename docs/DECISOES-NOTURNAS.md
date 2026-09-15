@@ -1039,3 +1039,25 @@ pra cadastrar pelo site.
 - Corrigido: `experimental.serverActions.bodySizeLimit: '12mb'` em
   `apps/motoboy/next.config.mjs`. Precisa validar em produção depois
   do deploy — usuária vai tentar cadastrar de novo.
+
+## 2026-09-15 — e-mail de aprovação/reprovação de motoboy (Resend)
+
+- Usuária pediu pra avisar por e-mail quando o cadastro for aprovado.
+  Não existia nenhum envio de e-mail no sistema até agora — construído
+  do zero: `packages/shared/src/services/mailer.ts`, chamando a API
+  do Resend direto por fetch (sem SDK, pra não repetir o problema do
+  web-push puxando dependência Node-only pro bundle do cliente — bug
+  corrigido mais cedo nesta sessão).
+- `approveDriver`/`rejectDriver` (drivers.ts) agora buscam o e-mail do
+  motoboy (fica no Auth, não na tabela motoboys) e disparam o e-mail
+  correspondente — nunca bloqueia a aprovação se o envio falhar.
+- Sem a variável `RESEND_API_KEY` configurada, só loga um aviso e
+  segue sem enviar — não quebra nada, mas também não manda e-mail de
+  verdade até ela configurar.
+- PENDENTE DA USUÁRIA: criar conta grátis no Resend, pegar a chave de
+  API, e adicionar `RESEND_API_KEY` (e opcionalmente `RESEND_FROM_EMAIL`
+  com um remetente verificado) nas variáveis de ambiente do projeto
+  **leeva-admin** na Vercel (é lá que roda a aprovação). Sem isso, os
+  textos na tela do motoboy prometem um e-mail que ainda não sai.
+- Textos atualizados avisando sobre o e-mail: tela "Cadastro em
+  análise" do PWA (`OnboardingGate.tsx`) e do nativo (`HomeScreen.tsx`).
