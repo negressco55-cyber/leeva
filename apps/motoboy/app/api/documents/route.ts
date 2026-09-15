@@ -4,7 +4,7 @@ import { getDriverDocsStatus, saveDriverDocument, type DriverDocType } from '@le
 
 /** Limite defensivo do arquivo (base64) — ~5 MB. */
 const MAX_B64 = 5 * 1024 * 1024;
-const TYPES: DriverDocType[] = ['personal', 'vehicle', 'avatar'];
+const TYPES: DriverDocType[] = ['personal', 'personal_back', 'vehicle', 'avatar'];
 
 /** Estado atual dos documentos do motoboy logado — CNH/RG, CRLV, foto do rosto. */
 export async function GET(req: Request) {

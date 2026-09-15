@@ -6,6 +6,26 @@ import { submitSignup, type SignupState } from './actions';
 
 const initial: SignupState = {};
 
+/** Duas formas de anexar: tirar foto na hora (força a câmera) ou escolher
+ *  um arquivo já existente — PDF ou foto da galeria. Separar os dois evita
+ *  o problema comum de celular perder a foto tirada na hora num único
+ *  input genérico. */
+function DocInputs({ label, base }: { label: string; base: string }) {
+  return (
+    <div className="panel" style={{ padding: 12, display: 'grid', gap: 6 }}>
+      <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
+      <label className="muted" style={{ fontSize: 12 }}>
+        Tirar foto agora
+        <input className="input" type="file" name={`${base}Photo`} accept="image/*" capture="environment" />
+      </label>
+      <label className="muted" style={{ fontSize: 12 }}>
+        ou escolher arquivo (foto da galeria ou PDF)
+        <input className="input" type="file" name={`${base}Pdf`} accept="image/*,application/pdf" />
+      </label>
+    </div>
+  );
+}
+
 export default function QueroEntregarPage() {
   const [state, action, pending] = useActionState(submitSignup, initial);
 
@@ -43,14 +63,13 @@ export default function QueroEntregarPage() {
           <input className="input" name="city" defaultValue="João Pessoa - PB" required />
         </label>
 
-        <label>
-          Documento pessoal (CNH ou RG) — foto ou PDF
-          <input className="input" type="file" name="personalDoc" accept="image/*,application/pdf" required />
-        </label>
-        <label>
-          Documento do veículo (CRLV) — foto ou PDF
-          <input className="input" type="file" name="vehicleDoc" accept="image/*,application/pdf" required />
-        </label>
+        <DocInputs label="Documento pessoal (CNH ou RG) — frente" base="personalDocFront" />
+        <DocInputs label="Documento pessoal (CNH ou RG) — verso" base="personalDocBack" />
+        <DocInputs label="Documento do veículo (CRLV)" base="vehicleDoc" />
+        <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+          Se &quot;Tirar foto agora&quot; não funcionar no seu celular, use a opção &quot;escolher arquivo&quot; — ela também
+          aceita PDF.
+        </p>
 
         <p className="muted" style={{ fontSize: 12, margin: 0 }}>
           A chave Pix pra receber os repasses você cadastra depois, na aba Carteira.

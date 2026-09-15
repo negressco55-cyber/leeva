@@ -149,9 +149,16 @@ export async function createSelfServiceDriver(
   return { ok: true, motoboyId: data.id };
 }
 
-export async function setDriverDocPaths(db: DB, motoboyId: string, personal?: string, vehicle?: string) {
+export async function setDriverDocPaths(
+  db: DB,
+  motoboyId: string,
+  personal?: string,
+  vehicle?: string,
+  personalBack?: string,
+) {
   const patch: Database['public']['Tables']['motoboys']['Update'] = {};
   if (personal) patch.personal_doc_path = personal;
+  if (personalBack) patch.personal_doc_back_path = personalBack;
   if (vehicle) patch.vehicle_doc_path = vehicle;
   if (Object.keys(patch).length) await db.from('motoboys').update(patch).eq('id', motoboyId);
 }
@@ -161,7 +168,14 @@ export async function setDriverDocPaths(db: DB, motoboyId: string, personal?: st
 // cadastro inicial. Mesmo bucket/pastas do self-service (driver-documents/
 // {motoboyId}/{tipo}.ext), upsert (substitui o anterior).
 // ---------------------------------------------------------------------------
-export type DriverDocType = 'personal' | 'vehicle' | 'avatar';
+export type DriverDocType = 'personal' | 'personal_back' | 'vehicle' | 'avatar';
+
+const DOC_COLUMN: Record<DriverDocType, keyof Database['public']['Tables']['motoboys']['Update']> = {
+  personal: 'personal_doc_path',
+  personal_back: 'personal_doc_back_path',
+  vehicle: 'vehicle_doc_path',
+  avatar: 'avatar_url',
+};
 
 export async function saveDriverDocument(
   db: DB,
@@ -174,8 +188,7 @@ export async function saveDriverDocument(
   const path = `${motoboyId}/${type}.${ext}`;
   const up = await db.storage.from('driver-documents').upload(path, bytes, { contentType, upsert: true });
   if (up.error) return { ok: false, error: up.error.message };
-  const patch: Database['public']['Tables']['motoboys']['Update'] =
-    type === 'personal' ? { personal_doc_path: path } : type === 'vehicle' ? { vehicle_doc_path: path } : { avatar_url: path };
+  const patch: Database['public']['Tables']['motoboys']['Update'] = { [DOC_COLUMN[type]]: path };
 
   // Documento (CNH/RG, CRLV ou selfie) reenviado depois de já aprovado
   // precisa passar por revisão de novo — sem isso, dava pra trocar o
@@ -198,6 +211,7 @@ export async function saveDriverDocument(
 
 export type DriverDocsStatus = {
   personalDocUrl: string | null;
+  personalDocBackUrl: string | null;
   vehicleDocUrl: string | null;
   avatarUrl: string | null;
 };
@@ -205,11 +219,12 @@ export type DriverDocsStatus = {
 export async function getDriverDocsStatus(db: DB, motoboyId: string): Promise<DriverDocsStatus> {
   const { data: m } = await db
     .from('motoboys')
-    .select('personal_doc_path, vehicle_doc_path, avatar_url')
+    .select('personal_doc_path, personal_doc_back_path, vehicle_doc_path, avatar_url')
     .eq('id', motoboyId)
     .maybeSingle();
   return {
     personalDocUrl: await signDoc(db, m?.personal_doc_path ?? null),
+    personalDocBackUrl: await signDoc(db, m?.personal_doc_back_path ?? null),
     vehicleDocUrl: await signDoc(db, m?.vehicle_doc_path ?? null),
     avatarUrl: await signDoc(db, m?.avatar_url ?? null),
   };
@@ -228,6 +243,7 @@ export type PendingDriver = {
   pixKeyType: string | null;
   createdAt: string;
   personalDocUrl: string | null;
+  personalDocBackUrl: string | null;
   vehicleDocUrl: string | null;
 };
 
@@ -240,7 +256,9 @@ async function signDoc(db: DB, path: string | null): Promise<string | null> {
 export async function getPendingDrivers(db: DB): Promise<PendingDriver[]> {
   const { data } = await db
     .from('motoboys')
-    .select('id, full_name, phone, cpf, city, pix_key, pix_key_type, created_at, personal_doc_path, vehicle_doc_path')
+    .select(
+      'id, full_name, phone, cpf, city, pix_key, pix_key_type, created_at, personal_doc_path, personal_doc_back_path, vehicle_doc_path',
+    )
     .eq('approval_status', 'pending_approval')
     .order('created_at', { ascending: true })
     .limit(200);
@@ -256,6 +274,7 @@ export async function getPendingDrivers(db: DB): Promise<PendingDriver[]> {
       pixKeyType: m.pix_key_type,
       createdAt: m.created_at,
       personalDocUrl: await signDoc(db, m.personal_doc_path),
+      personalDocBackUrl: await signDoc(db, m.personal_doc_back_path),
       vehicleDocUrl: await signDoc(db, m.vehicle_doc_path),
     })),
   );

@@ -41,10 +41,17 @@ export default async function NovosMotoboys() {
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {d.personalDocUrl ? (
                   <a className="btn sm" href={d.personalDocUrl} target="_blank" rel="noreferrer">
-                    📄 Documento pessoal
+                    📄 Documento pessoal (frente)
                   </a>
                 ) : (
-                  <span className="tag red">sem documento pessoal</span>
+                  <span className="tag red">sem documento pessoal (frente)</span>
+                )}
+                {d.personalDocBackUrl ? (
+                  <a className="btn sm" href={d.personalDocBackUrl} target="_blank" rel="noreferrer">
+                    📄 Documento pessoal (verso)
+                  </a>
+                ) : (
+                  <span className="tag red">sem documento pessoal (verso)</span>
                 )}
                 {d.vehicleDocUrl ? (
                   <a className="btn sm" href={d.vehicleDocUrl} target="_blank" rel="noreferrer">

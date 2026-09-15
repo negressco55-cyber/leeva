@@ -33,18 +33,19 @@ export function setPixKey(key: string, type: string): Promise<{ ok: boolean }> {
 
 export type DriverDocsStatus = {
   personalDocUrl: string | null;
+  personalDocBackUrl: string | null;
   vehicleDocUrl: string | null;
   avatarUrl: string | null;
 };
 
-/** Estado atual dos documentos (CNH/RG, CRLV, foto do rosto). */
+/** Estado atual dos documentos (CNH/RG frente e verso, CRLV, foto do rosto). */
 export function getDriverDocs(): Promise<DriverDocsStatus> {
   return apiGet<DriverDocsStatus>('/api/documents');
 }
 
-/** Envia/substitui um documento. type: 'personal' | 'vehicle' | 'avatar'. */
+/** Envia/substitui um documento. type: 'personal' | 'personal_back' | 'vehicle' | 'avatar'. */
 export function uploadDriverDocument(
-  type: 'personal' | 'vehicle' | 'avatar',
+  type: 'personal' | 'personal_back' | 'vehicle' | 'avatar',
   fileBase64: string,
 ): Promise<{ ok: boolean; requiresReview: boolean } & DriverDocsStatus> {
   return apiSend('/api/documents', 'POST', { type, fileBase64 });

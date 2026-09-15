@@ -26,16 +26,31 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   const phone = onlyDigits(String(form.get('phone') ?? ''));
   const cpf = String(form.get('cpf') ?? '');
   const city = String(form.get('city') ?? 'João Pessoa - PB').trim() || 'João Pessoa - PB';
-  const personalDoc = form.get('personalDoc') as File | null;
-  const vehicleDoc = form.get('vehicleDoc') as File | null;
+
+  // cada documento tem dois inputs (foto tirada na hora OU PDF/arquivo da
+  // galeria) — usa o que a pessoa preencheu.
+  const pick = (base: string): File | null => {
+    const photo = form.get(`${base}Photo`) as File | null;
+    if (photo && photo.size > 0) return photo;
+    const pdf = form.get(`${base}Pdf`) as File | null;
+    if (pdf && pdf.size > 0) return pdf;
+    return null;
+  };
+  const personalFront = pick('personalDocFront');
+  const personalBack = pick('personalDocBack');
+  const vehicleDoc = pick('vehicleDoc');
 
   if (fullName.length < 3) return { error: 'Informe seu nome completo.' };
   if (!email.includes('@')) return { error: 'E-mail inválido.' };
   if (password.length < 6) return { error: 'A senha precisa ter ao menos 6 caracteres.' };
   if (phone.length < 10) return { error: 'Telefone inválido (com DDD).' };
   if (!isValidCpf(cpf)) return { error: 'CPF inválido.' };
-  for (const [label, f] of [['pessoal', personalDoc], ['do veículo', vehicleDoc]] as const) {
-    if (!f || f.size === 0) return { error: `Anexe o documento ${label}.` };
+  for (const [label, f] of [
+    ['pessoal (frente)', personalFront],
+    ['pessoal (verso)', personalBack],
+    ['do veículo', vehicleDoc],
+  ] as const) {
+    if (!f) return { error: `Anexe o documento ${label}.` };
     if (f.size > MAX_FILE) return { error: `O documento ${label} passa de 5 MB.` };
     if (!OK_TYPES.includes(f.type)) return { error: `Documento ${label}: use foto (JPG/PNG) ou PDF.` };
   }
@@ -75,9 +90,10 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
       await admin.storage.from('driver-documents').upload(path, f, { contentType: f.type, upsert: true });
       return path;
     };
-    const pPath = await up(personalDoc!, 'personal');
+    const pPath = await up(personalFront!, 'personal');
+    const pBackPath = await up(personalBack!, 'personal_back');
     const vPath = await up(vehicleDoc!, 'vehicle');
-    await setDriverDocPaths(admin, res.motoboyId, pPath, vPath);
+    await setDriverDocPaths(admin, res.motoboyId, pPath, vPath, pBackPath);
   } catch {
     // não bloqueia — o admin pode pedir o reenvio; mas registra
     console.error('[signup] upload de documento falhou');

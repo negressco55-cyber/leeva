@@ -963,6 +963,7 @@ export type Database = {
           max_concurrent_deliveries: number
           offers_adequate: number
           offers_adequate_accepted: number
+          personal_doc_back_path: string | null
           personal_doc_path: string | null
           phone: string
           pix_key: string | null
@@ -1008,6 +1009,7 @@ export type Database = {
           max_concurrent_deliveries?: number
           offers_adequate?: number
           offers_adequate_accepted?: number
+          personal_doc_back_path?: string | null
           personal_doc_path?: string | null
           phone: string
           pix_key?: string | null
@@ -1053,6 +1055,7 @@ export type Database = {
           max_concurrent_deliveries?: number
           offers_adequate?: number
           offers_adequate_accepted?: number
+          personal_doc_back_path?: string | null
           personal_doc_path?: string | null
           phone?: string
           pix_key?: string | null

@@ -1116,3 +1116,39 @@ visível na página do restaurante no admin — nunca aparece de volta
 pro restaurante.
 
 Migration 0042 pendente de aplicar no Supabase.
+
+## 2026-09-15 — "esqueci minha senha" (não existia em lugar nenhum)
+
+- Usuária ficou travada tentando entrar no admin (nunca tinha criado
+  senha) e descobrimos que **nenhum app tinha fluxo de recuperação de
+  senha** — nem admin nem restaurante. Corrigido: tela "Esqueci minha
+  senha" em ambos, usando o e-mail de recuperação nativo do Supabase
+  (`resetPasswordForEmail` → link → `/auth/callback` → `/redefinir-senha`,
+  onde a pessoa digita a senha nova ela mesma — nunca passa por mim).
+  Admin não tinha nem `/auth/callback`, criado do zero.
+- Achei a causa de `leevacomercial@gmail.com` não logar no restaurante
+  mesmo "depois de cadastrado": esse e-mail já existia no Auth (virou
+  admin antes), e o cadastro de restaurante recusa e-mail duplicado —
+  a tentativa falhava silenciosamente. Resolvido via SQL (cria o
+  restaurante + liga esse e-mail como dono, sem duplicar o usuário).
+
+## 2026-09-15 — cadastro de motoboy: câmera não funcionava, CNH virou frente+verso
+
+- Bug relatado: no `/quero-entregar`, tirar foto na hora não enviava
+  (só funcionava escolher da galeria). Causa provável: um único
+  `<input type=file>` genérico sem `capture` definido tem comportamento
+  inconsistente em navegador de celular — o padrão que já funcionava
+  bem nas telas de reenvio de documento (pós-aprovação) separa "tirar
+  foto" (força câmera, `capture="environment"`) de "escolher arquivo"
+  (sem capture, força a galeria/Arquivos) em dois inputs distintos.
+  Apliquei o mesmo padrão no cadastro.
+- CNH/RG agora pede frente E verso (2 fotos) — coluna nova
+  `motoboys.personal_doc_back_path` (migration 0043). Documento vira
+  `'personal' | 'personal_back' | 'vehicle' | 'avatar'` em todo lugar
+  que lida com isso: upload do cadastro, reenvio pós-aprovação (nativo
+  + PWA), fila de aprovação do admin.
+- PDF no CRLV do cadastro: já existia no código (`accept` já aceitava
+  PDF), mas com o input único de câmera+arquivo ficava difícil de
+  achar no celular — resolvido junto com a separação foto/arquivo
+  acima (agora tem um botão "escolher arquivo" bem visível).
+- Migration 0043 pendente de aplicar.

@@ -4,12 +4,18 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Circle } from 'lucide-react';
 
-type DocType = 'personal' | 'vehicle' | 'avatar';
+type DocType = 'personal' | 'personal_back' | 'vehicle' | 'avatar';
 
-type Status = { personalDocUrl: string | null; vehicleDocUrl: string | null; avatarUrl: string | null };
+type Status = {
+  personalDocUrl: string | null;
+  personalDocBackUrl: string | null;
+  vehicleDocUrl: string | null;
+  avatarUrl: string | null;
+};
 
 const META: Record<DocType, { title: string; hint: string; capture: 'environment' | 'user' | undefined; accept: string }> = {
-  personal: { title: 'CNH ou RG', hint: 'Uma foto legível do seu documento com CPF (CNH ou RG).', capture: 'environment', accept: 'image/*' },
+  personal: { title: 'CNH ou RG — frente', hint: 'Uma foto legível da frente do seu documento com CPF (CNH ou RG).', capture: 'environment', accept: 'image/*' },
+  personal_back: { title: 'CNH ou RG — verso', hint: 'Uma foto legível do verso do documento.', capture: 'environment', accept: 'image/*' },
   vehicle: { title: 'CRLV do veículo', hint: 'Uma foto ou o PDF do CRLV.', capture: undefined, accept: 'image/*,application/pdf' },
   avatar: { title: 'Foto do rosto', hint: 'Uma foto sua, de rosto, bem iluminada — aparece no seu perfil.', capture: 'user', accept: 'image/*' },
 };
@@ -26,6 +32,7 @@ function readAsDataUrl(file: File): Promise<string> {
 
 const STATUS_KEY: Record<DocType, keyof Status> = {
   personal: 'personalDocUrl',
+  personal_back: 'personalDocBackUrl',
   vehicle: 'vehicleDocUrl',
   avatar: 'avatarUrl',
 };
@@ -156,6 +163,7 @@ export function DocumentsForm({ initial }: { initial: Status }) {
   return (
     <div className="grid" style={{ gap: 12 }}>
       <DocCard type="personal" url={status.personalDocUrl} onUploaded={handleUploaded} />
+      <DocCard type="personal_back" url={status.personalDocBackUrl} onUploaded={handleUploaded} />
       <DocCard type="vehicle" url={status.vehicleDocUrl} onUploaded={handleUploaded} />
       <DocCard type="avatar" url={status.avatarUrl} onUploaded={handleUploaded} />
     </div>

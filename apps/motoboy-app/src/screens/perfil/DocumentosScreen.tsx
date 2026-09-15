@@ -10,12 +10,18 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { theme } from '../../theme/theme';
 
-type DocType = 'personal' | 'vehicle' | 'avatar';
+type DocType = 'personal' | 'personal_back' | 'vehicle' | 'avatar';
 
 const DOC_META: Record<DocType, { title: string; hint: string; camera: ImagePicker.CameraType; allowPdf: boolean }> = {
   personal: {
-    title: 'CNH ou RG',
-    hint: 'Tire uma foto legível do seu documento com CPF (CNH ou RG).',
+    title: 'CNH ou RG — frente',
+    hint: 'Tire uma foto legível da frente do seu documento com CPF (CNH ou RG).',
+    camera: ImagePicker.CameraType.back,
+    allowPdf: false,
+  },
+  personal_back: {
+    title: 'CNH ou RG — verso',
+    hint: 'Tire uma foto legível do verso do documento.',
     camera: ImagePicker.CameraType.back,
     allowPdf: false,
   },
@@ -182,6 +188,7 @@ export function DocumentosScreen(): React.JSX.Element {
             </View>
 
             <DocCard type="personal" url={status?.personalDocUrl ?? null} busy={busyType === 'personal'} onUploaded={handleUpload} />
+            <DocCard type="personal_back" url={status?.personalDocBackUrl ?? null} busy={busyType === 'personal_back'} onUploaded={handleUpload} />
             <DocCard type="vehicle" url={status?.vehicleDocUrl ?? null} busy={busyType === 'vehicle'} onUploaded={handleUpload} />
             <DocCard type="avatar" url={status?.avatarUrl ?? null} busy={busyType === 'avatar'} onUploaded={handleUpload} />
           </>
