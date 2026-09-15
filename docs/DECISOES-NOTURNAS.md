@@ -1018,3 +1018,12 @@ pra cadastrar pelo site.
   @deprecated no tipo.
 - Sem teste automatizado pra essa parte (mexe em runDispatchTick, que
   já não tinha cobertura — mesma limitação registrada antes).
+
+## 2026-09-15 — limpeza da tela do restaurante
+
+- Removidos, a pedido da usuária: o bloco "Detalhes técnicos (para o
+  seu desenvolvedor)" na aba Integrações (tabela de status de
+  integração + endpoints/headers — informação pra dev, não pro dono
+  do restaurante usar no dia a dia); e o card "Taxas e remuneração"
+  em Configurações (que eu tinha deixado como leitura — ela pediu
+  pra tirar de vez, não só travar a edição).

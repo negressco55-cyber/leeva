@@ -171,20 +171,6 @@ export default function ConfigForm({
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-title">Taxas e remuneração</div>
-        <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
-          Definidas pelo Leeva — não são configuráveis por aqui.
-        </p>
-        <dl className="kv">
-          <dt>Taxa de entrega cobrada do cliente</dt>
-          <dd>{formatCurrencyBRL(L.customer_fee)}</dd>
-          <dt>Pedido mínimo</dt>
-          <dd>{L.min_order > 0 ? formatCurrencyBRL(L.min_order) : 'sem mínimo'}</dd>
-          <dt>Frete grátis acima de</dt>
-          <dd>{L.free_delivery_min_order ? formatCurrencyBRL(L.free_delivery_min_order) : 'desligado'}</dd>
-        </dl>
-      </div>
 
       {msg?.warnings?.length ? (
         <div className="op-alert warning">
