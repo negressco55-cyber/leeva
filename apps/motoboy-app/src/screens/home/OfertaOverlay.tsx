@@ -143,7 +143,7 @@ export function OfertaOverlay(): React.JSX.Element | null {
                   <View style={styles.legTextCol}>
                     <Text style={styles.legMeta}>
                       {dropoffEta != null ? `~${dropoffEta} min até a entrega` : 'Entrega'}
-                      {totalKm != null ? ` · ${totalKm.toFixed(1)} km` : ''}
+                      {offer.distanceDropoffKm != null ? ` · ${offer.distanceDropoffKm.toFixed(1)} km` : ''}
                     </Text>
                     <Text style={styles.legAddr} numberOfLines={2}>{offer.address}</Text>
                   </View>

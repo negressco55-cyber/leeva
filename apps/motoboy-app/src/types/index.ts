@@ -69,6 +69,7 @@ export interface Offer {
   quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
   countsForAcceptance: boolean;
   distancePickupKm: number | null;
+  distanceDropoffKm: number | null;
   distanceTotalKm: number | null;
   paymentMethod: string;
   paymentStatus: string;

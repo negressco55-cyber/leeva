@@ -35,6 +35,7 @@ type Offer = {
   quality: 'excellent' | 'good' | 'acceptable' | 'poor' | null;
   countsForAcceptance: boolean;
   distancePickupKm: number | null;
+  distanceDropoffKm: number | null;
   distanceTotalKm: number | null;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
@@ -214,7 +215,7 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                     <span className="leg-dot brand" />
                     <span className="leg-meta">
                       {dropoffEta != null ? `~${dropoffEta} min até a entrega` : 'entrega'}
-                      {totalKm != null ? ` · ${totalKm.toFixed(1)} km` : ''}
+                      {o.distanceDropoffKm != null ? ` · ${o.distanceDropoffKm.toFixed(1)} km` : ''}
                     </span>
                     <span className="leg-addr">{o.address}</span>
                   </div>

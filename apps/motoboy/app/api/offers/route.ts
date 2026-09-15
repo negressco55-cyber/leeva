@@ -39,6 +39,14 @@ export async function GET(req: Request) {
         if (!o || !['waiting_dispatch', 'preparing', 'ready'].includes(o.status)) return null;
         const rest = o.restaurant_id ? restById.get(o.restaurant_id) : null;
         const totalKm = off.distance_total_km != null ? Number(off.distance_total_km) : null;
+        const distancePickupKm = off.distance_pickup_km != null ? Number(off.distance_pickup_km) : null;
+        const grouped = !!o.group_id || !!off.group_order_ids?.length;
+        // km só da perna de entrega (rota total menos a perna de coleta) —
+        // não se aplica a rota agrupada (várias paradas), aí mostramos só o total.
+        const distanceDropoffKm =
+          !grouped && totalKm != null && distancePickupKm != null
+            ? Math.round((totalKm - distancePickupKm) * 10) / 10
+            : null;
         // FONTE ÚNICA: os dois tempos já foram calculados no despacho (posição
         // real do motoboy até a coleta; rota real até a entrega) e gravados na
         // oferta — nunca recalculados aqui.
@@ -71,8 +79,9 @@ export async function GET(req: Request) {
           payout: off.payout_estimate != null ? Number(off.payout_estimate) : o.driver_payout != null ? Number(o.driver_payout) : null,
           quality: off.quality as 'excellent' | 'good' | 'acceptable' | 'poor' | null,
           countsForAcceptance: !!off.counts_for_acceptance,
-          distancePickupKm: off.distance_pickup_km != null ? Number(off.distance_pickup_km) : null,
-          distanceTotalKm: off.distance_total_km != null ? Number(off.distance_total_km) : null,
+          distancePickupKm,
+          distanceDropoffKm,
+          distanceTotalKm: totalKm,
           paymentMethod: o.payment_method,
           paymentStatus: o.payment_status,
           orderAmount: Number(o.order_amount),
@@ -80,7 +89,7 @@ export async function GET(req: Request) {
           readyAt: o.ready_at,
           preparingAt: o.preparing_at,
           prepEstimateMinutes: o.prep_estimate_minutes,
-          grouped: !!o.group_id || !!off.group_order_ids?.length,
+          grouped,
           routeStops: Array.isArray(off.group_plan)
             ? (off.group_plan as Array<Record<string, unknown>>).map((s) => ({
                 seq: Number(s.seq),
