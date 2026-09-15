@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import Link from 'next/link';
 import { login, type LoginState } from './actions';
 
 const initial: LoginState = {};
@@ -24,6 +25,9 @@ export default function LoginPage() {
         <button className="btn primary" type="submit" disabled={pending}>
           {pending ? 'Entrando…' : 'Entrar'}
         </button>
+        <Link href="/esqueci-senha" className="muted" style={{ fontSize: 13 }}>
+          Esqueci minha senha
+        </Link>
       </form>
     </div>
   );

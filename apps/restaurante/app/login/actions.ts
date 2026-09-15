@@ -28,3 +28,23 @@ export async function logout() {
   await supabase.auth.signOut();
   redirect('/login');
 }
+
+export type ForgotPasswordState = { ok?: boolean; error?: string };
+
+/** Manda o e-mail de redefinição de senha do próprio Supabase — a senha
+ *  nova é digitada pelo usuário em /redefinir-senha, nunca passa por aqui. */
+export async function requestPasswordReset(
+  _prev: ForgotPasswordState,
+  formData: FormData,
+): Promise<ForgotPasswordState> {
+  const email = String(formData.get('email') ?? '').trim();
+  if (!email) return { error: 'Informe seu e-mail.' };
+
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const supabase = await createLeevaServerClient();
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${base}/auth/callback?next=/redefinir-senha`,
+  });
+  // sempre "ok", exista ou não a conta — não revela se o e-mail está cadastrado.
+  return { ok: true };
+}
