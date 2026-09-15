@@ -11,7 +11,7 @@ import {
   type PaymentMethod,
   type PaymentStatus,
 } from '@leeva/shared';
-import { computePrepStatus } from '@leeva/shared/services';
+import { computePrepStatus } from '@leeva/shared/services/prep-status';
 import RouteMap from './_lib/RouteMap';
 
 type Offer = {

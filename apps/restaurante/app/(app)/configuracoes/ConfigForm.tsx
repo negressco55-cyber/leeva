@@ -160,7 +160,7 @@ export default function ConfigForm({
           <label>Antecedência da chamada do motoboy (min){num(L.dispatch_lead_minutes, (v) => nL('dispatch_lead_minutes', v), '0')}</label>
         </div>
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          Usado quando você marca um pedido "Em preparo" sem informar um tempo específico.
+          Usado quando você marca um pedido &quot;Em preparo&quot; sem informar um tempo específico.
         </p>
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
           Com o pedido ainda em preparo, o Leeva chama o motoboy com essa

@@ -15,7 +15,7 @@ import {
   type OrderSource,
   type DispatchState,
 } from '@leeva/shared';
-import { computePrepStatus } from '@leeva/shared/services';
+import { computePrepStatus } from '@leeva/shared/services/prep-status';
 import { StatusPill, SourcePill } from '../_lib/ui';
 import { apiPost } from '../_lib/client';
 import NewOrderDialog from './NewOrderDialog';

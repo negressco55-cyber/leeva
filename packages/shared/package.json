@@ -15,6 +15,7 @@
     "./utils": "./src/utils/index.ts",
     "./constants": "./src/constants.ts",
     "./services": "./src/services/index.ts",
+    "./services/prep-status": "./src/services/prep-status.ts",
     "./integrations": "./src/integrations/index.ts",
     "./lib/crypto": "./src/lib/crypto.ts"
   },
