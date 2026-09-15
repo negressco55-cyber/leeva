@@ -84,7 +84,13 @@ export type ScoredCandidate = {
 export async function scoreCandidatesForOrder(
   db: DB,
   orderId: string,
-  opts: { excludeMotoboyIds?: string[]; tickLoad?: Map<string, number> } = {},
+  opts: {
+    excludeMotoboyIds?: string[];
+    tickLoad?: Map<string, number>;
+    /** Despacho "natural": quanto mais tentativas sem ninguém aceitar, maior
+     *  o raio de busca considerado (1 = raio normal; 2 = dobro; etc.). */
+    radiusExpansion?: number;
+  } = {},
 ): Promise<{
   candidates: ScoredCandidate[];
   order: { id: string; restaurantId: string; orderNumber: number | null };
@@ -211,7 +217,8 @@ export async function scoreCandidatesForOrder(
       distanceToPickupKm = leg?.distanceKm ?? haversineKm(here, pickup);
       etaToPickupMin = legEtaMin(leg, distanceToPickupKm);
     }
-    if (distanceToPickupKm != null && distanceToPickupKm > cfg.service_radius_km * 2) {
+    const effectiveRadiusKm = cfg.service_radius_km * 2 * (opts.radiusExpansion ?? 1);
+    if (distanceToPickupKm != null && distanceToPickupKm > effectiveRadiusKm) {
       blockers.push(`fora do raio (${distanceToPickupKm.toFixed(1)} km)`);
     }
 
@@ -412,20 +419,6 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
     const cfg = { ...DEFAULT_LOGISTICS_CONFIG, ...((rst?.logistics_config as Partial<LogisticsConfig>) ?? {}) };
     if (!cfg.auto_dispatch_enabled) continue;
 
-    if ((o.dispatch_attempts ?? 0) >= cfg.max_dispatch_attempts) {
-      const { data: f } = await db
-        .from('orders')
-        .update({ dispatch_state: 'failed' })
-        .eq('id', o.id)
-        .neq('dispatch_state', 'failed')
-        .select('id');
-      if (f?.length) {
-        res.failed++;
-        await createNoDriverAlert(db, o.restaurant_id, o.id);
-      }
-      continue;
-    }
-
     // motoboys já recusados/timeout neste pedido
     const { data: prev } = await db
       .from('dispatch_attempts')
@@ -433,9 +426,17 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
       .eq('order_id', o.id);
     const exclude = [...new Set((prev ?? []).map((p) => p.motoboy_id))];
 
+    // DESPACHO NATURAL: sem limite de tentativas — quanto mais tempo sem
+    // ninguém aceitar, maior o raio de busca considerado (até 3x o normal).
+    // A partir de NO_DRIVER_WARN_ATTEMPTS avisa o restaurante (sem bloquear
+    // o pedido) e oferece a opção de reforçar o valor pago ao motoboy.
+    const attempts = o.dispatch_attempts ?? 0;
+    const radiusExpansion = 1 + Math.min(2, Math.floor(attempts / NO_DRIVER_WARN_ATTEMPTS) * 0.5);
+
     const { candidates, note, waitingForTiming } = await scoreCandidatesForOrder(db, o.id, {
       excludeMotoboyIds: exclude,
       tickLoad,
+      radiusExpansion,
     });
     const best = candidates.find((c) => c.blockers.length === 0);
     if (!best) {
@@ -446,24 +447,18 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
         // "sem entregador".
         continue;
       }
-      // mantém 'searching'; próxima tentativa contará como attempt
+      // mantém 'searching' pra sempre — nunca desiste sozinho; só avisa.
       await db
         .from('orders')
-        .update({ dispatch_state: 'searching', dispatch_attempts: (o.dispatch_attempts ?? 0) + 1 })
+        .update({ dispatch_state: 'searching', dispatch_attempts: attempts + 1 })
         .eq('id', o.id);
-      if ((o.dispatch_attempts ?? 0) + 1 >= cfg.max_dispatch_attempts) {
-        const { data: f } = await db
-          .from('orders')
-          .update({ dispatch_state: 'failed' })
-          .eq('id', o.id)
-          .select('id');
-        if (f?.length) {
-          res.failed++;
-          await createNoDriverAlert(db, o.restaurant_id, o.id);
-        }
+      if (attempts + 1 >= NO_DRIVER_WARN_ATTEMPTS) {
+        res.failed++; // "failed" aqui = "demorando", não desiste — ver createNoDriverAlert
+        await createNoDriverAlert(db, o.restaurant_id, o.id);
       }
       continue;
     }
+    await resolveNoDriverAlert(db, o.restaurant_id, o.id);
 
     // --- classifica a QUALIDADE da oferta (entregador + entrega + momento) ---
     // recusar oferta "poor" NUNCA penaliza; só excellent/good contam p/ aceitação
@@ -597,7 +592,7 @@ async function classifyOfferForCandidate(
 }> {
   const { data: order } = await db
     .from('orders')
-    .select('latitude, longitude, group_id, driver_payout, route_distance_km, route_duration_min')
+    .select('latitude, longitude, group_id, driver_payout, route_distance_km, route_duration_min, payout_boost')
     .eq('id', orderId)
     .maybeSingle();
   const { data: rst } = await db
@@ -657,6 +652,13 @@ async function classifyOfferForCandidate(
     }
   }
   if (rideAlongPayout != null) payout = rideAlongPayout;
+
+  // Reforço opcional do restaurante (despacho natural — pedido demorando a
+  // achar motoboy, sem limite de tentativas; o restaurante pode oferecer
+  // um valor extra pra atrair alguém mais rápido em vez do sistema desistir).
+  if (order?.payout_boost != null && Number(order.payout_boost) > 0) {
+    payout = round(payout + Number(order.payout_boost));
+  }
 
   const etaTotalMin =
     best.etaToPickupMin != null || etaDropoffMin != null
@@ -750,15 +752,22 @@ export async function dispatchTick(
   // global por janela, evitando sobreposição de dois ticks do cron.
 }
 
+/** Depois de quantas tentativas sem sucesso o restaurante é avisado (e o
+ *  raio de busca começa a expandir). Não interrompe o despacho — o Leeva
+ *  continua chamando motoboys indefinidamente até alguém aceitar. */
+const NO_DRIVER_WARN_ATTEMPTS = 3;
+
+/** Avisa o restaurante que um pedido está demorando a achar motoboy — NÃO
+ *  desiste do despacho, só informa (e sugere reforçar o valor pago). */
 async function createNoDriverAlert(db: DB, restaurantId: string, orderId: string) {
   await db.from('alerts').upsert(
     {
       restaurant_id: restaurantId,
       type: 'no_driver',
-      severity: 'critical',
+      severity: 'warning',
       key: `no_driver:${orderId}`,
-      title: 'Sem entregador disponível',
-      message: 'Não encontramos entregador para um pedido. A rede está sem capacidade para a demanda atual.',
+      title: 'Poucos entregadores na região',
+      message: 'Estamos expandindo o raio de busca — poucos entregadores disponíveis por perto. Se quiser, você pode reforçar o valor pago ao motoboy pra atrair alguém mais rápido.',
       data: { order_id: orderId },
       active: true,
       resolved_at: null,
@@ -766,6 +775,16 @@ async function createNoDriverAlert(db: DB, restaurantId: string, orderId: string
     },
     { onConflict: 'restaurant_id,key' },
   );
+}
+
+/** Achou motoboy — se havia um alerta de "demorando" pra esse pedido, fecha. */
+async function resolveNoDriverAlert(db: DB, restaurantId: string, orderId: string) {
+  await db
+    .from('alerts')
+    .update({ active: false, resolved_at: new Date().toISOString() })
+    .eq('restaurant_id', restaurantId)
+    .eq('key', `no_driver:${orderId}`)
+    .eq('active', true);
 }
 
 /** Motoboy aceita a oferta. CAS na oferta aberta + no motoboy_id do pedido. */

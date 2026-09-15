@@ -1,12 +1,7 @@
 import { getApiContext, adminDb } from '@/lib/context';
-import { json, unauthorized, forbidden, badRequest, serverError } from '@/lib/api';
-import {
-  DEFAULT_LOGISTICS_CONFIG,
-  DEFAULT_PAYOUT_CONFIG,
-  getPayoutPolicy,
-  computeDriverPayout,
-} from '@leeva/shared/services';
-import type { LogisticsConfig, PayoutConfig } from '@leeva/shared';
+import { json, unauthorized, forbidden, serverError } from '@/lib/api';
+import { DEFAULT_LOGISTICS_CONFIG, getPayoutPolicy } from '@leeva/shared/services';
+import type { LogisticsConfig } from '@leeva/shared';
 import type { Database } from '@leeva/shared/types';
 
 const num = (v: unknown, min: number, max: number, dflt: number) => {
@@ -39,6 +34,13 @@ export async function GET() {
   }
 }
 
+/**
+ * Taxas e remuneração (taxa do cliente, pedido mínimo, frete grátis,
+ * per_km/mínimo do motoboy) NÃO são mais editáveis pelo restaurante —
+ * só o admin da plataforma mexe nisso (apps/admin/restaurantes/[id]).
+ * O restaurante só ajusta o operacional: raio, tempos, ligar/desligar
+ * despacho automático e agrupamento.
+ */
 export async function POST(req: Request) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
@@ -49,46 +51,32 @@ export async function POST(req: Request) {
       latitude?: number;
       longitude?: number;
       logistics?: Partial<LogisticsConfig>;
-      payout?: Partial<PayoutConfig>;
     };
     const db = adminDb();
 
-    const warnings: string[] = [];
+    const { data: current } = await db
+      .from('restaurants')
+      .select('logistics_config')
+      .eq('id', ctx.restaurantId)
+      .maybeSingle();
+    const existing: LogisticsConfig = { ...DEFAULT_LOGISTICS_CONFIG, ...((current?.logistics_config as object) ?? {}) };
 
-    // --- logistics_config validado ---
     const L = body.logistics ?? {};
     const logistics: LogisticsConfig = {
-      service_radius_km: num(L.service_radius_km, 1, 50, DEFAULT_LOGISTICS_CONFIG.service_radius_km),
-      customer_fee: num(L.customer_fee, 0, 100, DEFAULT_LOGISTICS_CONFIG.customer_fee),
-      free_delivery_min_order:
-        L.free_delivery_min_order == null ? null : num(L.free_delivery_min_order, 0, 100000, 0),
-      min_order: num(L.min_order, 0, 100000, 0),
-      grouping_enabled: L.grouping_enabled ?? true,
-      auto_dispatch_enabled: L.auto_dispatch_enabled ?? true,
-      ifood_auto_call: L.ifood_auto_call ?? true,
-      offer_timeout_seconds: num(L.offer_timeout_seconds, 15, 300, DEFAULT_LOGISTICS_CONFIG.offer_timeout_seconds),
-      max_dispatch_attempts: num(L.max_dispatch_attempts, 1, 10, DEFAULT_LOGISTICS_CONFIG.max_dispatch_attempts),
-      default_prep_minutes: num(L.default_prep_minutes, 1, 120, DEFAULT_LOGISTICS_CONFIG.default_prep_minutes),
-      dispatch_lead_minutes: num(L.dispatch_lead_minutes, 0, 60, DEFAULT_LOGISTICS_CONFIG.dispatch_lead_minutes),
+      ...existing,
+      // definidos só pelo admin — nunca aceitos daqui, mesmo se vierem no body
+      customer_fee: existing.customer_fee,
+      min_order: existing.min_order,
+      free_delivery_min_order: existing.free_delivery_min_order,
+      max_dispatch_attempts: existing.max_dispatch_attempts,
+      service_radius_km: num(L.service_radius_km, 1, 50, existing.service_radius_km),
+      grouping_enabled: L.grouping_enabled ?? existing.grouping_enabled,
+      auto_dispatch_enabled: L.auto_dispatch_enabled ?? existing.auto_dispatch_enabled,
+      ifood_auto_call: L.ifood_auto_call ?? existing.ifood_auto_call,
+      offer_timeout_seconds: num(L.offer_timeout_seconds, 15, 300, existing.offer_timeout_seconds),
+      default_prep_minutes: num(L.default_prep_minutes, 1, 120, existing.default_prep_minutes),
+      dispatch_lead_minutes: num(L.dispatch_lead_minutes, 0, 60, existing.dispatch_lead_minutes),
     };
-
-    // --- payout validado + aviso de prejuízo ---
-    const P = body.payout ?? {};
-    const payout: PayoutConfig = {
-      per_km: num(P.per_km, 0, 20, DEFAULT_PAYOUT_CONFIG.per_km),
-      per_km_grouped: num(P.per_km_grouped, 0, 20, DEFAULT_PAYOUT_CONFIG.per_km_grouped),
-      peak_bonus: num(P.peak_bonus, 0, 50, DEFAULT_PAYOUT_CONFIG.peak_bonus),
-      peak_hours: Array.isArray(P.peak_hours) ? P.peak_hours : DEFAULT_PAYOUT_CONFIG.peak_hours,
-      min_payout: num(P.min_payout, 0, 100, DEFAULT_PAYOUT_CONFIG.min_payout),
-    };
-
-    // simula uma entrega de 3 km para checar viabilidade
-    const sample = computeDriverPayout(payout, { distanceKm: 3 });
-    if (sample.total > logistics.customer_fee) {
-      warnings.push(
-        `A taxa cobrada do cliente (R$ ${logistics.customer_fee.toFixed(2)}) é menor que a remuneração estimada do entregador (R$ ${sample.total.toFixed(2)}). Você teria prejuízo nessa entrega.`,
-      );
-    }
 
     const fleetMode = ['own', 'leeva', 'hybrid'].includes(body.fleetMode ?? '')
       ? body.fleetMode
@@ -104,20 +92,7 @@ export async function POST(req: Request) {
     }
     await db.from('restaurants').update(upd).eq('id', ctx.restaurantId);
 
-    const { data: existingPolicy } = await db
-      .from('payout_policies')
-      .select('id')
-      .eq('restaurant_id', ctx.restaurantId)
-      .maybeSingle();
-    if (existingPolicy) {
-      await db.from('payout_policies').update({ config: payout, active: true }).eq('id', existingPolicy.id);
-    } else {
-      await db
-        .from('payout_policies')
-        .insert({ restaurant_id: ctx.restaurantId, name: 'Política do restaurante', config: payout, active: true });
-    }
-
-    return json({ ok: true, warnings });
+    return json({ ok: true, warnings: [] });
   } catch (e) {
     return serverError(e);
   }

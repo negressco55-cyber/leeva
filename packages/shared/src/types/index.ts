@@ -88,6 +88,9 @@ export type LogisticsConfig = {
    *  "aguardando você chamar" no painel (false). */
   ifood_auto_call: boolean;
   offer_timeout_seconds: number;
+  /** @deprecated despacho não desiste mais sozinho (raio de busca expande em
+   *  vez disso, ver NO_DRIVER_WARN_ATTEMPTS em autodispatch.ts) — campo
+   *  mantido só pra não quebrar configs antigas já salvas, sem efeito. */
   max_dispatch_attempts: number;
   /** Estimativa padrão (min) de tempo de preparo quando o restaurante não informa uma. */
   default_prep_minutes: number;

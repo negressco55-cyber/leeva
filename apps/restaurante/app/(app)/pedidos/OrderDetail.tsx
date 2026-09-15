@@ -207,6 +207,27 @@ export default function OrderDetail({
               {d.dispatchAttempts.map((a) => a.outcome ?? 'aguardando').join(', ')}
             </div>
           ) : null}
+          {!order.motoboy_id && ['none', 'searching'].includes(order.dispatch_state) && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                className="btn sm"
+                disabled={busy}
+                onClick={() => {
+                  const v = window.prompt('Reforçar o valor pago ao motoboy nesta entrega em quanto (R$)? Ajuda a atrair alguém mais rápido se estiver demorando.');
+                  const amount = v ? Number(v.replace(',', '.')) : NaN;
+                  if (!Number.isFinite(amount) || amount <= 0) return;
+                  void run(() => apiPost(`/api/orders/${order.id}/boost-payout`, { amount }));
+                }}
+              >
+                Reforçar valor pro motoboy
+              </button>
+              {typeof o?.payout_boost === 'number' && o.payout_boost > 0 && (
+                <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>
+                  +{formatCurrencyBRL(o.payout_boost)} reforçado
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

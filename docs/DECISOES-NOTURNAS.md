@@ -979,3 +979,42 @@ pra cadastrar pelo site.
   (Blocos 1/2/3, CRLV/Carteira no PWA, corrida extra, etc.) estava de
   fato no ar em produção até agora — só o app nativo (build próprio
   via EAS, não Vercel) recebia as mudanças de verdade.
+
+## 2026-09-15 — taxas saem do restaurante, viram só do admin
+
+- Usuária pediu: restaurante não deve mais mexer em taxa, só o admin.
+  Removido da tela de Configurações do restaurante: taxa cobrada do
+  cliente, pedido mínimo, frete grátis, máx. tentativas de despacho, e
+  a seção inteira "Remuneração do entregador" (por km solta/extra,
+  mínimo garantido, bônus de pico). O restaurante só vê esses valores
+  como informação (taxa/pedido mínimo/frete grátis), sem poder editar.
+  A API `/api/config` do restaurante agora ignora esses campos mesmo
+  que alguém tente mandar via requisição direta — sempre preserva o
+  valor já salvo.
+- Taxa/pedido mínimo/frete grátis viraram editáveis na página de cada
+  restaurante no admin (`/restaurantes/[id]`) — único lugar onde dá
+  pra mudar agora. Remuneração do motoboy (por km etc.) continua só
+  na tela global "Planos" do admin (não criei edição por restaurante
+  pra isso ainda — se precisar, é só pedir).
+
+## 2026-09-15 — despacho "natural": sem limite de tentativas
+
+- Antes: depois de N tentativas (configurável, restaurante mexia
+  nisso) o pedido virava "sem entregador" e parava de tentar. Usuária
+  pediu pra isso ser natural — o Leeva chama quantos motoboys forem
+  necessários até alguém aceitar, sem desistir sozinho.
+- Implementado: removido o limite. Depois de 3 tentativas sem
+  ninguém aceitar, o raio de busca começa a expandir sozinho (até 3x
+  o normal) e aparece um aviso pro restaurante ("Poucos entregadores
+  na região — expandindo o raio de busca"), sem travar o pedido. O
+  aviso some sozinho assim que alguém aceitar.
+- Nova opção pro restaurante: pode reforçar o valor pago ao motoboy
+  nesse pedido específico (botão "Reforçar valor pro motoboy" na tela
+  do pedido, até R$ 100), pra atrair alguém mais rápido — some depois
+  que o motoboy aceita (o repasse final já vira o valor exato
+  ofertado). Coluna nova `orders.payout_boost` (migration 0041).
+- `max_dispatch_attempts` continua existindo no schema (não quis fazer
+  migration de remoção) mas não tem mais efeito nenhum — marcado
+  @deprecated no tipo.
+- Sem teste automatizado pra essa parte (mexe em runDispatchTick, que
+  já não tinha cobertura — mesma limitação registrada antes).

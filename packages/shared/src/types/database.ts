@@ -1349,6 +1349,7 @@ export type Database = {
           order_number: number | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_status: Database["public"]["Enums"]["payment_status"]
+          payout_boost: number | null
           picked_up_at: string | null
           preparing_at: string | null
           prep_estimate_minutes: number | null
@@ -1404,6 +1405,7 @@ export type Database = {
           order_number?: number | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          payout_boost?: number | null
           picked_up_at?: string | null
           preparing_at?: string | null
           prep_estimate_minutes?: number | null
@@ -1459,6 +1461,7 @@ export type Database = {
           order_number?: number | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          payout_boost?: number | null
           picked_up_at?: string | null
           preparing_at?: string | null
           prep_estimate_minutes?: number | null

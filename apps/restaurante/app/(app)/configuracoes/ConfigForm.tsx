@@ -7,7 +7,6 @@ import {
   formatCurrencyBRL,
   type FleetMode,
   type LogisticsConfig,
-  type PayoutConfig,
 } from '@leeva/shared';
 import { apiPost } from '../_lib/client';
 
@@ -20,14 +19,13 @@ export default function ConfigForm({
   plans,
 }: {
   isOwner: boolean;
-  initial: { name: string; address: string; latitude: number | null; longitude: number | null; fleetMode: FleetMode; logistics: LogisticsConfig; payout: PayoutConfig };
+  initial: { name: string; address: string; latitude: number | null; longitude: number | null; fleetMode: FleetMode; logistics: LogisticsConfig };
   currentPlan: string;
   plans: Plan[];
 }) {
   const router = useRouter();
   const [fleetMode, setFleetMode] = useState(initial.fleetMode);
   const [L, setL] = useState<LogisticsConfig>(initial.logistics);
-  const [P, setP] = useState<PayoutConfig>(initial.payout);
   const [lat, setLat] = useState(initial.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
   const [address, setAddress] = useState(initial.address ?? '');
@@ -37,7 +35,6 @@ export default function ConfigForm({
   const [msg, setMsg] = useState<{ warnings?: string[]; ok?: boolean; err?: string } | null>(null);
 
   const nL = (k: keyof LogisticsConfig, v: number) => setL((s) => ({ ...s, [k]: v }));
-  const nP = (k: keyof PayoutConfig, v: number) => setP((s) => ({ ...s, [k]: v }));
 
   async function save() {
     setBusy(true);
@@ -48,7 +45,6 @@ export default function ConfigForm({
         latitude: lat ? Number(lat) : undefined,
         longitude: lng ? Number(lng) : undefined,
         logistics: L,
-        payout: P,
       });
       setMsg({ ok: true, warnings: r.warnings });
       router.refresh();
@@ -150,12 +146,8 @@ export default function ConfigForm({
       <div className="card">
         <div className="card-title">Logística</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <label>Taxa de entrega cobrada (R$){num(L.customer_fee, (v) => nL('customer_fee', v))}</label>
           <label>Raio de atendimento (km){num(L.service_radius_km, (v) => nL('service_radius_km', v), '1')}</label>
-          <label>Pedido mínimo (R$){num(L.min_order, (v) => nL('min_order', v))}</label>
-          <label>Frete grátis acima de (R$, 0 = desligado){num(L.free_delivery_min_order ?? 0, (v) => setL((s) => ({ ...s, free_delivery_min_order: v || null })))}</label>
           <label>Tempo de oferta ao entregador (s){num(L.offer_timeout_seconds, (v) => nL('offer_timeout_seconds', v), '5')}</label>
-          <label>Máx. tentativas de despacho{num(L.max_dispatch_attempts, (v) => nL('max_dispatch_attempts', v), '1')}</label>
           <label>Tempo padrão de preparo (min){num(L.default_prep_minutes, (v) => nL('default_prep_minutes', v), '1')}</label>
           <label>Antecedência da chamada do motoboy (min){num(L.dispatch_lead_minutes, (v) => nL('dispatch_lead_minutes', v), '0')}</label>
         </div>
@@ -180,17 +172,18 @@ export default function ConfigForm({
       </div>
 
       <div className="card">
-        <div className="card-title">Remuneração do entregador</div>
-        <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>Independente da taxa cobrada do cliente. O sistema avisa se gerar prejuízo.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <label>Por km — entrega solta (R$){num(P.per_km, (v) => nP('per_km', v), '0.1')}</label>
-          <label>Por km — parada extra de rota (R$){num(P.per_km_grouped, (v) => nP('per_km_grouped', v), '0.1')}</label>
-          <label>Mínimo garantido por parada (R$){num(P.min_payout, (v) => nP('min_payout', v))}</label>
-          <label>Bônus de pico (R$){num(P.peak_bonus, (v) => nP('peak_bonus', v))}</label>
-        </div>
-        <p className="muted" style={{ fontSize: 12 }}>
-          Simulação (3 km, entrega solta): <b>{formatCurrencyBRL(Math.max(P.min_payout, 3 * P.per_km))}</b>
+        <div className="card-title">Taxas e remuneração</div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+          Definidas pelo Leeva — não são configuráveis por aqui.
         </p>
+        <dl className="kv">
+          <dt>Taxa de entrega cobrada do cliente</dt>
+          <dd>{formatCurrencyBRL(L.customer_fee)}</dd>
+          <dt>Pedido mínimo</dt>
+          <dd>{L.min_order > 0 ? formatCurrencyBRL(L.min_order) : 'sem mínimo'}</dd>
+          <dt>Frete grátis acima de</dt>
+          <dd>{L.free_delivery_min_order ? formatCurrencyBRL(L.free_delivery_min_order) : 'desligado'}</dd>
+        </dl>
       </div>
 
       {msg?.warnings?.length ? (

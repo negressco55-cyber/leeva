@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/context';
-import { getRestaurantDetail } from '@leeva/shared/services';
+import { getRestaurantDetail, DEFAULT_LOGISTICS_CONFIG } from '@leeva/shared/services';
+import type { LogisticsConfig } from '@leeva/shared';
 import { money, num } from '../../_lib/ui';
 import { CreditAdjust } from './CreditAdjust';
+import { LogisticsFeesEditor } from './LogisticsFeesEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +19,7 @@ export default async function RestaurantDetail({ params }: { params: Promise<{ i
     | { status?: string; trial_ends_at?: string | null; current_period_end?: string; plans?: { name?: string; monthly_price?: number; per_delivery_price?: number } }
     | null;
   const lc = (r.logistics_config ?? {}) as Record<string, unknown>;
+  const logistics: LogisticsConfig = { ...DEFAULT_LOGISTICS_CONFIG, ...((r.logistics_config as object) ?? {}) };
 
   return (
     <>
@@ -110,7 +113,20 @@ export default async function RestaurantDetail({ params }: { params: Promise<{ i
 
       <div className="grid-2">
         <div className="card">
-          <div className="card-title">Configuração logística</div>
+          <div className="card-title">Taxas do restaurante</div>
+          <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+            Só o admin mexe aqui — o restaurante não vê mais esses campos editáveis na própria tela.
+          </p>
+          <LogisticsFeesEditor
+            restaurantId={id}
+            initial={{
+              customerFee: logistics.customer_fee,
+              minOrder: logistics.min_order,
+              freeDeliveryMinOrder: logistics.free_delivery_min_order,
+            }}
+          />
+
+          <div className="card-title" style={{ marginTop: 16 }}>Resto da configuração (operacional, o restaurante ajusta)</div>
           <dl className="kv">
             {Object.entries(lc).map(([k, v]) => (
               <div key={k} style={{ display: 'contents' }}>
