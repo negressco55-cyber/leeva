@@ -70,7 +70,6 @@ const NAV: { href: string; label: string; icon: IconKey }[] = [
   { href: '/caixa', label: 'Caixa', icon: 'vault' },
   { href: '/financeiro', label: 'Financeiro', icon: 'money' },
   { href: '/planos', label: 'Planos', icon: 'ticket' },
-  { href: '/reputacao', label: 'Reputação', icon: 'star' },
 ];
 
 function Icon({ k }: { k: IconKey }): ReactNode {
