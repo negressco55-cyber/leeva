@@ -6,12 +6,10 @@ import { createLeevaBrowserClient } from '@leeva/shared/client';
 import {
   formatCurrencyBRL,
   PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_LABELS,
   paymentPendingOnDelivery,
   type PaymentMethod,
   type PaymentStatus,
 } from '@leeva/shared';
-import { computePrepStatus } from '@leeva/shared/services/prep-status';
 import RouteMap from './_lib/RouteMap';
 
 type Offer = {
@@ -48,13 +46,6 @@ type Offer = {
   routeStops: { seq: number; address: string; region: string | null; payout: number; legKm: number | null }[] | null;
   routeTotalKm: number | null;
 };
-
-function prepBadge(o: Pick<Offer, 'readyAt' | 'preparingAt' | 'prepEstimateMinutes'>): { text: string; color: string } | null {
-  const p = computePrepStatus({ readyAt: o.readyAt, preparingAt: o.preparingAt, prepEstimateMinutes: o.prepEstimateMinutes });
-  if (p.state === 'ready') return { text: p.label, color: 'var(--ok)' };
-  if (p.state === 'preparing') return { text: p.label, color: 'var(--warn)' };
-  return null;
-}
 
 let offerAudioCtx: AudioContext | null = null;
 
@@ -176,8 +167,6 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
         const secs = Math.max(0, Math.round((new Date(o.expiresAt).getTime() - now) / 1000));
         const collectOnDelivery = paymentPendingOnDelivery(o.paymentMethod, o.paymentStatus);
         const grouped = !!o.routeStops && o.routeStops.length > 1;
-        const totalKm = o.distanceTotalKm ?? o.routeTotalKm;
-        const perKm = o.payout != null && totalKm && totalKm > 0 ? o.payout / totalKm : null;
         const pickupEta = o.etaPickupMinutes;
         const dropoffEta = o.etaDropoffMinutes ?? o.etaMinutes;
 
@@ -217,9 +206,6 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                 <span className="offer-price-num">
                   {o.payout != null ? formatCurrencyBRL(o.payout) : '—'}
                 </span>
-                {perKm != null && (
-                  <span className="offer-price-km">{formatCurrencyBRL(perKm)}<i>por km</i></span>
-                )}
               </div>
 
               {grouped ? (
@@ -259,19 +245,16 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                 </div>
               )}
 
-              {(() => {
-                const pb = prepBadge(o);
-                return pb ? <div className="muted" style={{ fontSize: 12.5, color: pb.color, fontWeight: 600 }}>{pb.text}</div> : null;
-              })()}
-              {collectOnDelivery && (
+              {collectOnDelivery ? (
                 <div className="offer-collect">
                   💰 Receber do cliente na entrega: {formatCurrencyBRL(o.orderAmount)}
                 </div>
+              ) : (
+                <div className="offer-collect offer-collect--paid">
+                  ✅ Já pago — {PAYMENT_METHOD_LABELS[o.paymentMethod]}
+                </div>
               )}
               {o.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {o.notes}</div>}
-              <div className="muted" style={{ fontSize: 12.5 }}>
-                Venda: {PAYMENT_METHOD_LABELS[o.paymentMethod]} — {PAYMENT_STATUS_LABELS[o.paymentStatus]}
-              </div>
 
               <button
                 className="offer-accept"

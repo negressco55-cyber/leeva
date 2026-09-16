@@ -107,40 +107,6 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
         </Card>
       )}
 
-      <Card style={styles.card}>
-        <Text style={styles.label}>Coleta</Text>
-        <Text style={styles.endereco}>{d.pickupName}</Text>
-        {d.pickupAddress ? <Text style={styles.dest}>{d.pickupAddress}</Text> : null}
-      </Card>
-
-      <Card style={styles.card}>
-        <Text style={styles.label}>Entrega</Text>
-        <Text style={styles.endereco}>{d.dropoffAddress}</Text>
-        <Text style={styles.dest}>
-          {d.customerName}
-          {d.customerPhone ? ` · ${d.customerPhone}` : ''}
-        </Text>
-      </Card>
-
-      {d.notes ? (
-        <Card style={styles.card}>
-          <Text style={styles.label}>Observações</Text>
-          <Text style={styles.endereco}>{d.notes}</Text>
-        </Card>
-      ) : null}
-
-      {d.pickupLat != null && d.dropoffLat != null && (
-        <MapaEntrega
-          pickupLat={d.pickupLat}
-          pickupLng={d.pickupLng as number}
-          dropoffLat={d.dropoffLat}
-          dropoffLng={d.dropoffLng as number}
-          motoboyLat={position?.latitude}
-          motoboyLng={position?.longitude}
-          style={styles.mapa}
-        />
-      )}
-
       <View style={styles.actions}>
         {!entregue && alvo.lat != null && (
           <Button label={`Abrir no mapa (${naColeta ? 'coleta' : 'entrega'})`} variant="outline" onPress={abrirMapa} />
@@ -194,6 +160,40 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
 
         {entregue && <Button label="Concluir" onPress={() => navigation.goBack()} />}
       </View>
+
+      <Card style={styles.card}>
+        <Text style={styles.label}>Coleta</Text>
+        <Text style={styles.endereco}>{d.pickupName}</Text>
+        {d.pickupAddress ? <Text style={styles.dest}>{d.pickupAddress}</Text> : null}
+      </Card>
+
+      <Card style={styles.card}>
+        <Text style={styles.label}>Entrega</Text>
+        <Text style={styles.endereco}>{d.dropoffAddress}</Text>
+        <Text style={styles.dest}>
+          {d.customerName}
+          {d.customerPhone ? ` · ${d.customerPhone}` : ''}
+        </Text>
+      </Card>
+
+      {d.notes ? (
+        <Card style={styles.card}>
+          <Text style={styles.label}>Observações</Text>
+          <Text style={styles.endereco}>{d.notes}</Text>
+        </Card>
+      ) : null}
+
+      {d.pickupLat != null && d.dropoffLat != null && (
+        <MapaEntrega
+          pickupLat={d.pickupLat}
+          pickupLng={d.pickupLng as number}
+          dropoffLat={d.dropoffLat}
+          dropoffLng={d.dropoffLng as number}
+          motoboyLat={position?.latitude}
+          motoboyLng={position?.longitude}
+          style={styles.mapa}
+        />
+      )}
     </ScreenContainer>
   );
 }

@@ -67,7 +67,6 @@ export default function LiveMap({ height = 340 }: { height?: number }) {
   const cols = Math.ceil(width / TILE) + 2;
   const rows = Math.ceil(height / TILE) + 2;
   const nTiles = 2 ** z;
-  const style = dark ? 'dark_all' : 'light_all';
 
   const tiles: { key: string; src: string; left: number; top: number }[] = [];
   for (let i = 0; i < cols; i++) {
@@ -76,10 +75,11 @@ export default function LiveMap({ height = 340 }: { height?: number }) {
       const ty = ty0 + j;
       if (ty < 0 || ty >= nTiles) continue;
       const wx = ((tx % nTiles) + nTiles) % nTiles;
-      const sub = 'abcd'[(tx + ty) % 4];
+      const sub = 'abc'[(tx + ty) % 3];
       tiles.push({
         key: `${tx}-${ty}`,
-        src: `https://${sub}.basemaps.cartocdn.com/${style}/${z}/${wx}/${ty}@2x.png`,
+        // OSM padrão (sem chave) — o CARTO passou a exigir API key.
+        src: `https://${sub}.tile.openstreetmap.org/${z}/${wx}/${ty}.png`,
         left: tx * TILE - originX,
         top: ty * TILE - originY,
       });
@@ -88,7 +88,7 @@ export default function LiveMap({ height = 340 }: { height?: number }) {
 
   return (
     <div ref={wrapRef} className="route-map" style={{ width: '100%', height }} aria-label="Sua localização no mapa" role="img">
-      <div className="route-map-tiles">
+      <div className="route-map-tiles" style={dark ? { filter: 'invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9)' } : undefined}>
         {tiles.map((t) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img key={t.key} src={t.src} alt="" width={TILE} height={TILE} loading="eager" style={{ position: 'absolute', left: t.left, top: t.top }} />
@@ -104,7 +104,7 @@ export default function LiveMap({ height = 340 }: { height?: number }) {
           </svg>
         </span>
       </div>
-      <span className="route-map-attr">© OpenStreetMap · CARTO</span>
+      <span className="route-map-attr">© OpenStreetMap</span>
     </div>
   );
 }

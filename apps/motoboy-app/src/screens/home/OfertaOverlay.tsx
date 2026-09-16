@@ -14,14 +14,6 @@ const qualityLabel = (q: string): string =>
   : q === 'acceptable' ? '🟡 Oferta razoável'
   : '⚪ Oferta pouco vantajosa';
 
-function prepBadgeText(readyAt: string | null, preparingAt: string | null, prepEstimateMinutes: number | null): string | null {
-  if (readyAt) return '🔔 Pronto pra retirada';
-  if (!preparingAt) return null;
-  if (!prepEstimateMinutes) return 'Em preparo';
-  const leftMin = Math.round((new Date(preparingAt).getTime() + prepEstimateMinutes * 60_000 - Date.now()) / 60_000);
-  return leftMin > 0 ? `Em preparo · pronto em ~${leftMin} min` : 'Em preparo · já deveria estar pronto';
-}
-
 export function OfertaOverlay(): React.JSX.Element | null {
   const { offer, acceptOffer, declineOffer } = useRide();
   const [secs, setSecs] = useState(0);
@@ -45,8 +37,6 @@ export function OfertaOverlay(): React.JSX.Element | null {
   const timeLeftPct = totalSecs > 0 ? Math.max(0, Math.min(1, secs / totalSecs)) : 0;
 
   const grouped = !!offer.routeStops && offer.routeStops.length > 1;
-  const totalKm = offer.distanceTotalKm ?? offer.routeTotalKm;
-  const perKm = offer.payout != null && totalKm && totalKm > 0 ? offer.payout / totalKm : null;
   const pickupEta = offer.etaPickupMinutes;
   const dropoffEta = offer.etaDropoffMinutes ?? offer.etaMinutes;
 
@@ -89,16 +79,8 @@ export function OfertaOverlay(): React.JSX.Element | null {
                 </Text>
                 {offer.quality ? <Text style={styles.quality}>{qualityLabel(offer.quality)}</Text> : null}
               </View>
-              {(() => {
-                const t = prepBadgeText(offer.readyAt, offer.preparingAt, offer.prepEstimateMinutes);
-                return t ? <Text style={[styles.prepBadge, offer.readyAt && styles.prepBadgeReady]}>{t}</Text> : null;
-              })()}
               <View style={styles.priceRow}>
                 <Text style={styles.priceNum}>{offer.payout != null ? brl(offer.payout) : '—'}</Text>
-                <View style={styles.priceSub}>
-                  {totalKm != null && <Text style={styles.priceKmTotal}>{totalKm.toFixed(1)} km no total</Text>}
-                  {perKm != null && <Text style={styles.priceKmLbl}>{brl(perKm)} por km</Text>}
-                </View>
               </View>
             </View>
           </View>
@@ -155,9 +137,11 @@ export function OfertaOverlay(): React.JSX.Element | null {
             )}
 
             {offer.notes ? <Text style={styles.meta}>Obs: {offer.notes}</Text> : null}
-            <Text style={styles.meta}>
-              Venda: {offer.paymentMethod} · {offer.paymentStatus}
-            </Text>
+            <View style={styles.paymentChip}>
+              <Text style={styles.paymentChipText}>
+                💰 {offer.paymentMethod} · {offer.paymentStatus}
+              </Text>
+            </View>
           </View>
         </ScrollView>
 
@@ -225,14 +209,9 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.sm },
   topRowText: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, flexShrink: 1 },
   quality: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.textSecondary },
-  prepBadge: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.accent, marginTop: 4 },
-  prepBadgeReady: { color: theme.colors.success },
 
   priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: theme.spacing.md },
-  priceNum: { fontFamily: theme.fonts.heading, fontSize: 32, color: theme.colors.text, letterSpacing: -0.5 },
-  priceSub: { alignItems: 'flex-end' },
-  priceKmTotal: { fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: theme.colors.text },
-  priceKmLbl: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.success, marginTop: 2 },
+  priceNum: { fontFamily: theme.fonts.heading, fontSize: 38, color: theme.colors.success, letterSpacing: -0.5 },
 
   legs: { gap: theme.spacing.sm },
   leg: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.sm },
@@ -251,6 +230,14 @@ const styles = StyleSheet.create({
   legPay: { fontFamily: theme.fonts.bodySemiBold, fontSize: 14, color: theme.colors.text },
 
   meta: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary },
+  paymentChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  paymentChipText: { fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: theme.colors.text },
 
   actions: {
     padding: theme.spacing.lg,

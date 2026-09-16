@@ -54,11 +54,12 @@ export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, 
       const ty = ty0 + j;
       if (ty < 0 || ty >= nTiles) continue;
       const wx = ((tx % nTiles) + nTiles) % nTiles;
-      const sub = 'abcd'[(tx + ty) % 4];
+      const sub = 'abc'[(tx + ty) % 3];
       tiles.push(
+        // OSM padrão (sem chave) — o CARTO passou a exigir API key.
         <Image
           key={`${tx}-${ty}`}
-          source={{ uri: `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${wx}/${ty}@2x.png` }}
+          source={{ uri: `https://${sub}.tile.openstreetmap.org/${z}/${wx}/${ty}.png` }}
           style={{ position: 'absolute', width: TILE, height: TILE, left: tx * TILE - originX, top: ty * TILE - originY }}
         />,
       );
