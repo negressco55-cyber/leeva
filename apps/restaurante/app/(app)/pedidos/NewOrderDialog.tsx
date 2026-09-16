@@ -43,6 +43,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
   const [notes, setNotes] = useState('');
+  const [fromIfood, setFromIfood] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fee, setFee] = useState<FeePreview | null>(null);
@@ -119,6 +120,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
         paymentStatus,
         notes: notes || null,
         items: [],
+        fromIfood,
       });
       onCreated();
     } catch (e) {
@@ -243,6 +245,11 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
           )}
 
           <textarea className="input" placeholder="Observações de entrega" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+
+          <label className="row" style={{ gap: 8, fontSize: 13, cursor: 'pointer' }}>
+            <input type="checkbox" checked={fromIfood} onChange={(e) => setFromIfood(e.target.checked)} />
+            Pedido veio do iFood (lançado manual, enquanto a integração direta não está ligada)
+          </label>
 
           {err && <div className="op-alert critical">{err}</div>}
 

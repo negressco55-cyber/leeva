@@ -12,6 +12,7 @@
 import webpush from 'web-push';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
+import { captureError } from './observability';
 
 type DB = SupabaseClient<Database>;
 
@@ -190,12 +191,18 @@ export async function sendPushToMotoboy(
           removed++;
         } else {
           await db.from('push_subscriptions').update({ failure_count: expoSubs[i]!.failure_count + 1 }).eq('id', expoSubs[i]!.id);
+          await captureError(db, 'cron', new Error(`push expo falhou: ${t?.details?.error ?? t?.status ?? 'desconhecido'}`), {
+            motoboyId,
+            ticketStatus: t?.status ?? null,
+            ticketError: t?.details?.error ?? null,
+          });
         }
       }
-    } catch {
+    } catch (e) {
       for (const s of expoSubs) {
         await db.from('push_subscriptions').update({ failure_count: s.failure_count + 1 }).eq('id', s.id);
       }
+      await captureError(db, 'cron', e, { motoboyId, where: 'push-expo-fetch' });
     }
   }
   // se removeu tudo, marca push_enabled = false

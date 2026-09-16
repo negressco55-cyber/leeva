@@ -20,6 +20,9 @@ export type ManualOrderInput = {
   total?: number;
   paymentMethod?: PaymentMethod | null;
   paymentStatus?: PaymentStatus | null;
+  /** pedido veio do iFood, lançado manualmente enquanto a integração direta
+   *  não está ligada — só marca a origem (não muda o despacho). */
+  fromIfood?: boolean;
 };
 
 export class ManualOrderProvider implements OrderProvider {
@@ -40,7 +43,7 @@ export class ManualOrderProvider implements OrderProvider {
 
     const order: NormalizedOrder = {
       externalId: null,
-      source: 'manual',
+      source: input.fromIfood ? 'ifood' : 'manual',
       customer: { name: input.customerName.trim(), phone: input.customerPhone ?? null },
       items: items.map((i) => ({
         name: i.name.trim(),
