@@ -6,6 +6,7 @@ import type { UserRole } from '@leeva/shared';
 export type RestaurantContext = {
   userId: string;
   email: string | null;
+  emailConfirmed: boolean;
   role: UserRole;
   restaurantId: string;
   restaurantName: string;
@@ -39,6 +40,7 @@ export const requireRestaurantContext = cache(async function requireRestaurantCo
   return {
     userId: user.id,
     email: user.email ?? null,
+    emailConfirmed: !!user.email_confirmed_at,
     role: profile.role as UserRole,
     restaurantId: profile.restaurant_id,
     restaurantName:
@@ -69,6 +71,7 @@ export const getApiContext = cache(async function getApiContext(): Promise<Resta
   return {
     userId: user.id,
     email: user.email ?? null,
+    emailConfirmed: !!user.email_confirmed_at,
     role: profile.role as UserRole,
     restaurantId: profile.restaurant_id,
     restaurantName:

@@ -1,17 +1,20 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { isSupabaseAdminConfigured } from '@leeva/shared';
-import { createLeevaAdminClient, createLeevaServerClient } from '@leeva/shared/server';
+import { createLeevaAdminClient } from '@leeva/shared/server';
+import { sendVerificationEmail } from '@leeva/shared/services';
 
-export type SignupState = { error?: string };
+export type SignupState = { error?: string; ok?: boolean };
 
 /**
  * Cadastro do restaurante:
  *  1. cria o registro em `restaurants`
- *  2. cria o usuário no Auth já com metadata (role=owner + restaurant_id)
- *     -> a trigger handle_new_auth_user cria a linha em `users`
- *  3. faz login
+ *  2. cria o usuário no Auth (NÃO confirmado) já com metadata (role=owner +
+ *     restaurant_id) -> a trigger handle_new_auth_user cria a linha em `users`
+ *  3. manda o link de confirmação pelo Resend (não pelo SMTP do Supabase —
+ *     mesma razão do reset de senha, ver login/actions.ts)
+ *  Só entra no painel depois de confirmar (requireRestaurantContext barra
+ *  quem não confirmou).
  */
 export async function signupRestaurant(
   _prev: SignupState,
@@ -41,26 +44,31 @@ export async function signupRestaurant(
     return { error: `Falha ao criar restaurante: ${rErr?.message ?? 'desconhecido'}` };
   }
 
-  const { error: uErr } = await admin.auth.admin.createUser({
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const { data, error: uErr } = await admin.auth.admin.generateLink({
+    type: 'signup',
     email,
     password,
-    email_confirm: true,
-    user_metadata: {
-      role: 'restaurant_owner',
-      full_name: fullName,
-      restaurant_id: restaurant.id,
+    options: {
+      redirectTo: base,
+      data: {
+        role: 'restaurant_owner',
+        full_name: fullName,
+        restaurant_id: restaurant.id,
+      },
     },
   });
 
-  if (uErr) {
+  if (uErr || !data?.properties?.action_link) {
     // desfaz o restaurante órfão
     await admin.from('restaurants').delete().eq('id', restaurant.id);
-    return { error: `Falha ao criar usuário: ${uErr.message}` };
+    return { error: `Falha ao criar usuário: ${uErr?.message ?? 'erro desconhecido'}` };
   }
 
-  const supabase = await createLeevaServerClient();
-  const { error: sErr } = await supabase.auth.signInWithPassword({ email, password });
-  if (sErr) return { error: `Conta criada, mas o login falhou: ${sErr.message}` };
+  const sent = await sendVerificationEmail(email, data.properties.action_link);
+  if (!sent) {
+    return { error: 'Conta criada, mas não foi possível enviar o e-mail de confirmação agora. Tente de novo em instantes.' };
+  }
 
-  redirect('/dashboard');
+  return { ok: true };
 }

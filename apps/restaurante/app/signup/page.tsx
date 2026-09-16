@@ -9,6 +9,20 @@ const initial: SignupState = {};
 export default function SignupPage() {
   const [state, action, pending] = useActionState(signupRestaurant, initial);
 
+  if (state.ok) {
+    return (
+      <div className="container" style={{ maxWidth: 420 }}>
+        <h1>Confira seu e-mail</h1>
+        <p className="muted">
+          Mandamos um link de confirmação. Clique nele pra ativar sua conta e entrar no painel.
+        </p>
+        <p className="muted" style={{ marginTop: 16 }}>
+          <Link href="/login">Voltar pro login</Link>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="container" style={{ maxWidth: 420 }}>
       <h1>Criar conta do restaurante</h1>

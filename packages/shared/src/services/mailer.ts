@@ -53,6 +53,18 @@ export async function sendPasswordResetEmail(to: string, link: string): Promise<
   );
 }
 
+/** Link de confirmação de cadastro — mandado direto pelo Resend (mesma razão do
+ *  reset de senha: o SMTP do Supabase é frágil, isso aqui já funciona). */
+export async function sendVerificationEmail(to: string, link: string): Promise<boolean> {
+  return sendEmail(
+    to,
+    'Confirme seu e-mail no Leeva',
+    `<p>Falta um passo pra ativar sua conta no Leeva.</p>
+     <p><a href="${link}">Clique aqui pra confirmar seu e-mail</a></p>
+     <p style="color:#666;font-size:13px">Se você não pediu esse cadastro, pode ignorar este e-mail.</p>`,
+  );
+}
+
 /** Alerta operacional (ex: motor de despacho parado) — manda pro e-mail do operador da plataforma. */
 export async function sendOpsAlertEmail(to: string, subject: string, message: string): Promise<boolean> {
   return sendEmail(

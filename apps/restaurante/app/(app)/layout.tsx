@@ -5,9 +5,16 @@ import { logout } from '../login/actions';
 import { Nav } from './_lib/Nav';
 import { ThemeToggle } from './_lib/ThemeToggle';
 import { TermsGate } from './_lib/TermsGate';
+import { EmailGate } from './_lib/EmailGate';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireRestaurantContext();
+
+  // e-mail precisa estar confirmado antes de usar o painel
+  if (!ctx.emailConfirmed) {
+    return <EmailGate email={ctx.email} />;
+  }
+
   const db = adminDb();
 
   // onboarding obrigatório antes de usar o painel
