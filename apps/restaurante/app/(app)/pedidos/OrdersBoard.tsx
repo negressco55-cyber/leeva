@@ -20,6 +20,7 @@ import { StatusPill, SourcePill } from '../_lib/ui';
 import { apiPost } from '../_lib/client';
 import NewOrderDialog from './NewOrderDialog';
 import OrderDetail from './OrderDetail';
+import { ChatInbox } from './ChatInbox';
 
 type OrderRow = {
   id: string;
@@ -98,6 +99,7 @@ export default function OrdersBoard({
   const { events } = useRealtimeOrders({ restaurantId });
   const [openId, setOpenId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [autoOpenChatId, setAutoOpenChatId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!events.length || openId || showNew) return;
@@ -175,6 +177,13 @@ export default function OrdersBoard({
           ))}
         </select>
       </div>
+
+      <ChatInbox
+        onOpenOrder={(orderId) => {
+          setOpenId(orderId);
+          setAutoOpenChatId(orderId);
+        }}
+      />
 
       {err && <div className="op-alert critical" style={{ marginTop: 10 }}>{err}</div>}
       <div className="muted" style={{ fontSize: 13, margin: '10px 0' }}>{filtered.length} pedido(s)</div>
@@ -301,6 +310,7 @@ export default function OrdersBoard({
                 order={o}
                 groupPeers={o.group_id ? groupPeers[o.group_id] : undefined}
                 motoboy={o.motoboy_id ? motoboyById[o.motoboy_id] : undefined}
+                autoOpenChat={autoOpenChatId === o.id}
                 onChanged={() => startTransition(() => router.refresh())}
               />
             )}

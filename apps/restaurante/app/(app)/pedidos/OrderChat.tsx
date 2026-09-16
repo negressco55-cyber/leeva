@@ -6,12 +6,16 @@ import { apiGet, apiPost } from '../_lib/client';
 type Message = { id: string; senderType: 'restaurant' | 'motoboy'; senderId: string; body: string; createdAt: string };
 
 /** Chat do pedido com o entregador atribuído. Atualiza por polling (5s). */
-export function OrderChat({ orderId }: { orderId: string }) {
+export function OrderChat({ orderId, startOpen }: { orderId: string; startOpen?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!startOpen);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (startOpen) setOpen(true);
+  }, [startOpen]);
 
   const load = useCallback(async () => {
     try {

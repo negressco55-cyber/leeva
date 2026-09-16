@@ -59,11 +59,13 @@ export default function OrderDetail({
   order,
   groupPeers,
   motoboy,
+  autoOpenChat,
   onChanged,
 }: {
   order: OrderRow;
   groupPeers?: GroupPeer[];
   motoboy?: { fullName: string; phone: string | null };
+  autoOpenChat?: boolean;
   onChanged: () => void;
 }) {
   const [d, setD] = useState<Detail | null>(null);
@@ -134,7 +136,7 @@ export default function OrderDetail({
                   💬 WhatsApp do entregador
                 </a>
               )}
-              <OrderChat orderId={order.id} />
+              <OrderChat orderId={order.id} startOpen={autoOpenChat} />
             </div>
           )}
 

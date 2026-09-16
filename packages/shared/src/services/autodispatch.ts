@@ -428,7 +428,7 @@ export async function runDispatchTick(db: DB, restaurantId?: string): Promise<Di
     // durante o cooldown; depois voltam a ser considerados (essencial
     // quando há pouca gente online: sem isso, o único motoboy disponível
     // fica excluído pra sempre e o pedido nunca mais oferta pra ninguém).
-    const cooldownCutoff = new Date(Date.now() - RETRY_COOLDOWN_MINUTES * 60_000).toISOString();
+    const cooldownCutoff = new Date(Date.now() - RETRY_COOLDOWN_SECONDS * 1000).toISOString();
     const { data: prev } = await db
       .from('dispatch_attempts')
       .select('motoboy_id')
@@ -769,8 +769,11 @@ const NO_DRIVER_WARN_ATTEMPTS = 3;
 
 /** Depois de quanto tempo um motoboy que recusou/não respondeu volta a ser
  *  considerado pro MESMO pedido. Sem isso, se ele for o único disponível,
- *  o pedido nunca mais oferta pra ninguém. */
-const RETRY_COOLDOWN_MINUTES = 8;
+ *  o pedido nunca mais oferta pra ninguém. Curto de propósito: com pouca
+ *  gente online, isso vira um rodízio rápido no único (ou poucos)
+ *  candidato(s) até alguém aceitar; com mais gente, o próximo tick já tenta
+ *  outro antes de voltar a ele. */
+const RETRY_COOLDOWN_SECONDS = 40;
 
 /** Avisa o restaurante que um pedido está demorando a achar motoboy — NÃO
  *  desiste do despacho, só informa (e sugere reforçar o valor pago). */
