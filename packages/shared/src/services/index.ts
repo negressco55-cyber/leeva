@@ -42,6 +42,7 @@ export * from './driverpayouts';
 export * from './drivers';
 export * from './push';
 export * from './mailer';
+export * from './chat';
 export * from './business-hours';
 export * from './restaurant-terms';
 export * from './notify-driver';

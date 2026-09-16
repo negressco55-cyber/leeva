@@ -12,6 +12,7 @@ import {
   type PaymentStatus,
 } from '@leeva/shared';
 import { computePrepStatus } from '@leeva/shared/services/prep-status';
+import { DeliveryChat } from './DeliveryChat';
 
 type Delivery = {
   id: string;
@@ -254,6 +255,7 @@ export default function DeliveryFlow({
               💬 WhatsApp do restaurante
             </a>
           )}
+          <DeliveryChat orderId={current.id} />
 
           {current.status === 'assigned' && !current.accepted && (
             <button

@@ -12,6 +12,7 @@ import {
   type DispatchState,
 } from '@leeva/shared';
 import { apiGet, apiPost } from '../_lib/client';
+import { OrderChat } from './OrderChat';
 
 type OrderRow = {
   id: string;
@@ -133,6 +134,7 @@ export default function OrderDetail({
                   💬 WhatsApp do entregador
                 </a>
               )}
+              <OrderChat orderId={order.id} />
             </div>
           )}
 
