@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation';
 import { isSupabaseConfigured } from '@leeva/shared';
 import { createLeevaServerClient } from '@leeva/shared/server';
 import SetupNotice from './SetupNotice';
+import HomeRedirect from './HomeRedirect';
 
 export default async function Home() {
   if (!isSupabaseConfigured()) {
@@ -13,5 +13,5 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  redirect(user ? '/dashboard' : '/login');
+  return <HomeRedirect loggedIn={!!user} />;
 }
