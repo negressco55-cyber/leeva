@@ -2,7 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { isSupabaseConfigured } from '@leeva/shared';
-import { createLeevaServerClient } from '@leeva/shared/server';
+import { createLeevaServerClient, createLeevaAdminClient } from '@leeva/shared/server';
+import { sendPasswordResetEmail } from '@leeva/shared/services';
 
 export type LoginState = { error?: string };
 
@@ -31,8 +32,13 @@ export async function logout() {
 
 export type ForgotPasswordState = { ok?: boolean; error?: string };
 
-/** Manda o e-mail de redefinição de senha do próprio Supabase — a senha
- *  nova é digitada pelo usuário em /redefinir-senha, nunca passa por aqui. */
+/**
+ * Manda o link de redefinição de senha — gerado pelo Supabase Admin API
+ * (nunca expira sem uso, nunca é "gasto" à toa) e enviado pelo Resend
+ * direto (não usa o SMTP do Supabase, que exige configuração própria e é
+ * mais frágil de depurar). A senha nova é digitada pelo usuário em
+ * /redefinir-senha, nunca passa por aqui.
+ */
 export async function requestPasswordReset(
   _prev: ForgotPasswordState,
   formData: FormData,
@@ -41,10 +47,19 @@ export async function requestPasswordReset(
   if (!email) return { error: 'Informe seu e-mail.' };
 
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const supabase = await createLeevaServerClient();
-  await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${base}/redefinir-senha`,
-  });
-  // sempre "ok", exista ou não a conta — não revela se o e-mail está cadastrado.
+  try {
+    const admin = createLeevaAdminClient();
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo: `${base}/redefinir-senha` },
+    });
+    // não revela se o e-mail existe — mesma resposta em ambos os casos.
+    if (error || !data?.properties?.action_link) return { ok: true };
+    const sent = await sendPasswordResetEmail(email, data.properties.action_link);
+    if (!sent) return { error: 'Não foi possível enviar o e-mail agora. Tente de novo em instantes.' };
+  } catch {
+    return { ok: true };
+  }
   return { ok: true };
 }

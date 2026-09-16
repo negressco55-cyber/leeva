@@ -11,10 +11,10 @@ export function isEmailConfigured(): boolean {
   return !!process.env.RESEND_API_KEY;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   if (!isEmailConfigured()) {
     console.warn(`[mailer] RESEND_API_KEY não configurada — e-mail não enviado (${subject}) para ${to}`);
-    return;
+    return false;
   }
   try {
     const res = await fetch(RESEND_API_URL, {
@@ -32,10 +32,25 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
     });
     if (!res.ok) {
       console.error('[mailer] falha ao enviar e-mail:', res.status, await res.text().catch(() => ''));
+      return false;
     }
+    return true;
   } catch (e) {
     console.error('[mailer] erro ao enviar e-mail:', e);
+    return false;
   }
+}
+
+/** Link de redefinição de senha — mandado direto pelo Resend (não usa o
+ *  SMTP do Supabase, que exige configuração própria e é mais frágil). */
+export async function sendPasswordResetEmail(to: string, link: string): Promise<boolean> {
+  return sendEmail(
+    to,
+    'Redefinir sua senha no Leeva',
+    `<p>Recebemos um pedido pra redefinir sua senha.</p>
+     <p><a href="${link}">Clique aqui pra criar uma senha nova</a></p>
+     <p style="color:#666;font-size:13px">Se você não pediu isso, pode ignorar este e-mail.</p>`,
+  );
 }
 
 /** Cadastro de motoboy aprovado — avisa que já pode ficar online. */
