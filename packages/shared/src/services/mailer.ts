@@ -53,6 +53,16 @@ export async function sendPasswordResetEmail(to: string, link: string): Promise<
   );
 }
 
+/** Alerta operacional (ex: motor de despacho parado) — manda pro e-mail do operador da plataforma. */
+export async function sendOpsAlertEmail(to: string, subject: string, message: string): Promise<boolean> {
+  return sendEmail(
+    to,
+    `[Leeva] ${subject}`,
+    `<p>${escapeHtml(message)}</p>
+     <p style="color:#666;font-size:13px">Confira em /visao-geral no painel admin.</p>`,
+  );
+}
+
 /** Cadastro de motoboy aprovado — avisa que já pode ficar online. */
 export async function sendDriverApprovedEmail(to: string, fullName: string): Promise<void> {
   await sendEmail(

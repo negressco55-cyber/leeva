@@ -509,6 +509,27 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_alert_state: {
+        Row: {
+          key: string
+          last_sent_at: string | null
+          last_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          last_sent_at?: string | null
+          last_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          key?: string
+          last_sent_at?: string | null
+          last_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dispatch_runs: {
         Row: {
           duration_ms: number | null
