@@ -65,6 +65,16 @@ export async function sendVerificationEmail(to: string, link: string): Promise<b
   );
 }
 
+/** Novo motoboy se cadastrou (self-service) — avisa o operador pra ir aprovar. */
+export async function sendNewDriverSignupEmail(to: string, fullName: string, city: string): Promise<boolean> {
+  return sendEmail(
+    to,
+    `[Leeva] Novo motoboy pra aprovar: ${fullName}`,
+    `<p>${escapeHtml(fullName)} (${escapeHtml(city)}) acabou de se cadastrar como entregador.</p>
+     <p><a href="${process.env.NEXT_PUBLIC_ADMIN_URL ?? 'https://leeva-admin.vercel.app'}/novos-motoboys">Ver e aprovar</a></p>`,
+  );
+}
+
 /** Alerta operacional (ex: motor de despacho parado) — manda pro e-mail do operador da plataforma. */
 export async function sendOpsAlertEmail(to: string, subject: string, message: string): Promise<boolean> {
   return sendEmail(

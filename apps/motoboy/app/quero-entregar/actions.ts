@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createLeevaAdminClient, createLeevaServerClient } from '@leeva/shared/server';
 import { isSupabaseAdminConfigured, onlyDigits } from '@leeva/shared';
-import { createSelfServiceDriver, setDriverDocPaths, isValidCpf } from '@leeva/shared/services';
+import { createSelfServiceDriver, setDriverDocPaths, isValidCpf, sendNewDriverSignupEmail } from '@leeva/shared/services';
 
 export type SignupState = { error?: string };
 
@@ -99,7 +99,12 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
     console.error('[signup] upload de documento falhou');
   }
 
-  // 4. login
+  // 4. avisa o operador (best-effort — não bloqueia o cadastro)
+  if (process.env.OPS_ALERT_EMAIL) {
+    await sendNewDriverSignupEmail(process.env.OPS_ALERT_EMAIL, fullName, city).catch(() => {});
+  }
+
+  // 5. login
   const supabase = await createLeevaServerClient();
   const { error: sErr } = await supabase.auth.signInWithPassword({ email, password });
   if (sErr) redirect('/login');
