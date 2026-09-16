@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     // ponto de coleta (restaurante) — para a prévia da rota no card da oferta
     const restIds = [...new Set((orders ?? []).map((o) => o.restaurant_id).filter(Boolean))];
     const { data: rests } = restIds.length
-      ? await db.from('restaurants').select('id, name, address, latitude, longitude').in('id', restIds)
+      ? await db.from('restaurants').select('id, name, address, phone, latitude, longitude').in('id', restIds)
       : { data: [] };
     const restById = new Map((rests ?? []).map((r) => [r.id, r]));
 
@@ -63,6 +63,7 @@ export async function GET(req: Request) {
           dropoffLng: o.longitude != null ? Number(o.longitude) : null,
           pickupName: rest?.name ?? null,
           pickupAddress: rest?.address ?? null,
+          pickupPhone: rest?.phone ?? null,
           pickupLat: rest?.latitude != null ? Number(rest.latitude) : null,
           pickupLng: rest?.longitude != null ? Number(rest.longitude) : null,
           etaPickupMinutes,

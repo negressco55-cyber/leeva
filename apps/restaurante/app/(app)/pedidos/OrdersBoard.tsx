@@ -86,10 +86,12 @@ export default function OrdersBoard({
   restaurantId,
   initialOrders,
   groupPeers = {},
+  motoboyById = {},
 }: {
   restaurantId: string;
   initialOrders: OrderRow[];
   groupPeers?: Record<string, GroupPeer[]>;
+  motoboyById?: Record<string, { fullName: string; phone: string | null }>;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -298,6 +300,7 @@ export default function OrdersBoard({
               <OrderDetail
                 order={o}
                 groupPeers={o.group_id ? groupPeers[o.group_id] : undefined}
+                motoboy={o.motoboy_id ? motoboyById[o.motoboy_id] : undefined}
                 onChanged={() => startTransition(() => router.refresh())}
               />
             )}

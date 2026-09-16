@@ -90,10 +90,12 @@ function getPosition(): Promise<{ lat: number; lng: number } | null> {
 export default function DeliveryFlow({
   motoboyId,
   restaurantId,
+  restaurantPhone,
   deliveries,
 }: {
   motoboyId: string;
   restaurantId: string | null;
+  restaurantPhone?: string | null;
   deliveries: Delivery[];
 }) {
   const router = useRouter();
@@ -239,6 +241,17 @@ export default function DeliveryFlow({
           {current.customer_phone && (
             <a className="button secondary" href={`tel:${current.customer_phone}`} style={{ textAlign: 'center' }}>
               📞 Ligar para o cliente
+            </a>
+          )}
+          {restaurantPhone && (
+            <a
+              className="button secondary"
+              href={`https://wa.me/55${restaurantPhone.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ textAlign: 'center' }}
+            >
+              💬 WhatsApp do restaurante
             </a>
           )}
 

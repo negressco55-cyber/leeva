@@ -22,6 +22,7 @@ export async function signupRestaurant(
 ): Promise<SignupState> {
   const restaurantName = String(formData.get('restaurantName') ?? '').trim();
   const fullName = String(formData.get('fullName') ?? '').trim();
+  const whatsapp = String(formData.get('whatsapp') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
 
@@ -36,7 +37,7 @@ export async function signupRestaurant(
 
   const { data: restaurant, error: rErr } = await admin
     .from('restaurants')
-    .insert({ name: restaurantName })
+    .insert({ name: restaurantName, phone: whatsapp || null })
     .select('id')
     .single();
 

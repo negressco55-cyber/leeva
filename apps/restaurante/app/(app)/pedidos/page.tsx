@@ -16,6 +16,15 @@ export default async function PedidosPage() {
     .order('created_at', { ascending: false })
     .limit(120);
 
+  // nome/telefone do motoboy assinado (não dá pra ver a rede toda — só quem
+  // já está atribuído ao seu pedido, pra poder falar com ele se precisar).
+  const motoboyIds = [...new Set((orders ?? []).map((o) => o.motoboy_id).filter((id): id is string => !!id))];
+  const { data: motoboys } = motoboyIds.length
+    ? await db.from('motoboys').select('id, full_name, phone').in('id', motoboyIds)
+    : { data: [] };
+  const motoboyById: Record<string, { fullName: string; phone: string | null }> = {};
+  for (const m of motoboys ?? []) motoboyById[m.id] = { fullName: m.full_name, phone: m.phone };
+
   // "agrupado com X e Y": mapa group_id -> paradas da rota (ordenadas)
   const groupPeers: Record<string, { orderNumber: number | null; customerName: string; seq: number | null }[]> = {};
   for (const o of orders ?? []) {
@@ -33,6 +42,7 @@ export default async function PedidosPage() {
       restaurantId={ctx.restaurantId}
       initialOrders={JSON.parse(JSON.stringify(orders ?? []))}
       groupPeers={groupPeers}
+      motoboyById={motoboyById}
     />
   );
 }

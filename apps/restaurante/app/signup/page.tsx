@@ -38,6 +38,10 @@ export default function SignupPage() {
           <input className="input" name="fullName" required />
         </label>
         <label>
+          WhatsApp do restaurante
+          <input className="input" name="whatsapp" placeholder="(83) 99999-9999" />
+        </label>
+        <label>
           E-mail
           <input className="input" type="email" name="email" required />
         </label>

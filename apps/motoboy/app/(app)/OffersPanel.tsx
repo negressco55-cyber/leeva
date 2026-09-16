@@ -23,6 +23,7 @@ type Offer = {
   dropoffLng: number | null;
   pickupName: string | null;
   pickupAddress: string | null;
+  pickupPhone: string | null;
   pickupLat: number | null;
   pickupLng: number | null;
   etaMinutes: number | null;
@@ -201,6 +202,18 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                   </span>
                 )}
               </div>
+              {o.pickupPhone && (
+                <a
+                  className="muted"
+                  style={{ fontSize: 12.5 }}
+                  href={`https://wa.me/55${o.pickupPhone.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  💬 WhatsApp do restaurante
+                </a>
+              )}
 
               <div className="offer-price">
                 <span className="offer-price-num">

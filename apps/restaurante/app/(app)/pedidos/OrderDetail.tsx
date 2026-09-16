@@ -57,10 +57,12 @@ type GroupPeer = { orderNumber: number | null; customerName: string; seq: number
 export default function OrderDetail({
   order,
   groupPeers,
+  motoboy,
   onChanged,
 }: {
   order: OrderRow;
   groupPeers?: GroupPeer[];
+  motoboy?: { fullName: string; phone: string | null };
   onChanged: () => void;
 }) {
   const [d, setD] = useState<Detail | null>(null);
@@ -115,6 +117,24 @@ export default function OrderDetail({
           )}
           {order.customer_phone && <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Tel: {order.customer_phone}</div>}
           {order.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {order.notes}</div>}
+
+          {motoboy && (
+            <div className="section" style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 12 }} className="muted">Entregador</div>
+              <div style={{ fontWeight: 600 }}>{motoboy.fullName}</div>
+              {motoboy.phone && (
+                <a
+                  className="button secondary sm"
+                  style={{ marginTop: 6, display: 'inline-flex' }}
+                  href={`https://wa.me/55${motoboy.phone.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  💬 WhatsApp do entregador
+                </a>
+              )}
+            </div>
+          )}
 
           {order.delivery_confirmation_code ? (
             <div className="section" style={{ marginTop: 10 }}>

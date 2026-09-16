@@ -12,7 +12,7 @@ export default async function ConfiguracoesPage() {
   const [{ data: rst }, usage, { data: plans }] = await Promise.all([
     db
       .from('restaurants')
-      .select('name, address, latitude, longitude, fleet_mode, logistics_config, business_hours')
+      .select('name, address, phone, latitude, longitude, fleet_mode, logistics_config, business_hours')
       .eq('id', ctx.restaurantId)
       .maybeSingle(),
     getUsageSummary(db, ctx.restaurantId),
@@ -29,6 +29,7 @@ export default async function ConfiguracoesPage() {
       initial={{
         name: rst?.name ?? '',
         address: rst?.address ?? '',
+        whatsapp: rst?.phone ?? '',
         latitude: rst?.latitude ?? null,
         longitude: rst?.longitude ?? null,
         fleetMode: rst?.fleet_mode ?? 'leeva',

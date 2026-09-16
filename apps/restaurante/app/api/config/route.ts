@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       longitude?: number;
       logistics?: Partial<LogisticsConfig>;
       businessHours?: unknown;
+      whatsapp?: string | null;
     };
     const db = adminDb();
 
@@ -95,6 +96,7 @@ export async function POST(req: Request) {
       upd.latitude = body.latitude;
       upd.longitude = body.longitude;
     }
+    if (body.whatsapp !== undefined) upd.phone = body.whatsapp;
     await db.from('restaurants').update(upd).eq('id', ctx.restaurantId);
 
     return json({ ok: true, warnings: [] });

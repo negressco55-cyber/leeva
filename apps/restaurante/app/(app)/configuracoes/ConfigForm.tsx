@@ -24,6 +24,7 @@ export default function ConfigForm({
   initial: {
     name: string;
     address: string;
+    whatsapp: string;
     latitude: number | null;
     longitude: number | null;
     fleetMode: FleetMode;
@@ -40,6 +41,7 @@ export default function ConfigForm({
   const [lat, setLat] = useState(initial.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
   const [address, setAddress] = useState(initial.address ?? '');
+  const [whatsapp, setWhatsapp] = useState(initial.whatsapp ?? '');
   const [pickupBusy, setPickupBusy] = useState(false);
   const [pickupMsg, setPickupMsg] = useState<{ ok?: string; err?: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +59,7 @@ export default function ConfigForm({
         longitude: lng ? Number(lng) : undefined,
         logistics: L,
         businessHours: hours,
+        whatsapp: whatsapp.trim() || null,
       });
       setMsg({ ok: true, warnings: r.warnings });
       router.refresh();
@@ -143,6 +146,20 @@ export default function ConfigForm({
             Salvo junto com o resto da configuração, no botão Salvar no fim da página.
           </p>
         </details>
+      </div>
+
+      <div className="card">
+        <div className="card-title">WhatsApp do restaurante</div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+          Aparece pro entregador na oferta e na entrega, pra falar direto com você se precisar.
+        </p>
+        <input
+          className="input"
+          placeholder="(83) 99999-9999"
+          value={whatsapp}
+          onChange={(e) => setWhatsapp(e.target.value)}
+          disabled={!isOwner}
+        />
       </div>
 
       <div className="card">

@@ -34,10 +34,15 @@ export default async function EntregaPage() {
     accepted: acceptedIds.has(o.id),
   }));
 
+  const { data: rst } = ctx.restaurantId
+    ? await db.from('restaurants').select('phone').eq('id', ctx.restaurantId).maybeSingle()
+    : { data: null };
+
   return (
     <DeliveryFlow
       motoboyId={ctx.motoboyId}
       restaurantId={ctx.restaurantId}
+      restaurantPhone={rst?.phone ?? null}
       deliveries={JSON.parse(JSON.stringify(deliveries))}
     />
   );
