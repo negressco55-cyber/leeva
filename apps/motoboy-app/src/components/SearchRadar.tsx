@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { Bike } from 'lucide-react-native';
 
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 
 const RING_COUNT = 3;
 const RING_STAGGER_MS = 750;
@@ -14,6 +15,8 @@ const RING_DURATION_MS = 2400;
  * central nesse estado (o mapa fica só de fundo discreto, ver HomeScreen).
  */
 export function SearchRadar({ size = 220 }: { size?: number }): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const values = useRef(Array.from({ length: RING_COUNT }, () => new Animated.Value(0))).current;
 
   useEffect(() => {
@@ -54,33 +57,35 @@ export function SearchRadar({ size = 220 }: { size?: number }): React.JSX.Elemen
         />
       ))}
       <View style={styles.core}>
-        <Bike size={30} color={theme.colors.onPrimary} strokeWidth={2.2} />
+        <Bike size={30} color={t.colors.onPrimary} strokeWidth={2.2} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', justifyContent: 'center' },
-  ring: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-  },
-  core: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: theme.colors.primary,
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    wrap: { alignItems: 'center', justifyContent: 'center' },
+    ring: {
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      borderRadius: 999,
+      borderWidth: 2,
+      borderColor: t.colors.primary,
+    },
+    core: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: t.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: t.colors.primary,
+      shadowOpacity: 0.45,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 6,
+    },
+  });
+}

@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getDriverDocs, uploadDriverDocument, type DriverDocsStatus } from '../../api/motoboy';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import { theme } from '../../theme/theme';
+import { useTheme } from '../../theme/ThemeContext';
+import type { Theme } from '../../theme/theme';
 
 type DocType = 'personal' | 'personal_back' | 'vehicle' | 'avatar';
 
@@ -74,6 +75,8 @@ function DocCard({
   busy: boolean;
   onUploaded: (type: DocType, base64: string) => void;
 }): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const meta = DOC_META[type];
   const sent = !!url;
   const isPdf = !!url && /\.pdf(\?|$)/i.test(url);
@@ -84,9 +87,9 @@ function DocCard({
         <Text style={styles.cardTitle}>{meta.title}</Text>
         <View style={[styles.statusPill, sent ? styles.statusPillOk : styles.statusPillPending]}>
           {sent ? (
-            <CheckCircle2 size={13} color={theme.colors.success} strokeWidth={2} />
+            <CheckCircle2 size={13} color={t.colors.success} strokeWidth={2} />
           ) : (
-            <Circle size={13} color={theme.colors.textSecondary} strokeWidth={2} />
+            <Circle size={13} color={t.colors.textSecondary} strokeWidth={2} />
           )}
           <Text style={[styles.statusLabel, sent ? styles.statusLabelOk : styles.statusLabelPending]}>
             {sent ? 'Enviado' : 'Pendente'}
@@ -99,7 +102,7 @@ function DocCard({
         <View style={styles.preview}>
           {isPdf ? (
             <View style={styles.previewPdf}>
-              <FileText size={22} color={theme.colors.textSecondary} strokeWidth={2} />
+              <FileText size={22} color={t.colors.textSecondary} strokeWidth={2} />
               <Text style={styles.previewPdfText}>PDF enviado</Text>
             </View>
           ) : type === 'avatar' ? (
@@ -132,6 +135,8 @@ function DocCard({
 }
 
 export function DocumentosScreen(): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const [status, setStatus] = useState<DriverDocsStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyType, setBusyType] = useState<DocType | null>(null);
@@ -175,12 +180,12 @@ export function DocumentosScreen(): React.JSX.Element {
     <SafeAreaView style={styles.safe} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
-          <ActivityIndicator color={theme.colors.primary} style={{ marginTop: theme.spacing.xl }} />
+          <ActivityIndicator color={t.colors.primary} style={{ marginTop: t.spacing.xl }} />
         ) : (
           <>
             <View style={styles.intro}>
               <View style={styles.introIcon}>
-                <UserRound size={22} color={theme.colors.primary} strokeWidth={2} />
+                <UserRound size={22} color={t.colors.primary} strokeWidth={2} />
               </View>
               <Text style={styles.introText}>
                 Mantenha seus documentos em dia. O time do Leeva confere manualmente — pode levar até um dia útil.
@@ -198,59 +203,61 @@ export function DocumentosScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: theme.spacing.lg, gap: theme.spacing.md },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: t.colors.background },
+    content: { padding: t.spacing.lg, gap: t.spacing.md },
 
-  intro: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: theme.spacing.sm,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.xs,
-  },
-  introIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.primaryWeak,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  introText: { flex: 1, fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, lineHeight: 18 },
+    intro: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: t.spacing.sm,
+      backgroundColor: t.colors.surfaceAlt,
+      borderRadius: t.radius.md,
+      padding: t.spacing.md,
+      marginBottom: t.spacing.xs,
+    },
+    introIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: t.colors.primaryWeak,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    introText: { flex: 1, fontFamily: t.fonts.body, fontSize: 13, color: t.colors.textSecondary, lineHeight: 18 },
 
-  card: { gap: theme.spacing.sm },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { fontFamily: theme.fonts.bodySemiBold, fontSize: 15, color: theme.colors.text },
-  cardHint: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: -4 },
+    card: { gap: t.spacing.sm },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    cardTitle: { fontFamily: t.fonts.bodySemiBold, fontSize: 15, color: t.colors.text },
+    cardHint: { fontFamily: t.fonts.body, fontSize: 12, color: t.colors.textSecondary, marginTop: -4 },
 
-  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: theme.radius.pill },
-  statusPillOk: { backgroundColor: 'rgba(85,196,127,0.12)' },
-  statusPillPending: { backgroundColor: theme.colors.surfaceAlt },
-  statusLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 11 },
-  statusLabelOk: { color: theme.colors.success },
-  statusLabelPending: { color: theme.colors.textSecondary },
+    statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: t.radius.pill },
+    statusPillOk: { backgroundColor: 'rgba(85,196,127,0.12)' },
+    statusPillPending: { backgroundColor: t.colors.surfaceAlt },
+    statusLabel: { fontFamily: t.fonts.bodySemiBold, fontSize: 11 },
+    statusLabelOk: { color: t.colors.success },
+    statusLabelPending: { color: t.colors.textSecondary },
 
-  preview: { alignItems: 'center' },
-  previewAvatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: theme.colors.surfaceAlt },
-  previewDoc: { width: '100%', height: 140, borderRadius: theme.radius.sm, backgroundColor: theme.colors.surfaceAlt },
-  previewPdf: {
-    width: '100%',
-    height: 80,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  previewPdfText: { fontFamily: theme.fonts.bodyMedium, fontSize: 12, color: theme.colors.textSecondary },
-  pdfLink: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 13,
-    color: theme.colors.primary,
-    textAlign: 'center',
-    marginTop: -4,
-  },
-});
+    preview: { alignItems: 'center' },
+    previewAvatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: t.colors.surfaceAlt },
+    previewDoc: { width: '100%', height: 140, borderRadius: t.radius.sm, backgroundColor: t.colors.surfaceAlt },
+    previewPdf: {
+      width: '100%',
+      height: 80,
+      borderRadius: t.radius.sm,
+      backgroundColor: t.colors.surfaceAlt,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+    },
+    previewPdfText: { fontFamily: t.fonts.bodyMedium, fontSize: 12, color: t.colors.textSecondary },
+    pdfLink: {
+      fontFamily: t.fonts.bodyMedium,
+      fontSize: 13,
+      color: t.colors.primary,
+      textAlign: 'center',
+      marginTop: -4,
+    },
+  });
+}

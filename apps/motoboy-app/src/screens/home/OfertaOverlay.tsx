@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
 import { RouteMapMini } from '../../components/RouteMapMini';
 import { useRide } from '../../context/RideContext';
-import { theme } from '../../theme/theme';
+import { useTheme } from '../../theme/ThemeContext';
+import type { Theme } from '../../theme/theme';
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 const qualityLabel = (q: string): string =>
@@ -15,6 +16,8 @@ const qualityLabel = (q: string): string =>
   : '⚪ Oferta pouco vantajosa';
 
 export function OfertaOverlay(): React.JSX.Element | null {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const { offer, acceptOffer, declineOffer } = useRide();
   const [secs, setSecs] = useState(0);
   const [totalSecs, setTotalSecs] = useState(0);
@@ -158,7 +161,7 @@ export function OfertaOverlay(): React.JSX.Element | null {
             <Text style={styles.acceptTimer}>{secs}s</Text>
           </Pressable>
           {offer.countsForAcceptance && (
-            <Button label="Recusar" variant="outline" onPress={() => void handleDecline()} disabled={busy} style={{ marginTop: theme.spacing.sm }} />
+            <Button label="Recusar" variant="outline" onPress={() => void handleDecline()} disabled={busy} style={{ marginTop: t.spacing.sm }} />
           )}
         </View>
       </SafeAreaView>
@@ -166,110 +169,112 @@ export function OfertaOverlay(): React.JSX.Element | null {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  scroll: { paddingBottom: theme.spacing.md },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.colors.background },
+    scroll: { paddingBottom: t.spacing.md },
 
-  timeBarTrack: { height: 4, backgroundColor: theme.colors.border },
-  timeBarFill: { height: 4, backgroundColor: theme.colors.primary },
-  timeBarUrgent: { backgroundColor: theme.colors.danger },
+    timeBarTrack: { height: 4, backgroundColor: t.colors.border },
+    timeBarFill: { height: 4, backgroundColor: t.colors.primary },
+    timeBarUrgent: { backgroundColor: t.colors.danger },
 
-  mapWrap: { position: 'relative' },
-  timer: {
-    position: 'absolute', top: 12, left: 12,
-    fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: '#fff',
-    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: theme.radius.pill,
-    paddingHorizontal: 11, paddingVertical: 3, overflow: 'hidden',
-  },
-  timerUrgent: { backgroundColor: theme.colors.danger },
-  dismiss: {
-    position: 'absolute', top: 12, right: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: theme.radius.pill,
-    paddingHorizontal: 11, paddingVertical: 4,
-  },
-  dismissText: { fontFamily: theme.fonts.body, fontSize: 12, color: '#fff' },
+    mapWrap: { position: 'relative' },
+    timer: {
+      position: 'absolute', top: 12, left: 12,
+      fontFamily: t.fonts.bodySemiBold, fontSize: 12, color: '#fff',
+      backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: t.radius.pill,
+      paddingHorizontal: 11, paddingVertical: 3, overflow: 'hidden',
+    },
+    timerUrgent: { backgroundColor: t.colors.danger },
+    dismiss: {
+      position: 'absolute', top: 12, right: 12,
+      backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: t.radius.pill,
+      paddingHorizontal: 11, paddingVertical: 4,
+    },
+    dismissText: { fontFamily: t.fonts.body, fontSize: 12, color: '#fff' },
 
-  priceCard: {
-    position: 'absolute',
-    left: theme.spacing.md,
-    right: theme.spacing.md,
-    bottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
+    priceCard: {
+      position: 'absolute',
+      left: t.spacing.md,
+      right: t.spacing.md,
+      bottom: t.spacing.md,
+      backgroundColor: t.colors.surface,
+      borderRadius: t.radius.lg,
+      padding: t.spacing.md,
+      gap: 6,
+      shadowColor: '#000',
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
+    },
 
-  content: { padding: theme.spacing.lg, gap: theme.spacing.md },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.sm },
-  topRowText: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, flexShrink: 1 },
-  quality: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.textSecondary },
+    content: { padding: t.spacing.lg, gap: t.spacing.md },
+    topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm },
+    topRowText: { fontFamily: t.fonts.body, fontSize: 13, color: t.colors.textSecondary, flexShrink: 1 },
+    quality: { fontFamily: t.fonts.bodySemiBold, fontSize: 12, color: t.colors.textSecondary },
 
-  priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: theme.spacing.md },
-  priceNum: { fontFamily: theme.fonts.heading, fontSize: 38, color: theme.colors.success, letterSpacing: -0.5 },
+    priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: t.spacing.md },
+    priceNum: { fontFamily: t.fonts.heading, fontSize: 38, color: t.colors.success, letterSpacing: -0.5 },
 
-  legs: { gap: theme.spacing.sm },
-  leg: { flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.sm },
-  legConnector: { width: 1, height: 14, backgroundColor: theme.colors.border, marginLeft: 13 },
-  legBadge: {
-    width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
-  },
-  legBadgePickup: { backgroundColor: theme.colors.accent },
-  legBadgeDrop: { backgroundColor: theme.colors.primary },
-  legBadgeLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: '#fff' },
-  legTextCol: { flex: 1, minWidth: 140 },
-  legMeta: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary },
-  legAddr: { fontFamily: theme.fonts.body, fontSize: 14, color: theme.colors.text, marginTop: 2 },
-  legPay: { fontFamily: theme.fonts.bodySemiBold, fontSize: 14, color: theme.colors.text },
+    legs: { gap: t.spacing.sm },
+    leg: { flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.sm },
+    legConnector: { width: 1, height: 14, backgroundColor: t.colors.border, marginLeft: 13 },
+    legBadge: {
+      width: 26, height: 26, borderRadius: 13,
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: t.colors.primary,
+    },
+    legBadgePickup: { backgroundColor: t.colors.accent },
+    legBadgeDrop: { backgroundColor: t.colors.primary },
+    legBadgeLabel: { fontFamily: t.fonts.bodySemiBold, fontSize: 12, color: '#fff' },
+    legTextCol: { flex: 1, minWidth: 140 },
+    legMeta: { fontFamily: t.fonts.body, fontSize: 12, color: t.colors.textSecondary },
+    legAddr: { fontFamily: t.fonts.body, fontSize: 14, color: t.colors.text, marginTop: 2 },
+    legPay: { fontFamily: t.fonts.bodySemiBold, fontSize: 14, color: t.colors.text },
 
-  meta: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary },
-  paymentChip: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  paymentChipText: { fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: theme.colors.text },
+    meta: { fontFamily: t.fonts.body, fontSize: 12, color: t.colors.textSecondary },
+    paymentChip: {
+      alignSelf: 'flex-start',
+      backgroundColor: t.colors.surface,
+      borderRadius: t.radius.pill,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    paymentChipText: { fontFamily: t.fonts.bodySemiBold, fontSize: 13, color: t.colors.text },
 
-  actions: {
-    padding: theme.spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  accept: {
-    minHeight: 56,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  acceptInnerBarTrack: {
-    position: 'absolute', left: 0, top: 0, bottom: 0, right: 0,
-    backgroundColor: 'transparent',
-  },
-  acceptInnerBarFill: {
-    position: 'absolute', left: 0, top: 0, bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  acceptDisabled: { opacity: 0.6 },
-  acceptPressed: { opacity: 0.88 },
-  acceptText: { fontFamily: theme.fonts.bodySemiBold, fontSize: 16, color: theme.colors.onPrimary },
-  acceptTimer: {
-    fontFamily: theme.fonts.bodySemiBold, fontSize: 13, color: theme.colors.onPrimary,
-    backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: theme.radius.pill,
-    paddingHorizontal: 9, paddingVertical: 2, overflow: 'hidden',
-  },
-});
+    actions: {
+      padding: t.spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: t.colors.border,
+      backgroundColor: t.colors.background,
+    },
+    accept: {
+      minHeight: 56,
+      borderRadius: t.radius.md,
+      backgroundColor: t.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    acceptInnerBarTrack: {
+      position: 'absolute', left: 0, top: 0, bottom: 0, right: 0,
+      backgroundColor: 'transparent',
+    },
+    acceptInnerBarFill: {
+      position: 'absolute', left: 0, top: 0, bottom: 0,
+      backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    acceptDisabled: { opacity: 0.6 },
+    acceptPressed: { opacity: 0.88 },
+    acceptText: { fontFamily: t.fonts.bodySemiBold, fontSize: 16, color: t.colors.onPrimary },
+    acceptTimer: {
+      fontFamily: t.fonts.bodySemiBold, fontSize: 13, color: t.colors.onPrimary,
+      backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: t.radius.pill,
+      paddingHorizontal: 9, paddingVertical: 2, overflow: 'hidden',
+    },
+  });
+}

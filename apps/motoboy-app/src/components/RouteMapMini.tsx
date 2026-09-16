@@ -1,7 +1,8 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 
 const TILE = 256;
 
@@ -33,6 +34,8 @@ function pickZoom(a: { lat: number; lng: number }, b: { lat: number; lng: number
  * PWA. Nada de WebView num card que aparece e some em segundos.
  */
 export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, width, height = 148 }: Props): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   if (!pickup || !dropoff) {
     return <View style={[styles.empty, { width, height }]} />;
   }
@@ -90,48 +93,50 @@ export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, 
       <View style={[styles.pin, styles.pinDrop, { left: b.x - 12, top: b.y - 12 }]}>
         <Text style={styles.pinLabel}>B</Text>
       </View>
-      <Text style={styles.attr}>© OpenStreetMap · CARTO</Text>
+      <Text style={styles.attr}>© OpenStreetMap</Text>
     </View>
   );
 });
 
-const styles = StyleSheet.create({
-  wrap: { overflow: 'hidden', backgroundColor: '#10110f', position: 'relative' },
-  empty: { backgroundColor: theme.colors.surfaceAlt },
-  line: {
-    position: 'absolute',
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.primary,
-    transformOrigin: 'left center',
-  },
-  pin: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2.5,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  pinPickup: { backgroundColor: theme.colors.accent },
-  pinDrop: { backgroundColor: theme.colors.primary },
-  pinLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: '#fff' },
-  attr: {
-    position: 'absolute',
-    right: 4,
-    bottom: 3,
-    fontSize: 8,
-    color: 'rgba(255,255,255,0.7)',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    paddingHorizontal: 4,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    wrap: { overflow: 'hidden', backgroundColor: t.colors.surfaceAlt, position: 'relative' },
+    empty: { backgroundColor: t.colors.surfaceAlt },
+    line: {
+      position: 'absolute',
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: t.colors.primary,
+      transformOrigin: 'left center',
+    },
+    pin: {
+      position: 'absolute',
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2.5,
+      borderColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.35,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 3,
+    },
+    pinPickup: { backgroundColor: t.colors.accent },
+    pinDrop: { backgroundColor: t.colors.primary },
+    pinLabel: { fontFamily: t.fonts.bodySemiBold, fontSize: 12, color: '#fff' },
+    attr: {
+      position: 'absolute',
+      right: 4,
+      bottom: 3,
+      fontSize: 8,
+      color: 'rgba(255,255,255,0.7)',
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      paddingHorizontal: 4,
+      borderRadius: 3,
+      overflow: 'hidden',
+    },
+  });
+}

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 
 interface Props {
   name: string;
@@ -15,6 +16,8 @@ interface Props {
  * (ver docs/VERIFICACAO-DE-IDENTIDADE.md).
  */
 export const Avatar = React.memo(function Avatar({ name, src, size = 56 }: Props): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const initials = name
     .trim()
     .split(/\s+/)
@@ -35,12 +38,14 @@ export const Avatar = React.memo(function Avatar({ name, src, size = 56 }: Props
   );
 });
 
-const styles = StyleSheet.create({
-  img: { backgroundColor: theme.colors.surfaceAlt },
-  circle: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primaryWeak,
-  },
-  initials: { fontFamily: theme.fonts.headingSemiBold, color: theme.colors.primary, letterSpacing: 0.5 },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    img: { backgroundColor: t.colors.surfaceAlt },
+    circle: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: t.colors.primaryWeak,
+    },
+    initials: { fontFamily: t.fonts.headingSemiBold, color: t.colors.primary, letterSpacing: 0.5 },
+  });
+}

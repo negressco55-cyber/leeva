@@ -2,7 +2,8 @@ import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 
 const TILE = 256;
 const ZOOM = 16;
@@ -23,6 +24,7 @@ function project(lat: number, lng: number, z: number): { x: number; y: number } 
  * Independente do GPS de bordo (RideContext/PositionContext), só exibição.
  */
 export function LiveMapMini(): React.JSX.Element {
+  const styles = makeStyles(useTheme());
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const mounted = useRef(true);
@@ -96,23 +98,25 @@ export function LiveMapMini(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { flex: 1, overflow: 'hidden', backgroundColor: '#e7e6e1', position: 'relative' },
-  empty: { flex: 1, backgroundColor: theme.colors.surfaceAlt },
-  pin: {
-    position: 'absolute',
-    left: '50%',
-    top: '50%',
-    width: 40,
-    height: 40,
-    marginLeft: -20,
-    marginTop: -20,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary,
-    borderWidth: 3,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinGlyph: { fontSize: 18 },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    wrap: { flex: 1, overflow: 'hidden', backgroundColor: t.colors.surfaceAlt, position: 'relative' },
+    empty: { flex: 1, backgroundColor: t.colors.surfaceAlt },
+    pin: {
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      width: 40,
+      height: 40,
+      marginLeft: -20,
+      marginTop: -20,
+      borderRadius: 20,
+      backgroundColor: t.colors.primary,
+      borderWidth: 3,
+      borderColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pinGlyph: { fontSize: 18 },
+  });
+}

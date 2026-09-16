@@ -12,9 +12,12 @@ import { SearchRadar } from '../../components/SearchRadar';
 import { useAuth } from '../../context/AuthContext';
 import { useRide } from '../../context/RideContext';
 import type { AppStackParamList } from '../../navigation/types';
-import { theme } from '../../theme/theme';
+import { useTheme } from '../../theme/ThemeContext';
+import type { Theme } from '../../theme/theme';
 
 export function HomeScreen(): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const { me, refreshMe } = useAuth();
   const { online, togglingOnline, goOnline, goOffline, activeDelivery } = useRide();
   const nav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
@@ -45,7 +48,7 @@ export function HomeScreen(): React.JSX.Element {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.colors.primary} />}
       >
         <View style={styles.header}>
           <Avatar name={me?.fullName ?? 'Entregador'} src={me?.avatarUrl} size={38} />
@@ -70,7 +73,7 @@ export function HomeScreen(): React.JSX.Element {
             ) : (
               <>
                 <View style={styles.idleIcon}>
-                  <Bike size={30} color={theme.colors.textSecondary} strokeWidth={2} />
+                  <Bike size={30} color={t.colors.textSecondary} strokeWidth={2} />
                 </View>
                 <Text style={styles.statusTitle}>Você está indisponível</Text>
                 <Text style={styles.statusSubtitle}>
@@ -97,7 +100,7 @@ export function HomeScreen(): React.JSX.Element {
             ]}
           >
             {togglingOnline ? (
-              <ActivityIndicator size="small" color={online ? theme.colors.onPrimary : theme.colors.text} />
+              <ActivityIndicator size="small" color={online ? t.colors.onPrimary : t.colors.text} />
             ) : (
               <Text style={[styles.toggleLabel, online ? styles.toggleLabelOn : styles.toggleLabelOff]}>
                 {online ? 'Ficar indisponível' : 'Ficar disponível'}
@@ -142,91 +145,93 @@ export function HomeScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: theme.colors.background },
-  scroll: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl, gap: theme.spacing.md },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: t.colors.background },
+    scroll: { padding: t.spacing.lg, paddingBottom: t.spacing.xxl, gap: t.spacing.md },
 
-  header: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-  headerName: { fontFamily: theme.fonts.headingSemiBold, fontSize: 16, color: theme.colors.text, flexShrink: 1 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm },
+    headerName: { fontFamily: t.fonts.headingSemiBold, fontSize: 16, color: t.colors.text, flexShrink: 1 },
 
-  statusCard: {
-    borderRadius: theme.radius.lg,
-    overflow: 'hidden',
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    minHeight: 440,
-  },
-  mapBackdrop: { ...StyleSheet.absoluteFill },
-  mapScrim: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: theme.colors.background,
-    opacity: 0.82,
-  },
-  statusContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.xl,
-    paddingTop: theme.spacing.xxl,
-    paddingBottom: theme.spacing.lg,
-    gap: theme.spacing.sm,
-  },
-  idleIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  statusTitle: {
-    fontFamily: theme.fonts.heading,
-    fontSize: 22,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  statusSubtitle: {
-    fontFamily: theme.fonts.body,
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 19,
-    maxWidth: 260,
-  },
+    statusCard: {
+      borderRadius: t.radius.lg,
+      overflow: 'hidden',
+      backgroundColor: t.colors.surface,
+      borderWidth: 1,
+      borderColor: t.colors.border,
+      minHeight: 440,
+    },
+    mapBackdrop: { ...StyleSheet.absoluteFill },
+    mapScrim: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: t.colors.background,
+      opacity: 0.82,
+    },
+    statusContent: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: t.spacing.xl,
+      paddingTop: t.spacing.xxl,
+      paddingBottom: t.spacing.lg,
+      gap: t.spacing.sm,
+    },
+    idleIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: t.colors.surfaceAlt,
+      borderWidth: 1,
+      borderColor: t.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: t.spacing.sm,
+    },
+    statusTitle: {
+      fontFamily: t.fonts.heading,
+      fontSize: 22,
+      color: t.colors.text,
+      textAlign: 'center',
+      marginTop: t.spacing.sm,
+    },
+    statusSubtitle: {
+      fontFamily: t.fonts.body,
+      fontSize: 13,
+      color: t.colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 19,
+      maxWidth: 260,
+    },
 
-  toggle: {
-    margin: theme.spacing.md,
-    minHeight: 54,
-    borderRadius: theme.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleOn: { backgroundColor: theme.colors.surfaceAlt, borderWidth: 1, borderColor: theme.colors.borderStrong },
-  toggleOff: { backgroundColor: theme.colors.primary },
-  toggleDisabled: { opacity: 0.45 },
-  togglePressed: { opacity: 0.85 },
-  toggleLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 16 },
-  toggleLabelOn: { color: theme.colors.text },
-  toggleLabelOff: { color: theme.colors.onPrimary },
+    toggle: {
+      margin: t.spacing.md,
+      minHeight: 54,
+      borderRadius: t.radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    toggleOn: { backgroundColor: t.colors.surfaceAlt, borderWidth: 1, borderColor: t.colors.borderStrong },
+    toggleOff: { backgroundColor: t.colors.primary },
+    toggleDisabled: { opacity: 0.45 },
+    togglePressed: { opacity: 0.85 },
+    toggleLabel: { fontFamily: t.fonts.bodySemiBold, fontSize: 16 },
+    toggleLabelOn: { color: t.colors.text },
+    toggleLabelOff: { color: t.colors.onPrimary },
 
-  warnCard: { borderColor: theme.colors.accent },
-  warnTitle: { fontFamily: theme.fonts.bodySemiBold, color: theme.colors.accent, fontSize: 15, marginBottom: 4 },
-  warnText: { fontFamily: theme.fonts.body, color: theme.colors.textSecondary, fontSize: 13, lineHeight: 18 },
+    warnCard: { borderColor: t.colors.accent },
+    warnTitle: { fontFamily: t.fonts.bodySemiBold, color: t.colors.accent, fontSize: 15, marginBottom: 4 },
+    warnText: { fontFamily: t.fonts.body, color: t.colors.textSecondary, fontSize: 13, lineHeight: 18 },
 
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.xs,
-  },
-  statItem: { alignItems: 'flex-start' },
-  statValue: { fontFamily: theme.fonts.headingSemiBold, fontSize: 17, color: theme.colors.text },
-  statLabel: { fontFamily: theme.fonts.body, fontSize: 11, color: theme.colors.textSecondary, marginTop: 1 },
-  statDivider: { width: 1, height: 28, backgroundColor: theme.colors.border },
-});
+    statsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: t.spacing.lg,
+      paddingVertical: t.spacing.sm,
+      paddingHorizontal: t.spacing.xs,
+    },
+    statItem: { alignItems: 'flex-start' },
+    statValue: { fontFamily: t.fonts.headingSemiBold, fontSize: 17, color: t.colors.text },
+    statLabel: { fontFamily: t.fonts.body, fontSize: 11, color: t.colors.textSecondary, marginTop: 1 },
+    statDivider: { width: 1, height: 28, backgroundColor: t.colors.border },
+  });
+}

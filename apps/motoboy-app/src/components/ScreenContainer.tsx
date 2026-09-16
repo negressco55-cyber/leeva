@@ -2,7 +2,8 @@ import React from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface ScreenContainerProps {
 }
 
 export function ScreenContainer({ children, scroll, style }: ScreenContainerProps): React.JSX.Element {
+  const styles = makeStyles(useTheme());
   const content = scroll ? (
     <ScrollView contentContainerStyle={[styles.content, style]} keyboardShouldPersistTaps="handled">
       {children}
@@ -31,16 +33,18 @@ export function ScreenContainer({ children, scroll, style }: ScreenContainerProp
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  flexGrow: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    padding: theme.spacing.lg,
-  },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: t.colors.background,
+    },
+    flexGrow: {
+      flex: 1,
+    },
+    content: {
+      flexGrow: 1,
+      padding: t.spacing.lg,
+    },
+  });
+}

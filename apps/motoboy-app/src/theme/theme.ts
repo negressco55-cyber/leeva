@@ -1,11 +1,10 @@
 /**
- * Tema do app nativo do motoboy. Alinhado ao Sistema de Design do Leeva
- * (docs/DESIGN-SYSTEM.md) na versão ESCURA — deliberado: o entregador usa
- * na rua, muitas vezes à noite, e tela escura poupa bateria.
- * Cor de marca: verde-pinho (não laranja).
+ * Tema do app nativo do motoboy. Duas paletas (claro/escuro), mesmos tokens
+ * do Sistema de Design do Leeva (docs/DESIGN-SYSTEM.md — os mesmos valores
+ * usados no PWA do motoboy). Modo escolhido em Perfil, ver ThemeContext.tsx.
  */
 
-export const colors = {
+const colorsDark = {
   bg: '#14150f',
   surface: '#1c1e17',
   surface2: '#24261f',
@@ -22,23 +21,24 @@ export const colors = {
   danger: '#e46a61',
 } as const;
 
-export const theme = {
-  colors: {
-    background: colors.bg,
-    surface: colors.surface,
-    surfaceAlt: colors.surface2,
-    border: colors.border,
-    borderStrong: colors.borderStrong,
-    text: colors.text,
-    textSecondary: colors.textSecondary,
-    primary: colors.brand,
-    primaryWeak: colors.brandWeak,
-    accent: colors.warn,
-    success: colors.ok,
-    danger: colors.danger,
-    onPrimary: colors.onBrand,
-    onAccent: colors.bg,
-  },
+const colorsLight = {
+  bg: '#f7f7f4',
+  surface: '#ffffff',
+  surface2: '#f0f0ec',
+  border: '#e6e5df',
+  borderStrong: '#d1d0c8',
+  text: '#14140e',
+  textSecondary: '#5d5d55',
+  brand: '#0c8a5c',
+  brandHover: '#0a744d',
+  brandWeak: '#e1f2ea',
+  onBrand: '#ffffff',
+  ok: '#167c43',
+  warn: '#8a5d05',
+  danger: '#b0241c',
+} as const;
+
+const shared = {
   spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 },
   radius: { sm: 8, md: 12, lg: 16, pill: 999 },
   fonts: {
@@ -52,20 +52,52 @@ export const theme = {
   },
 } as const;
 
-export type Theme = typeof theme;
+type ColorPalette = Record<keyof typeof colorsDark, string>;
 
-export function corStatus(status: string): string {
+function buildTheme(colors: ColorPalette, mode: 'light' | 'dark') {
+  return {
+    mode,
+    colors: {
+      background: colors.bg,
+      surface: colors.surface,
+      surfaceAlt: colors.surface2,
+      border: colors.border,
+      borderStrong: colors.borderStrong,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      primary: colors.brand,
+      primaryWeak: colors.brandWeak,
+      accent: colors.warn,
+      success: colors.ok,
+      danger: colors.danger,
+      onPrimary: colors.onBrand,
+      onAccent: mode === 'dark' ? colors.bg : '#ffffff',
+    },
+    ...shared,
+  };
+}
+
+export const darkTheme = buildTheme(colorsDark, 'dark');
+export const lightTheme = buildTheme(colorsLight, 'light');
+
+/** Tema padrão (escuro) — só pra quem ainda importa `theme` direto (fora de
+ *  componente, ex.: helpers). Dentro de componentes, use `useTheme()`. */
+export const theme = darkTheme;
+
+export type Theme = typeof darkTheme;
+
+export function corStatus(t: Theme, status: string): string {
   switch (status) {
     case 'assigned':
     case 'picked_up':
     case 'in_route':
-      return theme.colors.primary;
+      return t.colors.primary;
     case 'delivered':
-      return theme.colors.success;
+      return t.colors.success;
     case 'cancelled':
-      return theme.colors.danger;
+      return t.colors.danger;
     default:
-      return theme.colors.textSecondary;
+      return t.colors.textSecondary;
   }
 }
 

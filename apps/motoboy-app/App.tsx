@@ -18,6 +18,7 @@ import { registerForPush } from './src/lib/push';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { OfertaOverlay } from './src/screens/home/OfertaOverlay';
 import { theme } from './src/theme/theme';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 function PushBootstrap(): null {
   const { isAuthenticated } = useAuth();
@@ -48,22 +49,29 @@ export default function App(): React.JSX.Element {
 
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <PositionProvider>
-            <RideProvider>
-              <NavigationContainer>
-                <RootNavigator />
-                <OfertaOverlay />
-              </NavigationContainer>
-              <PushBootstrap />
-            </RideProvider>
-          </PositionProvider>
-        </AuthProvider>
-        <StatusBar style="light" />
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <PositionProvider>
+              <RideProvider>
+                <NavigationContainer>
+                  <RootNavigator />
+                  <OfertaOverlay />
+                </NavigationContainer>
+                <PushBootstrap />
+              </RideProvider>
+            </PositionProvider>
+          </AuthProvider>
+          <AppStatusBar />
+        </SafeAreaProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
+}
+
+function AppStatusBar(): React.JSX.Element {
+  const t = useTheme();
+  return <StatusBar style={t.mode === 'light' ? 'dark' : 'light'} />;
 }
 
 const styles = StyleSheet.create({

@@ -11,7 +11,8 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { usePosition } from '../../context/PositionContext';
 import { useRide } from '../../context/RideContext';
 import type { AppStackParamList } from '../../navigation/types';
-import { theme } from '../../theme/theme';
+import { useTheme } from '../../theme/ThemeContext';
+import type { Theme } from '../../theme/theme';
 import type { Delivery, OrderStatus } from '../../types';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'Entrega'>;
@@ -23,14 +24,14 @@ const ACAO: Partial<Record<OrderStatus, string>> = {
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 
-function prepBadge(d: Delivery): { text: string; color: string } | null {
-  if (d.readyAt) return { text: '🔔 Pronto pra retirada', color: theme.colors.success };
+function prepBadge(d: Delivery, t: Theme): { text: string; color: string } | null {
+  if (d.readyAt) return { text: '🔔 Pronto pra retirada', color: t.colors.success };
   if (!d.preparingAt) return null;
-  if (!d.prepEstimateMinutes) return { text: 'Em preparo', color: theme.colors.accent };
+  if (!d.prepEstimateMinutes) return { text: 'Em preparo', color: t.colors.accent };
   const leftMin = Math.round((new Date(d.preparingAt).getTime() + d.prepEstimateMinutes * 60_000 - Date.now()) / 60_000);
   return {
     text: leftMin > 0 ? `Em preparo · pronto em ~${leftMin} min` : 'Em preparo · deveria estar pronto',
-    color: theme.colors.accent,
+    color: t.colors.accent,
   };
 }
 
@@ -52,6 +53,8 @@ async function takeDeliveryPhoto(): Promise<string | null> {
 }
 
 export function EntregaScreen({ navigation }: Props): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const { activeDelivery, advancing, advanceActive, confirmDelivery } = useRide();
   const { position } = usePosition();
   const [photo, setPhoto] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
     return (
       <ScreenContainer>
         <Text style={styles.empty}>Nenhuma entrega em andamento.</Text>
-        <Button label="Voltar" onPress={() => navigation.goBack()} style={{ marginTop: theme.spacing.lg }} />
+        <Button label="Voltar" onPress={() => navigation.goBack()} style={{ marginTop: t.spacing.lg }} />
       </ScreenContainer>
     );
   }
@@ -86,7 +89,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
       <StatusBadge status={d.status} />
       {naColeta &&
         (() => {
-          const pb = prepBadge(d);
+          const pb = prepBadge(d, t);
           if (!pb) return null;
           return (
             <View style={[styles.prepBadge, { backgroundColor: pb.color + '22', borderColor: pb.color }]}>
@@ -101,7 +104,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
       </Card>
 
       {collectFromCustomer && (
-        <Card style={[styles.card, { borderColor: theme.colors.accent }]}>
+        <Card style={[styles.card, { borderColor: t.colors.accent }]}>
           <Text style={styles.label}>Receber do cliente na entrega</Text>
           <Text style={styles.endereco}>{brl(d.orderAmount)}</Text>
         </Card>
@@ -116,7 +119,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
         )}
 
         {d.status === 'in_route' && (
-          <View style={{ gap: theme.spacing.sm }}>
+          <View style={{ gap: t.spacing.sm }}>
             <Text style={styles.dest}>
               Para concluir, tire uma foto da entrega e peça pro cliente o código de confirmação dele. Você
               precisa estar no endereço.
@@ -134,11 +137,11 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
                 <TextInput
                   style={styles.codeInput}
                   placeholder="Código de confirmação do cliente"
-                  placeholderTextColor={theme.colors.textSecondary}
+                  placeholderTextColor={t.colors.textSecondary}
                   keyboardType="number-pad"
                   maxLength={4}
                   value={code}
-                  onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 4))}
+                  onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 4))}
                 />
                 <Button
                   label="Confirmar entrega"
@@ -198,39 +201,41 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  title: { fontFamily: theme.fonts.heading, fontSize: 24, color: theme.colors.text, marginBottom: theme.spacing.sm },
-  prepBadge: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: theme.radius.pill,
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    marginTop: theme.spacing.sm,
-  },
-  prepBadgeText: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12.5 },
-  valorCard: { marginTop: theme.spacing.md, marginBottom: theme.spacing.md, alignItems: 'center' },
-  valorLabel: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary },
-  valor: { fontFamily: theme.fonts.heading, fontSize: 32, color: theme.colors.success, marginTop: 4 },
-  card: { marginBottom: theme.spacing.md },
-  label: { fontFamily: theme.fonts.bodySemiBold, fontSize: 12, color: theme.colors.accent, marginBottom: 4 },
-  endereco: { fontFamily: theme.fonts.body, fontSize: 15, color: theme.colors.text, lineHeight: 20 },
-  fotoPreview: { width: '100%', height: 200, borderRadius: theme.radius.md, resizeMode: 'cover' },
-  codeInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 12,
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 18,
-    letterSpacing: 4,
-    textAlign: 'center',
-    color: theme.colors.text,
-    backgroundColor: theme.colors.surface,
-  },
-  dest: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.textSecondary, marginTop: 6 },
-  mapa: { height: 240, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.spacing.md },
-  actions: { marginTop: theme.spacing.sm, gap: theme.spacing.md },
-  empty: { fontFamily: theme.fonts.body, color: theme.colors.textSecondary, textAlign: 'center', marginTop: theme.spacing.xxl },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    title: { fontFamily: t.fonts.heading, fontSize: 24, color: t.colors.text, marginBottom: t.spacing.sm },
+    prepBadge: {
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderRadius: t.radius.pill,
+      paddingVertical: 5,
+      paddingHorizontal: 12,
+      marginTop: t.spacing.sm,
+    },
+    prepBadgeText: { fontFamily: t.fonts.bodySemiBold, fontSize: 12.5 },
+    valorCard: { marginTop: t.spacing.md, marginBottom: t.spacing.md, alignItems: 'center' },
+    valorLabel: { fontFamily: t.fonts.body, fontSize: 13, color: t.colors.textSecondary },
+    valor: { fontFamily: t.fonts.heading, fontSize: 32, color: t.colors.success, marginTop: 4 },
+    card: { marginBottom: t.spacing.md },
+    label: { fontFamily: t.fonts.bodySemiBold, fontSize: 12, color: t.colors.accent, marginBottom: 4 },
+    endereco: { fontFamily: t.fonts.body, fontSize: 15, color: t.colors.text, lineHeight: 20 },
+    fotoPreview: { width: '100%', height: 200, borderRadius: t.radius.md, resizeMode: 'cover' },
+    codeInput: {
+      borderWidth: 1,
+      borderColor: t.colors.border,
+      borderRadius: t.radius.md,
+      paddingHorizontal: t.spacing.md,
+      paddingVertical: 12,
+      fontFamily: t.fonts.bodySemiBold,
+      fontSize: 18,
+      letterSpacing: 4,
+      textAlign: 'center',
+      color: t.colors.text,
+      backgroundColor: t.colors.surface,
+    },
+    dest: { fontFamily: t.fonts.body, fontSize: 13, color: t.colors.textSecondary, marginTop: 6 },
+    mapa: { height: 240, borderRadius: t.radius.lg, borderWidth: 1, borderColor: t.colors.border, marginBottom: t.spacing.md },
+    actions: { marginTop: t.spacing.sm, gap: t.spacing.md },
+    empty: { fontFamily: t.fonts.body, color: t.colors.textSecondary, textAlign: 'center', marginTop: t.spacing.xxl },
+  });
+}

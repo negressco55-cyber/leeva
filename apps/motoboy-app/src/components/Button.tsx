@@ -9,7 +9,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 
 type ButtonVariant = 'primary' | 'accent' | 'outline' | 'danger';
 
@@ -23,6 +24,10 @@ interface ButtonProps {
 }
 
 export const Button = React.memo(function Button({ label, onPress, variant = 'primary', disabled, loading, style }: ButtonProps): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
+  const variantStyles = makeVariantStyles(t);
+  const textVariantStyles = makeTextVariantStyles(t);
   const isDisabled = disabled || loading;
 
   return (
@@ -38,7 +43,7 @@ export const Button = React.memo(function Button({ label, onPress, variant = 'pr
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? theme.colors.text : theme.colors.onPrimary} />
+        <ActivityIndicator color={variant === 'outline' ? t.colors.text : t.colors.onPrimary} />
       ) : (
         <Text style={[styles.label, textVariantStyles[variant]]}>{label}</Text>
       )}
@@ -46,37 +51,43 @@ export const Button = React.memo(function Button({ label, onPress, variant = 'pr
   );
 });
 
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: theme.radius.md,
-    paddingVertical: 16,
-    paddingHorizontal: theme.spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 54,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  label: {
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 16,
-  },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    base: {
+      borderRadius: t.radius.md,
+      paddingVertical: 16,
+      paddingHorizontal: t.spacing.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 54,
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+    pressed: {
+      opacity: 0.85,
+    },
+    label: {
+      fontFamily: t.fonts.bodySemiBold,
+      fontSize: 16,
+    },
+  });
+}
 
-const variantStyles: Record<ButtonVariant, StyleProp<ViewStyle>> = {
-  primary: { backgroundColor: theme.colors.primary },
-  accent: { backgroundColor: theme.colors.accent },
-  outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: theme.colors.border },
-  danger: { backgroundColor: theme.colors.danger },
-};
+function makeVariantStyles(t: Theme): Record<ButtonVariant, StyleProp<ViewStyle>> {
+  return {
+    primary: { backgroundColor: t.colors.primary },
+    accent: { backgroundColor: t.colors.accent },
+    outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: t.colors.border },
+    danger: { backgroundColor: t.colors.danger },
+  };
+}
 
-const textVariantStyles: Record<ButtonVariant, StyleProp<TextStyle>> = {
-  primary: { color: theme.colors.onPrimary },
-  accent: { color: theme.colors.onAccent },
-  outline: { color: theme.colors.text },
-  danger: { color: theme.colors.text },
-};
+function makeTextVariantStyles(t: Theme): Record<ButtonVariant, StyleProp<TextStyle>> {
+  return {
+    primary: { color: t.colors.onPrimary },
+    accent: { color: t.colors.onAccent },
+    outline: { color: t.colors.text },
+    danger: { color: t.colors.text },
+  };
+}

@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getWallet, requestPayout, type PayoutHistoryEntry, type WalletInfo } from '../../api/motoboy';
 import { Button } from '../../components/Button';
-import { theme } from '../../theme/theme';
+import { useTheme } from '../../theme/ThemeContext';
+import type { Theme } from '../../theme/theme';
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 
@@ -23,17 +24,19 @@ function data(iso: string): string {
 }
 
 function HistoryItem({ item }: { item: PayoutHistoryEntry }): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const ok = item.status === 'paid';
   const failed = item.status === 'failed' || item.status === 'awaiting_pix';
   return (
     <View style={styles.item}>
       <View style={[styles.itemIcon, ok ? styles.itemIconOk : failed ? styles.itemIconFail : styles.itemIconPending]}>
         {ok ? (
-          <CheckCircle2 size={18} color={theme.colors.success} strokeWidth={2} />
+          <CheckCircle2 size={18} color={t.colors.success} strokeWidth={2} />
         ) : failed ? (
-          <XCircle size={18} color={theme.colors.danger} strokeWidth={2} />
+          <XCircle size={18} color={t.colors.danger} strokeWidth={2} />
         ) : (
-          <Clock size={18} color={theme.colors.accent} strokeWidth={2} />
+          <Clock size={18} color={t.colors.accent} strokeWidth={2} />
         )}
       </View>
       <View style={styles.itemBody}>
@@ -52,6 +55,7 @@ function HistoryItem({ item }: { item: PayoutHistoryEntry }): React.JSX.Element 
 }
 
 function EmptyState(): React.JSX.Element {
+  const styles = makeStyles(useTheme());
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyText}>Nenhum repasse ainda.</Text>
@@ -60,6 +64,8 @@ function EmptyState(): React.JSX.Element {
 }
 
 export function CarteiraScreen(): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,7 +118,7 @@ export function CarteiraScreen(): React.JSX.Element {
   if (loading || !wallet) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <ActivityIndicator color={theme.colors.primary} style={{ marginTop: theme.spacing.xxl }} />
+        <ActivityIndicator color={t.colors.primary} style={{ marginTop: t.spacing.xxl }} />
       </SafeAreaView>
     );
   }
@@ -126,7 +132,7 @@ export function CarteiraScreen(): React.JSX.Element {
           <View style={styles.balanceTop}>
             <Text style={styles.balanceLabel}>SALDO DISPONÍVEL</Text>
             <View style={styles.balanceIcon}>
-              <Wallet size={16} color={theme.colors.primary} strokeWidth={2} />
+              <Wallet size={16} color={t.colors.primary} strokeWidth={2} />
             </View>
           </View>
           <Text style={styles.balanceValor}>{brl(wallet.pendingAmount)}</Text>
@@ -141,7 +147,7 @@ export function CarteiraScreen(): React.JSX.Element {
             onPress={() => void onRequestPayout()}
             loading={requesting}
             disabled={wallet.pendingAmount <= 0 || wallet.requestedToday}
-            style={{ marginTop: theme.spacing.sm }}
+            style={{ marginTop: t.spacing.sm }}
           />
           {wallet.requestedToday && (
             <Text style={[styles.feeHint, { marginTop: 6 }]}>Você já solicitou um repasse hoje. Tente de novo amanhã.</Text>
@@ -152,8 +158,8 @@ export function CarteiraScreen(): React.JSX.Element {
         <FlatList
           data={wallet.history}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ paddingBottom: theme.spacing.xl }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
+          contentContainerStyle={{ paddingBottom: t.spacing.xl }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.colors.primary} />}
           ListEmptyComponent={<EmptyState />}
           renderItem={({ item }) => <HistoryItem item={item} />}
         />
@@ -162,51 +168,53 @@ export function CarteiraScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: theme.colors.background },
-  content: { flex: 1, padding: theme.spacing.lg },
-  title: { fontFamily: theme.fonts.heading, fontSize: 26, color: theme.colors.text, marginBottom: theme.spacing.md },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: t.colors.background },
+    content: { flex: 1, padding: t.spacing.lg },
+    title: { fontFamily: t.fonts.heading, fontSize: 26, color: t.colors.text, marginBottom: t.spacing.md },
 
-  balanceCard: {
-    backgroundColor: theme.colors.primaryWeak,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-  },
-  balanceTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  balanceLabel: { fontFamily: theme.fonts.bodySemiBold, fontSize: 11, letterSpacing: 1.2, color: theme.colors.textSecondary },
-  balanceIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center' },
-  balanceValor: { fontFamily: theme.fonts.heading, fontSize: 40, color: theme.colors.text, marginTop: 6, marginBottom: 6, letterSpacing: -1 },
-  feeHint: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
+    balanceCard: {
+      backgroundColor: t.colors.primaryWeak,
+      borderRadius: t.radius.lg,
+      borderWidth: 1,
+      borderColor: t.colors.border,
+      padding: t.spacing.lg,
+      marginBottom: t.spacing.lg,
+    },
+    balanceTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    balanceLabel: { fontFamily: t.fonts.bodySemiBold, fontSize: 11, letterSpacing: 1.2, color: t.colors.textSecondary },
+    balanceIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: t.colors.surface, alignItems: 'center', justifyContent: 'center' },
+    balanceValor: { fontFamily: t.fonts.heading, fontSize: 40, color: t.colors.text, marginTop: 6, marginBottom: 6, letterSpacing: -1 },
+    feeHint: { fontFamily: t.fonts.body, fontSize: 12, color: t.colors.textSecondary, marginTop: 2 },
 
-  sectionTitle: {
-    fontFamily: theme.fonts.bodySemiBold,
-    fontSize: 11,
-    letterSpacing: 1.1,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.sm,
-  },
+    sectionTitle: {
+      fontFamily: t.fonts.bodySemiBold,
+      fontSize: 11,
+      letterSpacing: 1.1,
+      color: t.colors.textSecondary,
+      marginBottom: t.spacing.sm,
+    },
 
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  itemIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  itemIconOk: { backgroundColor: 'rgba(85,196,127,0.12)' },
-  itemIconFail: { backgroundColor: 'rgba(228,106,97,0.12)' },
-  itemIconPending: { backgroundColor: 'rgba(214,169,81,0.12)' },
-  itemBody: { flex: 1, minWidth: 0 },
-  itemTitle: { fontFamily: theme.fonts.bodySemiBold, fontSize: 14, color: theme.colors.text },
-  itemMeta: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
-  itemValor: { fontFamily: theme.fonts.bodySemiBold, fontSize: 15, color: theme.colors.success },
-  itemValorMuted: { color: theme.colors.textSecondary },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: t.spacing.sm,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: t.colors.border,
+    },
+    itemIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+    itemIconOk: { backgroundColor: 'rgba(85,196,127,0.12)' },
+    itemIconFail: { backgroundColor: 'rgba(228,106,97,0.12)' },
+    itemIconPending: { backgroundColor: 'rgba(214,169,81,0.12)' },
+    itemBody: { flex: 1, minWidth: 0 },
+    itemTitle: { fontFamily: t.fonts.bodySemiBold, fontSize: 14, color: t.colors.text },
+    itemMeta: { fontFamily: t.fonts.body, fontSize: 12, color: t.colors.textSecondary, marginTop: 2 },
+    itemValor: { fontFamily: t.fonts.bodySemiBold, fontSize: 15, color: t.colors.success },
+    itemValorMuted: { color: t.colors.textSecondary },
 
-  empty: { alignItems: 'center', marginTop: theme.spacing.xl },
-  emptyText: { fontFamily: theme.fonts.body, color: theme.colors.textSecondary },
-});
+    empty: { alignItems: 'center', marginTop: t.spacing.xl },
+    emptyText: { fontFamily: t.fonts.body, color: t.colors.textSecondary },
+  });
+}

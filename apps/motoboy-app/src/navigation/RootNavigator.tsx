@@ -5,7 +5,8 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { DocumentosScreen } from '../screens/perfil/DocumentosScreen';
 import { EntregaScreen } from '../screens/home/EntregaScreen';
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 import { AuthNavigator } from './AuthNavigator';
 import { MainTabs } from './MainTabs';
 import type { AppStackParamList } from './types';
@@ -13,8 +14,9 @@ import type { AppStackParamList } from './types';
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 function AppStack(): React.JSX.Element {
+  const t = useTheme();
   return (
-    <Stack.Navigator screenOptions={{ contentStyle: { backgroundColor: theme.colors.background } }}>
+    <Stack.Navigator screenOptions={{ contentStyle: { backgroundColor: t.colors.background } }}>
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <Stack.Screen
         name="Entrega"
@@ -22,8 +24,8 @@ function AppStack(): React.JSX.Element {
         options={{
           title: 'Entrega',
           presentation: 'fullScreenModal',
-          headerStyle: { backgroundColor: theme.colors.surface },
-          headerTintColor: theme.colors.text,
+          headerStyle: { backgroundColor: t.colors.surface },
+          headerTintColor: t.colors.text,
           gestureEnabled: false,
         }}
       />
@@ -32,8 +34,8 @@ function AppStack(): React.JSX.Element {
         component={DocumentosScreen}
         options={{
           title: 'Documentos',
-          headerStyle: { backgroundColor: theme.colors.surface },
-          headerTintColor: theme.colors.text,
+          headerStyle: { backgroundColor: t.colors.surface },
+          headerTintColor: t.colors.text,
         }}
       />
     </Stack.Navigator>
@@ -42,17 +44,21 @@ function AppStack(): React.JSX.Element {
 
 export function RootNavigator(): React.JSX.Element {
   const { isLoading, isAuthenticated } = useAuth();
+  const t = useTheme();
+  const styles = makeStyles(t);
 
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={theme.colors.primary} size="large" />
+        <ActivityIndicator color={t.colors.primary} size="large" />
       </View>
     );
   }
   return isAuthenticated ? <AppStack /> : <AuthNavigator />;
 }
 
-const styles = StyleSheet.create({
-  center: { flex: 1, backgroundColor: theme.colors.background, alignItems: 'center', justifyContent: 'center' },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    center: { flex: 1, backgroundColor: t.colors.background, alignItems: 'center', justifyContent: 'center' },
+  });
+}

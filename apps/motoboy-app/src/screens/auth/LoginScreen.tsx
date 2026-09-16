@@ -6,9 +6,11 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { TextField } from '../../components/TextField';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../lib/supabase';
-import { theme } from '../../theme/theme';
+import { useTheme } from '../../theme/ThemeContext';
+import type { Theme } from '../../theme/theme';
 
 export function LoginScreen(): React.JSX.Element {
+  const styles = makeStyles(useTheme());
   const { login, configured } = useAuth();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -66,12 +68,14 @@ export function LoginScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
-  header: { marginTop: theme.spacing.xxl, marginBottom: theme.spacing.xl, alignItems: 'center' },
-  logo: { fontFamily: theme.fonts.heading, fontSize: 40, color: theme.colors.primary },
-  tagline: { fontFamily: theme.fonts.body, fontSize: 14, color: theme.colors.textSecondary, marginTop: theme.spacing.xs },
-  warn: { fontFamily: theme.fonts.body, fontSize: 13, color: theme.colors.danger, marginBottom: theme.spacing.md },
-  form: { flex: 1, justifyContent: 'center' },
-  submit: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.md },
-  hint: { fontFamily: theme.fonts.body, fontSize: 12, color: theme.colors.textSecondary, marginTop: theme.spacing.sm, textAlign: 'center' },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    header: { marginTop: t.spacing.xxl, marginBottom: t.spacing.xl, alignItems: 'center' },
+    logo: { fontFamily: t.fonts.heading, fontSize: 40, color: t.colors.primary },
+    tagline: { fontFamily: t.fonts.body, fontSize: 14, color: t.colors.textSecondary, marginTop: t.spacing.xs },
+    warn: { fontFamily: t.fonts.body, fontSize: 13, color: t.colors.danger, marginBottom: t.spacing.md },
+    form: { flex: 1, justifyContent: 'center' },
+    submit: { marginTop: t.spacing.sm, marginBottom: t.spacing.md },
+    hint: { fontFamily: t.fonts.body, fontSize: 12, color: t.colors.textSecondary, marginTop: t.spacing.sm, textAlign: 'center' },
+  });
+}

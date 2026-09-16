@@ -2,7 +2,8 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import type { Theme } from '../theme/theme';
 
 interface Props {
   pickupLat: number;
@@ -37,9 +38,9 @@ function buildHtml(p: {
   motoboyLat: number | null;
   motoboyLng: number | null;
   routeGeoJson: number[][] | null;
-}): string {
+}, t: Theme): string {
   const data = JSON.stringify(p);
-  const { primary, success, accent, background } = theme.colors;
+  const { primary, success, accent, background } = t.colors;
   return `<!DOCTYPE html><html><head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
@@ -123,6 +124,8 @@ function MapaEntregaBase({
   routeGeoJson,
   style,
 }: Props): React.JSX.Element {
+  const t = useTheme();
+  const styles = makeStyles(t);
   const ref = useRef<WebView>(null);
   const readyRef = useRef(false);
   const queueRef = useRef<object[]>([]);
@@ -138,10 +141,10 @@ function MapaEntregaBase({
         motoboyLat: motoboyLat ?? null,
         motoboyLng: motoboyLng ?? null,
         routeGeoJson: routeGeoJson ?? null,
-      }),
-    // só regenera se a rota mudar de verdade; posição vai por postMessage
+      }, t),
+    // só regenera se a rota (ou o tema) mudar de verdade; posição vai por postMessage
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pickupLat, pickupLng, dropoffLat, dropoffLng],
+    [pickupLat, pickupLng, dropoffLat, dropoffLng, t],
   );
 
   const send = useCallback((msg: object) => {
@@ -192,7 +195,7 @@ function MapaEntregaBase({
       />
       {!loaded && (
         <View style={styles.loading}>
-          <ActivityIndicator color={theme.colors.primary} />
+          <ActivityIndicator color={t.colors.primary} />
         </View>
       )}
     </View>
@@ -212,17 +215,19 @@ function propsEqual(a: Props, b: Props): boolean {
 
 export const MapaEntrega = React.memo(MapaEntregaBase, propsEqual);
 
-const styles = StyleSheet.create({
-  container: { overflow: 'hidden', backgroundColor: theme.colors.surface },
-  webview: { flex: 1, backgroundColor: 'transparent' },
-  loading: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.surface,
-  },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    container: { overflow: 'hidden', backgroundColor: t.colors.surface },
+    webview: { flex: 1, backgroundColor: 'transparent' },
+    loading: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: t.colors.surface,
+    },
+  });
+}
