@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createLeevaAdminClient, createLeevaServerClient } from '@leeva/shared/server';
 import { isSupabaseAdminConfigured, onlyDigits } from '@leeva/shared';
-import { createSelfServiceDriver, setDriverDocPaths, isValidCpf, sendNewDriverSignupEmail } from '@leeva/shared/services';
+import { createSelfServiceDriver, setDriverDocPaths, isValidCpf, sendNewDriverSignupEmail, acceptTerms } from '@leeva/shared/services';
 
 export type SignupState = { error?: string };
 
@@ -26,6 +26,8 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   const phone = onlyDigits(String(form.get('phone') ?? ''));
   const cpf = String(form.get('cpf') ?? '');
   const city = String(form.get('city') ?? 'João Pessoa - PB').trim() || 'João Pessoa - PB';
+  const termsVersionRaw = form.get('termsVersion');
+  const termsVersion = termsVersionRaw ? Number(termsVersionRaw) : null;
 
   // cada documento tem dois inputs (foto tirada na hora OU PDF/arquivo da
   // galeria) — usa o que a pessoa preencheu.
@@ -97,6 +99,12 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   } catch {
     // não bloqueia — o admin pode pedir o reenvio; mas registra
     console.error('[signup] upload de documento falhou');
+  }
+
+  // 3.5. aceite dos termos de uso, já no cadastro
+  if (termsVersion != null) {
+    const ip = await currentIp();
+    await acceptTerms(admin, res.motoboyId, termsVersion, ip).catch(() => {});
   }
 
   // 4. avisa o operador (best-effort — não bloqueia o cadastro)
