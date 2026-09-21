@@ -245,6 +245,7 @@ export type PendingDriver = {
   personalDocUrl: string | null;
   personalDocBackUrl: string | null;
   vehicleDocUrl: string | null;
+  avatarUrl: string | null;
 };
 
 export async function signDoc(db: DB, path: string | null): Promise<string | null> {
@@ -257,7 +258,7 @@ export async function getPendingDrivers(db: DB): Promise<PendingDriver[]> {
   const { data } = await db
     .from('motoboys')
     .select(
-      'id, full_name, phone, cpf, city, pix_key, pix_key_type, created_at, personal_doc_path, personal_doc_back_path, vehicle_doc_path',
+      'id, full_name, phone, cpf, city, pix_key, pix_key_type, created_at, personal_doc_path, personal_doc_back_path, vehicle_doc_path, avatar_url',
     )
     .eq('approval_status', 'pending_approval')
     .order('created_at', { ascending: true })
@@ -276,6 +277,7 @@ export async function getPendingDrivers(db: DB): Promise<PendingDriver[]> {
       personalDocUrl: await signDoc(db, m.personal_doc_path),
       personalDocBackUrl: await signDoc(db, m.personal_doc_back_path),
       vehicleDocUrl: await signDoc(db, m.vehicle_doc_path),
+      avatarUrl: await signDoc(db, m.avatar_url),
     })),
   );
 }
