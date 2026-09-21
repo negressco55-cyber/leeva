@@ -25,7 +25,7 @@ export default async function PagamentosPage() {
 
   const fee = payoutTransferFee();
   const todayStr = new Date().toISOString().slice(0, 10);
-  const requestedToday = history.some((b) => b.periodDate === todayStr);
+  const requestedToday = history.some((b) => b.periodDate === todayStr && b.status !== 'failed');
 
   return (
     <div className="grid" style={{ gap: 14 }}>

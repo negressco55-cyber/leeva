@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const [pending, history, requestedTodayRow] = await Promise.all([
       getPendingEarnings(db, ctx.motoboyId),
       getPayoutHistory(db, ctx.motoboyId, 30),
-      db.from('payout_batches').select('id').eq('motoboy_id', ctx.motoboyId).eq('period_date', todayStr).maybeSingle(),
+      db.from('payout_batches').select('id').eq('motoboy_id', ctx.motoboyId).eq('period_date', todayStr).neq('status', 'failed').maybeSingle(),
     ]);
     return json({
       pendingAmount: pending.amount,
