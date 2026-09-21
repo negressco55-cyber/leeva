@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { startTransition, useState } from 'react';
 import { useActionState } from 'react';
 import Link from 'next/link';
 import { submitSignup, type SignupState } from './actions';
@@ -65,7 +65,9 @@ export default function QueroEntregarForm({
   const [clientError, setClientError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
 
-  async function prepareAndSubmit(fd: FormData) {
+  async function prepareAndSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
     setClientError(null);
     setPreparing(true);
     let total = 0;
@@ -86,7 +88,7 @@ export default function QueroEntregarForm({
       );
       return;
     }
-    return action(fd);
+    startTransition(() => action(fd));
   }
 
   return (
@@ -97,7 +99,7 @@ export default function QueroEntregarForm({
         começar a receber ofertas.
       </p>
 
-      <form action={prepareAndSubmit} className="panel grid" style={{ marginTop: 16, gap: 12 }} encType="multipart/form-data">
+      <form onSubmit={prepareAndSubmit} className="panel grid" style={{ marginTop: 16, gap: 12 }} encType="multipart/form-data">
         <label>
           Nome completo
           <input className="input" name="fullName" required />
