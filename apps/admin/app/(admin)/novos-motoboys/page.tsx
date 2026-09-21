@@ -69,7 +69,7 @@ export default async function NovosMotoboys() {
                 )}
               </div>
               <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                Links expiram em 1 hora — se der erro, atualize a página. A validação de Receita / antecedentes é feita fora daqui.
+                Links expiram em 3 dias — se der erro, atualize a página. A validação de Receita / antecedentes é feita fora daqui.
               </p>
             </div>
           </div>

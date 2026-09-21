@@ -250,7 +250,7 @@ export type PendingDriver = {
 
 export async function signDoc(db: DB, path: string | null): Promise<string | null> {
   if (!path) return null;
-  const { data } = await db.storage.from('driver-documents').createSignedUrl(path, 3600);
+  const { data } = await db.storage.from('driver-documents').createSignedUrl(path, 3 * 24 * 3600);
   return data?.signedUrl ?? null;
 }
 
