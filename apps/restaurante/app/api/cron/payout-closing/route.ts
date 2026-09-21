@@ -1,6 +1,6 @@
 import { adminDb } from '@/lib/context';
 import { json, serverError } from '@/lib/api';
-import { closePayoutBatches, captureError } from '@leeva/shared/services';
+import { closePayoutBatches, reconcileProcessingPayouts, captureError } from '@leeva/shared/services';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
   }
   const db = adminDb();
   try {
+    await reconcileProcessingPayouts(db).catch(() => 0);
     const result = await closePayoutBatches(db);
     return json({ ok: true, ...result });
   } catch (e) {

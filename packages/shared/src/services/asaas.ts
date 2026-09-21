@@ -25,6 +25,8 @@ export type AsaasResult<T> = { ok: true; data: T } | { ok: false; error: string;
 export interface AsaasClient {
   /** transferência Pix para uma chave (repasse ao motoboy) */
   transferPix(t: AsaasTransfer): Promise<AsaasResult<{ id: string; status: string }>>;
+  /** situação atual de uma transferência (DONE, PENDING, BANK_PROCESSING, FAILED, CANCELLED…) */
+  getTransfer(id: string): Promise<AsaasResult<{ id: string; status: string }>>;
   /** cria (ou acha) o cliente Asaas de quem vai pagar — exigido pela cobrança */
   createCustomer(input: {
     name: string;
@@ -77,6 +79,10 @@ class HttpAsaasClient implements AsaasClient {
       description: t.description,
       operationType: 'PIX',
     });
+  }
+
+  getTransfer(id: string) {
+    return this.req<{ id: string; status: string }>(`/transfers/${encodeURIComponent(id)}`, null, 'GET');
   }
 
   createCustomer(input: { name: string; cpfCnpj: string; email?: string; mobilePhone?: string }) {

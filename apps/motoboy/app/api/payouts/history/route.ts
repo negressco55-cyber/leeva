@@ -1,6 +1,6 @@
 import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, serverError } from '@/lib/api';
-import { getPayoutHistory, getPendingEarnings, payoutTransferFee } from '@leeva/shared/services';
+import { getPayoutHistory, getPendingEarnings, payoutTransferFee, reconcileProcessingPayouts } from '@leeva/shared/services';
 
 /** Saldo + histórico de repasses do motoboy — JSON para a aba Carteira do app nativo. */
 export async function GET(req: Request) {
@@ -8,6 +8,7 @@ export async function GET(req: Request) {
   if (!ctx) return unauthorized();
   try {
     const db = adminDb();
+    await reconcileProcessingPayouts(db, ctx.motoboyId).catch(() => 0);
     const todayStr = new Date().toISOString().slice(0, 10);
     const [pending, history, requestedTodayRow] = await Promise.all([
       getPendingEarnings(db, ctx.motoboyId),

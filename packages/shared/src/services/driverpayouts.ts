@@ -242,7 +242,7 @@ export async function closePayoutBatches(
 
 export type ProcessResult = {
   batchId: string;
-  status: 'paid' | 'failed';
+  status: 'paid' | 'failed' | 'processing';
   amount: number;
   simulated: boolean;
   error?: string;
@@ -313,6 +313,24 @@ export async function processPayoutBatch(
     description: `Repasse Leeva — entregas (taxa de saque R$ ${fee.toFixed(2)})`,
   });
 
+  if (r.ok && !['DONE'].includes(r.data.status)) {
+    // Asaas aceitou o pedido mas o Pix ainda não saiu (aguardando autorização
+    // na conta ou processando no banco): só vira "pago" quando confirmar.
+    const bad = ['FAILED', 'CANCELLED'].includes(r.data.status);
+    if (!bad) {
+      await db
+        .from('payout_batches')
+        .update({ status: 'processing', external_ref: r.data.id, simulated: false, transfer_fee: fee, error: null })
+        .eq('id', batchId);
+      return { batchId, status: 'processing', amount: net, simulated: false };
+    }
+    const msg = `Transferência ${r.data.status}`;
+    await db.from('payout_batches').update({ status: 'failed', external_ref: r.data.id, error: msg }).eq('id', batchId);
+    await createPayoutAlert(db, batch.motoboy_id, batchId, msg);
+    await notifyPayout(db, batch.motoboy_id, 'failed', amount);
+    return { batchId, status: 'failed', amount, simulated: false, error: msg };
+  }
+
   if (r.ok) {
     await db
       .from('payout_batches')
@@ -335,6 +353,36 @@ export async function processPayoutBatch(
   return { batchId, status: 'failed', amount, simulated: false, error: r.error };
 }
 
+/**
+ * Confere no Asaas os repasses que ainda estão "processando" e fecha os que
+ * já saíram (pago) ou foram recusados/cancelados (falhou, valor volta à carteira).
+ */
+export async function reconcileProcessingPayouts(db: DB, motoboyId?: string): Promise<number> {
+  const asaas = getAsaasClient();
+  if (!asaas) return 0;
+  let q = db.from('payout_batches').select('id, motoboy_id, amount, transfer_fee, external_ref').eq('status', 'processing').not('external_ref', 'is', null);
+  if (motoboyId) q = q.eq('motoboy_id', motoboyId);
+  const { data: rows } = await q.limit(50);
+  let changed = 0;
+  for (const b of rows ?? []) {
+    if (!b.external_ref || b.external_ref === 'MANUAL') continue;
+    const t = await asaas.getTransfer(b.external_ref);
+    if (!t.ok) continue;
+    const fee = Number(b.transfer_fee ?? 0);
+    if (t.data.status === 'DONE') {
+      await db.from('payout_batches').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', b.id);
+      await notifyPayout(db, b.motoboy_id, 'paid', round(Number(b.amount) - fee), fee);
+      changed++;
+    } else if (['FAILED', 'CANCELLED'].includes(t.data.status)) {
+      await createPayoutAlert(db, b.motoboy_id, b.id, `Transferência ${t.data.status}`);
+      await notifyPayout(db, b.motoboy_id, 'failed', Number(b.amount));
+      await releaseFailedBatch(db, b.id);
+      changed++;
+    }
+  }
+  return changed;
+}
+
 async function createPayoutAlert(db: DB, motoboyId: string, batchId: string, message: string) {
   try {
     await db.from('error_events').insert({
@@ -352,7 +400,7 @@ async function createPayoutAlert(db: DB, motoboyId: string, batchId: string, mes
 // ===========================================================================
 
 export type RequestPayoutResult =
-  | { ok: true; amount: number; fee: number; netAmount: number; simulated: boolean }
+  | { ok: true; amount: number; fee: number; netAmount: number; simulated: boolean; processing?: boolean }
   | { ok: false; error: string; code?: 'already_requested_today' | 'nothing_to_withdraw' | 'no_pix' | 'above_balance' | 'invalid_amount' };
 
 /**
@@ -443,7 +491,7 @@ export async function requestPayout(
     .maybeSingle();
   const gross = round(Number(final?.amount ?? p.amount));
   const fee = round(Number(final?.transfer_fee ?? 0));
-  return { ok: true, amount: gross, fee, netAmount: round(gross - fee), simulated: !!final?.simulated };
+  return { ok: true, amount: gross, fee, netAmount: round(gross - fee), simulated: !!final?.simulated, processing: p.status === 'processing' };
 }
 
 /** Lote que falhou: os ganhos voltam a ficar disponíveis e o lote sai do caminho. */
