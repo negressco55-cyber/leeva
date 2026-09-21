@@ -23,6 +23,7 @@ export type ManualOrderInput = {
   /** pedido veio do iFood, lançado manualmente enquanto a integração direta
    *  não está ligada — só marca a origem (não muda o despacho). */
   fromIfood?: boolean;
+  ifoodLocator?: string | null;
 };
 
 export class ManualOrderProvider implements OrderProvider {
@@ -44,6 +45,7 @@ export class ManualOrderProvider implements OrderProvider {
     const order: NormalizedOrder = {
       externalId: null,
       source: input.fromIfood ? 'ifood' : 'manual',
+      ifoodLocator: input.fromIfood ? (input.ifoodLocator ?? null) : null,
       customer: { name: input.customerName.trim(), phone: input.customerPhone ?? null },
       items: items.map((i) => ({
         name: i.name.trim(),

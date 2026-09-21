@@ -56,8 +56,8 @@ export type RequestPayoutResult =
   | { ok: false; error: string; code?: string };
 
 /** Solicita o repasse do saldo disponível — por iniciativa do motoboy, 1x por dia. */
-export function requestPayout(): Promise<RequestPayoutResult> {
-  return apiSend('/api/payouts/request', 'POST');
+export function requestPayout(amount?: number): Promise<RequestPayoutResult> {
+  return apiSend('/api/payouts/request', 'POST', amount != null ? { amount } : undefined);
 }
 
 export type PayoutHistoryEntry = {

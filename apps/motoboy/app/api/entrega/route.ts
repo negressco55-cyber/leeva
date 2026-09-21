@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     const { data: orders } = await db
       .from('orders')
       .select(
-        'id, order_number, status, customer_name, customer_phone, customer_address, latitude, longitude, order_amount, driver_payout, payment_method, payment_status, notes, eta_min, eta_max, group_id, group_sequence, restaurant_id, ready_at, prep_estimate_minutes, preparing_at',
+        'id, order_number, status, customer_name, customer_phone, customer_address, latitude, longitude, order_amount, driver_payout, payment_method, payment_status, notes, eta_min, eta_max, group_id, group_sequence, restaurant_id, ready_at, prep_estimate_minutes, preparing_at, source, ifood_locator',
       )
       .eq('motoboy_id', ctx.motoboyId)
       // 'preparing'/'ready' também contam: o despacho sincronizado pode
@@ -43,6 +43,8 @@ export async function GET(req: Request) {
         pickupName: r?.name ?? 'Restaurante',
         pickupAddress: r?.address ?? null,
         pickupPhone: r?.phone ?? null,
+        source: o.source,
+        ifoodLocator: o.ifood_locator ?? null,
         pickupLat: r?.latitude != null ? Number(r.latitude) : null,
         pickupLng: r?.longitude != null ? Number(r.longitude) : null,
         payout: o.driver_payout != null ? Number(o.driver_payout) : null,

@@ -353,14 +353,24 @@ async function createPayoutAlert(db: DB, motoboyId: string, batchId: string, mes
 
 export type RequestPayoutResult =
   | { ok: true; amount: number; fee: number; netAmount: number; simulated: boolean }
-  | { ok: false; error: string; code?: 'already_requested_today' | 'nothing_to_withdraw' | 'no_pix' };
+  | { ok: false; error: string; code?: 'already_requested_today' | 'nothing_to_withdraw' | 'no_pix' | 'above_balance' | 'invalid_amount' };
 
 /**
  * O motoboy solicita, por iniciativa própria, o repasse de tudo que tem
  * disponível — limitado a UMA solicitação por dia (mesma trava que já
  * existe: unique(motoboy_id, period_date) em payout_batches).
  */
-export async function requestPayout(db: DB, motoboyId: string): Promise<RequestPayoutResult> {
+export async function requestPayout(
+  db: DB,
+  motoboyId: string,
+  requestedAmount?: number | null,
+): Promise<RequestPayoutResult> {
+  // em produção nunca simula: sem Asaas/repasse ligado, recusa em vez de
+  // marcar como pago um Pix que não saiu.
+  if (process.env.VERCEL_ENV === 'production' && (!getAsaasClient() || process.env.ASAAS_PAYOUTS_ENABLED !== 'true')) {
+    return { ok: false, error: 'Saque temporariamente indisponível. Tente mais tarde.' };
+  }
+
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: existing } = await db
@@ -378,6 +388,19 @@ export async function requestPayout(db: DB, motoboyId: string): Promise<RequestP
     return { ok: false, error: 'Você ainda não tem valor disponível para sacar.', code: 'nothing_to_withdraw' };
   }
 
+  // valor pedido (padrão: tudo). Nunca pode passar do saldo disponível.
+  const wanted = requestedAmount == null ? pending.amount : round(Number(requestedAmount));
+  if (!Number.isFinite(wanted) || wanted <= 0) {
+    return { ok: false, error: 'Informe um valor válido para sacar.', code: 'invalid_amount' };
+  }
+  if (wanted > pending.amount + 0.001) {
+    return {
+      ok: false,
+      error: `Você só tem R$ ${pending.amount.toFixed(2).replace('.', ',')} disponível para sacar.`,
+      code: 'above_balance',
+    };
+  }
+
   const { data: moto } = await db.from('motoboys').select('pix_key, pix_key_type').eq('id', motoboyId).maybeSingle();
   if (!moto?.pix_key) {
     return { ok: false, error: 'Cadastre sua chave Pix antes de solicitar o repasse.', code: 'no_pix' };
@@ -388,7 +411,7 @@ export async function requestPayout(db: DB, motoboyId: string): Promise<RequestP
     .insert({
       motoboy_id: motoboyId,
       period_date: today,
-      amount: pending.amount,
+      amount: wanted,
       earnings_count: pending.count,
       status: 'pending',
       pix_key: moto.pix_key,
@@ -398,7 +421,11 @@ export async function requestPayout(db: DB, motoboyId: string): Promise<RequestP
     .single();
   if (error || !batch) return { ok: false, error: 'não foi possível registrar a solicitação' };
 
-  await db.from('driver_earnings').update({ batch_id: batch.id }).eq('motoboy_id', motoboyId).is('batch_id', null);
+  const attached = await attachEarningsToBatch(db, motoboyId, batch.id, wanted);
+  if (!attached) {
+    await db.from('payout_batches').delete().eq('id', batch.id);
+    return { ok: false, error: 'não foi possível separar o valor pedido — tente sacar o valor total' };
+  }
 
   const p = await processPayoutBatch(db, batch.id);
   if (p.status === 'failed') return { ok: false, error: p.error ?? 'a transferência falhou — tente de novo mais tarde' };
@@ -411,6 +438,46 @@ export async function requestPayout(db: DB, motoboyId: string): Promise<RequestP
   const gross = round(Number(final?.amount ?? p.amount));
   const fee = round(Number(final?.transfer_fee ?? 0));
   return { ok: true, amount: gross, fee, netAmount: round(gross - fee), simulated: !!final?.simulated };
+}
+
+/**
+ * Liga aos ganhos mais antigos até cobrir o valor pedido. Se o último ganho
+ * passa do valor, divide: a parte sacada vai pro lote e o resto fica na
+ * carteira como um ganho avulso (order_id nulo).
+ */
+async function attachEarningsToBatch(db: DB, motoboyId: string, batchId: string, amount: number): Promise<boolean> {
+  const { data: rows } = await db
+    .from('driver_earnings')
+    .select('id, amount, earned_at')
+    .eq('motoboy_id', motoboyId)
+    .is('batch_id', null)
+    .order('earned_at', { ascending: true });
+  let remaining = amount;
+  const ids: string[] = [];
+  for (const r of rows ?? []) {
+    if (remaining <= 0.0001) break;
+    const a = Number(r.amount);
+    if (a <= remaining + 0.0001) {
+      ids.push(r.id);
+      remaining = round(remaining - a);
+    } else {
+      const rest = round(a - remaining);
+      const { error: upErr } = await db.from('driver_earnings').update({ amount: remaining }).eq('id', r.id);
+      if (upErr) return false;
+      const { error: insErr } = await db
+        .from('driver_earnings')
+        .insert({ motoboy_id: motoboyId, order_id: null as unknown as string, amount: rest, earned_at: r.earned_at });
+      if (insErr) {
+        await db.from('driver_earnings').update({ amount: a }).eq('id', r.id);
+        return false;
+      }
+      ids.push(r.id);
+      remaining = 0;
+    }
+  }
+  if (remaining > 0.01) return false;
+  if (ids.length) await db.from('driver_earnings').update({ batch_id: batchId }).in('id', ids);
+  return true;
 }
 
 // ===========================================================================

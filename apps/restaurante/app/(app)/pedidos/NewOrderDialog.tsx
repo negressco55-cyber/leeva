@@ -44,6 +44,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
   const [notes, setNotes] = useState('');
   const [fromIfood, setFromIfood] = useState(false);
+  const [ifoodLocator, setIfoodLocator] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fee, setFee] = useState<FeePreview | null>(null);
@@ -105,6 +106,10 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   }
 
   async function submit() {
+    if (fromIfood && ifoodLocator.replace(/D/g, '').length !== 8) {
+      setErr('Informe o localizador do iFood (8 números).');
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -121,6 +126,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
         notes: notes || null,
         items: [],
         fromIfood,
+        ifoodLocator: fromIfood ? ifoodLocator.replace(/\D/g, '') : null,
       });
       onCreated();
     } catch (e) {
@@ -250,6 +256,16 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
             <input type="checkbox" checked={fromIfood} onChange={(e) => setFromIfood(e.target.checked)} />
             Pedido veio do iFood (lançado manual, enquanto a integração direta não está ligada)
           </label>
+          {fromIfood && (
+            <input
+              className="input"
+              inputMode="numeric"
+              maxLength={8}
+              placeholder="Localizador do iFood (8 números)"
+              value={ifoodLocator}
+              onChange={(e) => setIfoodLocator(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            />
+          )}
 
           {err && <div className="op-alert critical">{err}</div>}
 

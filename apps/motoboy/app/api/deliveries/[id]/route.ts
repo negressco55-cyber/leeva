@@ -37,6 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       lng?: number | null;
       photoBase64?: string;
       confirmationCode?: string;
+      ifoodConfirmed?: boolean;
     };
 
     if (body.action === 'accept') {
@@ -66,6 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         lng: body.lng ?? null,
         photoPath: path,
         confirmationCode: body.confirmationCode ?? null,
+        ifoodConfirmed: body.ifoodConfirmed === true,
       });
       if (!r.ok) {
         // desfaz o upload se a confirmação foi barrada (ex: longe demais, código errado)

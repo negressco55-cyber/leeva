@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getWallet, requestPayout, type PayoutHistoryEntry, type WalletInfo } from '../../api/motoboy';
 import { Button } from '../../components/Button';
+import { TextField } from '../../components/TextField';
 import { useTheme } from '../../theme/ThemeContext';
 import type { Theme } from '../../theme/theme';
 
@@ -70,6 +71,7 @@ export function CarteiraScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [amountText, setAmountText] = useState('');
 
   const load = useCallback(async () => {
     setWallet(await getWallet());
@@ -99,14 +101,28 @@ export function CarteiraScreen(): React.JSX.Element {
   }
 
   async function onRequestPayout(): Promise<void> {
+    const available = wallet?.pendingAmount ?? 0;
+    let amount: number | undefined;
+    if (amountText.trim()) {
+      amount = Number(amountText.replace(',', '.'));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        Alert.alert('Valor inválido', 'Digite um valor maior que zero.');
+        return;
+      }
+      if (amount > available + 0.001) {
+        Alert.alert('Valor acima do saldo', `Você só tem ${brl(available)} disponível para sacar.`);
+        return;
+      }
+    }
     setRequesting(true);
     try {
-      const r = await requestPayout();
+      const r = await requestPayout(amount);
       if (!r.ok) {
         Alert.alert('Não deu pra solicitar', r.error);
         return;
       }
       Alert.alert('Pronto', `Repasse de ${brl(r.netAmount)} enviado para sua chave Pix${r.fee > 0 ? ` (taxa de ${brl(r.fee)} descontada)` : ''}.`);
+      setAmountText('');
       await load();
     } catch (e) {
       Alert.alert('Erro', (e as Error).message || 'Tente de novo.');
@@ -142,6 +158,15 @@ export function CarteiraScreen(): React.JSX.Element {
           <Text style={styles.feeHint}>
             O banco cobra {brl(wallet.transferFee)} por transferência Pix, descontado do valor sacado.
           </Text>
+          <View style={{ marginTop: t.spacing.sm }}>
+            <TextField
+              label="Quanto sacar? (vazio = tudo)"
+              value={amountText}
+              onChangeText={setAmountText}
+              keyboardType="decimal-pad"
+              placeholder={brl(wallet.pendingAmount)}
+            />
+          </View>
           <Button
             label={requesting ? 'Solicitando…' : 'Solicitar repasse'}
             onPress={() => void onRequestPayout()}

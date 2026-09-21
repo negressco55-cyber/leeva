@@ -28,7 +28,7 @@ interface RideContextValue {
   /** avança assigned→picked_up ou picked_up→in_route (a entrega em si tem fluxo próprio, ver confirmDelivery). */
   advanceActive: () => Promise<void>;
   /** conclui a entrega em rota: foto + código de confirmação do cliente. Devolve true se confirmou. */
-  confirmDelivery: (photoBase64: string, confirmationCode: string) => Promise<boolean>;
+  confirmDelivery: (photoBase64: string, confirmationCode: string, ifoodConfirmed?: boolean) => Promise<boolean>;
 }
 
 const RideContext = createContext<RideContextValue | undefined>(undefined);
@@ -272,7 +272,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
   }, [activeDelivery, reloadDeliveries]);
 
   const confirmDelivery = useCallback(
-    async (photoBase64: string, confirmationCode: string): Promise<boolean> => {
+    async (photoBase64: string, confirmationCode: string, ifoodConfirmed?: boolean): Promise<boolean> => {
       if (!activeDelivery) return false;
       setAdvancing(true);
       try {
@@ -291,7 +291,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
         } catch {
           coords = null; // sem GPS: o servidor confirma mas marca 'sem localização'
         }
-        await deliverWithProof(activeDelivery.id, { photoBase64, confirmationCode, lat: coords?.lat, lng: coords?.lng });
+        await deliverWithProof(activeDelivery.id, { photoBase64, confirmationCode, ifoodConfirmed, lat: coords?.lat, lng: coords?.lng });
         await Promise.all([reloadDeliveries(), refreshMe()]);
         return true;
       } catch (e) {

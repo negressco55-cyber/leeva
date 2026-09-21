@@ -97,6 +97,8 @@ export interface Delivery {
   pickupName: string;
   pickupAddress: string | null;
   pickupPhone?: string | null;
+  source?: string;
+  ifoodLocator?: string | null;
   pickupLat: number | null;
   pickupLng: number | null;
   payout: number | null;

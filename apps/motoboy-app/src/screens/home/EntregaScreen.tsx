@@ -1,7 +1,7 @@
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { Alert, Image, Linking, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -60,6 +60,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
   const { position } = usePosition();
   const [photo, setPhoto] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  const [ifoodOk, setIfoodOk] = useState(false);
 
   if (!activeDelivery) {
     return (
@@ -77,6 +78,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
     : { lat: d.dropoffLat, lng: d.dropoffLng, endereco: d.dropoffAddress };
   const acaoLabel = ACAO[d.status];
   const entregue = d.status === 'delivered';
+  const isIfood = d.source === 'ifood';
   const collectFromCustomer = d.paymentStatus !== 'paid' && d.paymentMethod !== 'online';
 
   function abrirMapa(): void {
@@ -104,6 +106,23 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
         <Text style={styles.valor}>{d.payout != null ? brl(d.payout) : '—'}</Text>
       </Card>
 
+      {isIfood && (
+        <Card style={[styles.card, { borderColor: t.colors.accent }]}>
+          <Text style={styles.label}>Pedido do iFood — localizador</Text>
+          <Text style={styles.localizador}>{d.ifoodLocator ?? '—'}</Text>
+          <Text style={styles.dest}>
+            Na entrega, abra o link do iFood, digite o localizador, peça o código ao cliente e confirme lá.
+          </Text>
+          <View style={{ marginTop: t.spacing.sm }}>
+            <Button
+              label="Abrir confirmação do iFood"
+              variant="outline"
+              onPress={() => void Linking.openURL('https://confirmacao-entrega-propria.ifood.com.br/')}
+            />
+          </View>
+        </Card>
+      )}
+
       {collectFromCustomer && (
         <Card style={[styles.card, { borderColor: t.colors.accent }]}>
           <Text style={styles.label}>Receber do cliente na entrega</Text>
@@ -122,8 +141,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
         {d.status === 'in_route' && (
           <View style={{ gap: t.spacing.sm }}>
             <Text style={styles.dest}>
-              Para concluir, tire uma foto da entrega e peça pro cliente o código de confirmação dele. Você
-              precisa estar no endereço.
+              {isIfood ? 'Para concluir, confirme no link do iFood, tire uma foto da entrega e marque abaixo. Você precisa estar no endereço.' : 'Para concluir, tire uma foto da entrega e peça pro cliente o código de confirmação dele. Você precisa estar no endereço.'}
             </Text>
             {!photo ? (
               <Button
@@ -135,25 +153,33 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
               <>
                 <Image source={{ uri: photo }} style={styles.fotoPreview} />
                 <Button label="Tirar outra" variant="outline" onPress={() => setPhoto(null)} />
-                <TextInput
-                  style={styles.codeInput}
-                  placeholder="Código de confirmação do cliente"
-                  placeholderTextColor={t.colors.textSecondary}
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  value={code}
-                  onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 4))}
-                />
+                {isIfood ? (
+                  <Pressable style={styles.checkRow} onPress={() => setIfoodOk((v) => !v)}>
+                    <Text style={styles.checkBox}>{ifoodOk ? '☑' : '☐'}</Text>
+                    <Text style={styles.checkLabel}>Confirmei a entrega no link do iFood</Text>
+                  </Pressable>
+                ) : (
+                  <TextInput
+                    style={styles.codeInput}
+                    placeholder="Código de confirmação do cliente"
+                    placeholderTextColor={t.colors.textSecondary}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    value={code}
+                    onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 4))}
+                  />
+                )}
                 <Button
                   label="Confirmar entrega"
-                  disabled={code.trim().length < 4}
+                  disabled={isIfood ? !ifoodOk : code.trim().length < 4}
                   loading={advancing}
                   onPress={async () => {
                     if (!photo) return;
-                    const ok = await confirmDelivery(photo, code.trim());
+                    const ok = await confirmDelivery(photo, code.trim(), isIfood ? ifoodOk : undefined);
                     if (ok) {
                       setPhoto(null);
                       setCode('');
+                      setIfoodOk(false);
                     }
                   }}
                 />
@@ -243,6 +269,10 @@ function makeStyles(t: Theme) {
       color: t.colors.text,
       backgroundColor: t.colors.surface,
     },
+    localizador: { fontFamily: t.fonts.heading, fontSize: 30, letterSpacing: 4, color: t.colors.text, marginVertical: 4 },
+    checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+    checkBox: { fontSize: 24, color: t.colors.primary },
+    checkLabel: { flex: 1, fontFamily: t.fonts.bodySemiBold, fontSize: 14, color: t.colors.text },
     dest: { fontFamily: t.fonts.body, fontSize: 13, color: t.colors.textSecondary, marginTop: 6 },
     mapa: { height: 240, borderRadius: t.radius.lg, borderWidth: 1, borderColor: t.colors.border, marginBottom: t.spacing.md },
     actions: { marginTop: t.spacing.sm, gap: t.spacing.md },

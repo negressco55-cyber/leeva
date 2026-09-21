@@ -124,6 +124,7 @@ export async function createOrderFromNormalized(
     .insert({
       restaurant_id: restaurantId,
       source: n.source,
+      ifood_locator: n.ifoodLocator ?? null,
       external_id: n.externalId,
       customer_id: customerId,
       customer_name: n.customer.name.slice(0, 200),

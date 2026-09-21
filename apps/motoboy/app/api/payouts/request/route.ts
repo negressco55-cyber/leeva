@@ -10,7 +10,10 @@ export async function POST(req: Request) {
   const ctx = await getMotoboyContextFromReq(req);
   if (!ctx) return unauthorized();
   try {
-    const r = await requestPayout(adminDb(), ctx.motoboyId);
+    const body = (await req.json().catch(() => ({}))) as { amount?: number | string | null };
+    const raw = body.amount;
+    const amount = raw == null || raw === '' ? null : Number(String(raw).replace(',', '.'));
+    const r = await requestPayout(adminDb(), ctx.motoboyId, amount);
     return json(r, r.ok ? 200 : 422);
   } catch (e) {
     return serverError(e);

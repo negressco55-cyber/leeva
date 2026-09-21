@@ -31,6 +31,8 @@ export type NormalizedAddress = {
 export type NormalizedOrder = {
   externalId: string | null;
   source: OrderSource;
+  /** localizador de 8 dígitos do iFood (pedido lançado manualmente) */
+  ifoodLocator?: string | null;
   eventId?: string | null; // id do evento no provedor (idempotência)
   customer: NormalizedCustomer;
   items: NormalizedItem[];

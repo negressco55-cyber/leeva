@@ -33,6 +33,8 @@ export type ConfirmDeliveryInput = {
   photoPath?: string | null;
   /** código de 4 dígitos que o cliente informa ao motoboy na entrega. */
   confirmationCode?: string | null;
+  /** pedido do iFood: motoboy declara que confirmou no link do iFood */
+  ifoodConfirmed?: boolean;
 };
 
 export type ConfirmDeliveryResult =
@@ -45,7 +47,7 @@ export async function confirmDeliveryWithProof(
 ): Promise<ConfirmDeliveryResult> {
   const { data: order } = await db
     .from('orders')
-    .select('id, motoboy_id, status, latitude, longitude, delivery_confirmation_code')
+    .select('id, motoboy_id, status, latitude, longitude, delivery_confirmation_code, source')
     .eq('id', input.orderId)
     .maybeSingle();
   if (!order || order.motoboy_id !== input.motoboyId) {
@@ -55,7 +57,14 @@ export async function confirmDeliveryWithProof(
     return { ok: false, error: 'a entrega não está em rota', code: 'invalid_state' };
   }
 
-  const expectedCode = order.delivery_confirmation_code as string | null;
+  // Pedido do iFood: quem valida é o iFood (localizador + código do cliente no
+  // link deles). Sem a integração oficial o Leeva não confere isso — exige o
+  // motoboy declarar que confirmou lá; foto e GPS continuam valendo.
+  const isIfood = order.source === 'ifood';
+  if (isIfood && !input.ifoodConfirmed) {
+    return { ok: false, error: 'Confirme a entrega no link do iFood e marque "Confirmei no iFood".', code: 'wrong_code' };
+  }
+  const expectedCode = isIfood ? null : (order.delivery_confirmation_code as string | null);
   if (expectedCode) {
     const given = (input.confirmationCode ?? '').trim();
     if (given !== expectedCode) {
