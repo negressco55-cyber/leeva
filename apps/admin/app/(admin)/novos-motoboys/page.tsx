@@ -60,6 +60,13 @@ export default async function NovosMotoboys() {
                 ) : (
                   <span className="tag red">sem documento do veículo</span>
                 )}
+                {d.avatarUrl ? (
+                  <a className="btn sm" href={d.avatarUrl} target="_blank" rel="noreferrer">
+                    🙂 Selfie (rosto)
+                  </a>
+                ) : (
+                  <span className="tag red">sem selfie</span>
+                )}
               </div>
               <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
                 Links expiram em 10 min. A validação de Receita / antecedentes é feita fora daqui.
