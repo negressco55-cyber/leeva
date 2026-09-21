@@ -48,7 +48,7 @@ export function OnboardingGate({
               você poderá ficar online e receber ofertas de entrega.
             </p>
             <p className="muted" style={{ fontSize: 13 }}>
-              Você vai receber um e-mail assim que sua conta for aprovada.
+              Assim que sua conta for aprovada, nossa equipe te avisa pelo WhatsApp.
             </p>
             <div className="panel" style={{ padding: 12, marginTop: 12 }}>
               <div style={{ fontWeight: 600 }}>📲 Enquanto isso, baixe o app do Leeva</div>
