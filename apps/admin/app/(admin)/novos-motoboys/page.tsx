@@ -24,8 +24,12 @@ export default async function NovosMotoboys() {
             <div>
               <div className="card-title">{d.fullName}</div>
               <dl className="kv">
-                <dt>Telefone</dt>
-                <dd>{d.phone}</dd>
+                <dt>WhatsApp</dt>
+                <dd>
+                  <a href={`https://wa.me/${d.phone.replace(/D/g, '').startsWith('55') ? d.phone.replace(/D/g, '') : '55' + d.phone.replace(/D/g, '')}`} target="_blank" rel="noreferrer">
+                    💬 {d.phone} (chamar no WhatsApp)
+                  </a>
+                </dd>
                 <dt>CPF</dt>
                 <dd>{d.cpf ?? '—'}</dd>
                 <dt>Cidade</dt>

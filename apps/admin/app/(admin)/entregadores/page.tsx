@@ -5,6 +5,11 @@ import { num, pctText } from '../_lib/ui';
 
 export const dynamic = 'force-dynamic';
 
+const waLink = (phone: string | null) => {
+  const d = (phone ?? '').replace(/D/g, '');
+  return d ? `https://wa.me/${d.startsWith('55') ? d : '55' + d}` : null;
+};
+
 const STATUS: Record<string, string> = { offline: 'Offline', available: 'Disponível', on_delivery: 'Em entrega' };
 
 export default async function Entregadores({ searchParams }: { searchParams: Promise<{ fleet?: string; status?: string }> }) {
@@ -42,6 +47,7 @@ export default async function Entregadores({ searchParams }: { searchParams: Pro
           <thead>
             <tr>
               <th>Nome</th>
+              <th>WhatsApp</th>
               <th>Frota</th>
               <th>Status</th>
               <th style={{ textAlign: 'right' }}>Entregas</th>
@@ -59,6 +65,11 @@ export default async function Entregadores({ searchParams }: { searchParams: Pro
                   <Link href={`/entregadores/${m.id}`}>{m.name}</Link>
                   {m.blocked && <span className="tag red" style={{ marginLeft: 6 }}>bloqueado</span>}
                 </td>
+                <td>
+                  {waLink(m.phone) ? (
+                    <a href={waLink(m.phone)!} target="_blank" rel="noreferrer">💬 {m.phone}</a>
+                  ) : '—'}
+                </td>
                 <td>{m.fleet === 'leeva' ? 'Rede' : 'Própria'}</td>
                 <td>{STATUS[m.status] ?? m.status}</td>
                 <td style={{ textAlign: 'right' }}>{num(m.deliveriesTotal)}</td>
@@ -71,7 +82,7 @@ export default async function Entregadores({ searchParams }: { searchParams: Pro
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={9} className="muted">Nenhum entregador.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={10} className="muted">Nenhum entregador.</td></tr>}
           </tbody>
         </table>
       </div>

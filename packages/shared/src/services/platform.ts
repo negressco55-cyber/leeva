@@ -553,6 +553,7 @@ export type AdminDriverRow = {
   punctualityRate: number;
   rating: number;
   reliabilityIndex: number;
+  phone: string | null;
 };
 
 export async function listDrivers(
@@ -562,7 +563,7 @@ export async function listDrivers(
   let q = db
     .from('motoboys')
     .select(
-      'id, full_name, fleet, restaurant_id, status, active, blocked, deliveries_total, acceptance_rate, completion_rate_pct, punctuality_rate, rating, reliability_index',
+      'id, full_name, phone, fleet, restaurant_id, status, active, blocked, deliveries_total, acceptance_rate, completion_rate_pct, punctuality_rate, rating, reliability_index',
     )
     .order('reliability_index', { ascending: false })
     .limit(5000);
@@ -583,6 +584,7 @@ export async function listDrivers(
     punctualityRate: Number(m.punctuality_rate ?? 100),
     rating: Number(m.rating ?? 5),
     reliabilityIndex: Number(m.reliability_index ?? 100),
+    phone: m.phone ?? null,
   }));
 
   if (filter.status) rows = rows.filter((r) => r.status === filter.status);
