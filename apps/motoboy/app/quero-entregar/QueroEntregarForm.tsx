@@ -11,13 +11,13 @@ const initial: SignupState = {};
  *  um arquivo já existente — PDF ou foto da galeria. Separar os dois evita
  *  o problema comum de celular perder a foto tirada na hora num único
  *  input genérico. */
-function DocInputs({ label, base }: { label: string; base: string }) {
+function DocInputs({ label, base, facing = 'environment' }: { label: string; base: string; facing?: 'user' | 'environment' }) {
   return (
     <div className="panel" style={{ padding: 12, display: 'grid', gap: 6 }}>
       <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
       <label className="muted" style={{ fontSize: 12 }}>
         Tirar foto agora
-        <input className="input" type="file" name={`${base}Photo`} accept="image/*" capture="environment" />
+        <input className="input" type="file" name={`${base}Photo`} accept="image/*" capture={facing} />
       </label>
       <label className="muted" style={{ fontSize: 12 }}>
         ou escolher arquivo (foto da galeria ou PDF)
@@ -73,6 +73,7 @@ export default function QueroEntregarForm({
         <DocInputs label="Documento pessoal (CNH ou RG) — frente" base="personalDocFront" />
         <DocInputs label="Documento pessoal (CNH ou RG) — verso" base="personalDocBack" />
         <DocInputs label="Documento do veículo (CRLV)" base="vehicleDoc" />
+        <DocInputs label="Selfie — foto do seu rosto (sem óculos escuros ou capacete)" base="selfie" facing="user" />
         <p className="muted" style={{ fontSize: 11, margin: 0 }}>
           Se &quot;Tirar foto agora&quot; não funcionar no seu celular, use a opção &quot;escolher arquivo&quot; — ela também
           aceita PDF.

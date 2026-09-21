@@ -41,6 +41,7 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   const personalFront = pick('personalDocFront');
   const personalBack = pick('personalDocBack');
   const vehicleDoc = pick('vehicleDoc');
+  const selfie = pick('selfie');
 
   if (fullName.length < 3) return { error: 'Informe seu nome completo.' };
   if (!email.includes('@')) return { error: 'E-mail inválido.' };
@@ -51,8 +52,9 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
     ['pessoal (frente)', personalFront],
     ['pessoal (verso)', personalBack],
     ['do veículo', vehicleDoc],
+    ['— selfie (foto do seu rosto)', selfie],
   ] as const) {
-    if (!f) return { error: `Anexe o documento ${label}.` };
+    if (!f) return { error: label.startsWith('—') ? 'Tire uma selfie (foto do seu rosto) para continuar.' : `Anexe o documento ${label}.` };
     if (f.size > MAX_FILE) return { error: `O documento ${label} passa de 5 MB.` };
     if (!OK_TYPES.includes(f.type)) return { error: `Documento ${label}: use foto (JPG/PNG) ou PDF.` };
   }
@@ -96,6 +98,8 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
     const pBackPath = await up(personalBack!, 'personal_back');
     const vPath = await up(vehicleDoc!, 'vehicle');
     await setDriverDocPaths(admin, res.motoboyId, pPath, vPath, pBackPath);
+    const sPath = await up(selfie!, 'selfie');
+    await admin.from('motoboys').update({ avatar_url: sPath }).eq('id', res.motoboyId);
   } catch {
     // não bloqueia — o admin pode pedir o reenvio; mas registra
     console.error('[signup] upload de documento falhou');
