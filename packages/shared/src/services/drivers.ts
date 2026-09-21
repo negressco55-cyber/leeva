@@ -247,7 +247,7 @@ export type PendingDriver = {
   vehicleDocUrl: string | null;
 };
 
-async function signDoc(db: DB, path: string | null): Promise<string | null> {
+export async function signDoc(db: DB, path: string | null): Promise<string | null> {
   if (!path) return null;
   const { data } = await db.storage.from('driver-documents').createSignedUrl(path, 600);
   return data?.signedUrl ?? null;

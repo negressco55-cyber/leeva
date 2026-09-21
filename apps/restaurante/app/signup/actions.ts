@@ -2,7 +2,8 @@
 
 import { isSupabaseAdminConfigured } from '@leeva/shared';
 import { createLeevaAdminClient } from '@leeva/shared/server';
-import { sendVerificationEmail } from '@leeva/shared/services';
+import { headers } from 'next/headers';
+import { sendVerificationEmail, acceptRestaurantTerms } from '@leeva/shared/services';
 
 export type SignupState = { error?: string; ok?: boolean };
 
@@ -25,6 +26,7 @@ export async function signupRestaurant(
   const whatsapp = String(formData.get('whatsapp') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
+  const termsVersion = Number(formData.get('termsVersion') ?? 0) || null;
 
   if (!isSupabaseAdminConfigured()) {
     return { error: 'Banco de dados ainda não configurado (veja as instruções na página inicial).' };
@@ -43,6 +45,12 @@ export async function signupRestaurant(
 
   if (rErr || !restaurant) {
     return { error: `Falha ao criar restaurante: ${rErr?.message ?? 'desconhecido'}` };
+  }
+
+  if (termsVersion) {
+    const h = await headers();
+    const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip');
+    await acceptRestaurantTerms(admin, restaurant.id, termsVersion, ip).catch(() => {});
   }
 
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';

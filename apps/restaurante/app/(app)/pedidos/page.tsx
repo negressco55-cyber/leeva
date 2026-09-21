@@ -1,4 +1,5 @@
 import { requireRestaurantContext, adminDb } from '@/lib/context';
+import { signDoc } from '@leeva/shared/services';
 import OrdersBoard from './OrdersBoard';
 
 export const dynamic = 'force-dynamic';
@@ -20,10 +21,12 @@ export default async function PedidosPage() {
   // já está atribuído ao seu pedido, pra poder falar com ele se precisar).
   const motoboyIds = [...new Set((orders ?? []).map((o) => o.motoboy_id).filter((id): id is string => !!id))];
   const { data: motoboys } = motoboyIds.length
-    ? await db.from('motoboys').select('id, full_name, phone').in('id', motoboyIds)
+    ? await db.from('motoboys').select('id, full_name, phone, avatar_url').in('id', motoboyIds)
     : { data: [] };
-  const motoboyById: Record<string, { fullName: string; phone: string | null }> = {};
-  for (const m of motoboys ?? []) motoboyById[m.id] = { fullName: m.full_name, phone: m.phone };
+  const motoboyById: Record<string, { fullName: string; phone: string | null; avatarUrl: string | null }> = {};
+  for (const m of motoboys ?? []) {
+    motoboyById[m.id] = { fullName: m.full_name, phone: m.phone, avatarUrl: await signDoc(db, m.avatar_url) };
+  }
 
   // "agrupado com X e Y": mapa group_id -> paradas da rota (ordenadas)
   const groupPeers: Record<string, { orderNumber: number | null; customerName: string; seq: number | null }[]> = {};

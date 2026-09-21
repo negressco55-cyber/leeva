@@ -92,7 +92,7 @@ export default function OrdersBoard({
   restaurantId: string;
   initialOrders: OrderRow[];
   groupPeers?: Record<string, GroupPeer[]>;
-  motoboyById?: Record<string, { fullName: string; phone: string | null }>;
+  motoboyById?: Record<string, { fullName: string; phone: string | null; avatarUrl?: string | null }>;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -226,7 +226,7 @@ export default function OrdersBoard({
                 <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
                   {formatDateTime(o.created_at)}
                   {o.leeva_fee != null &&
-                    ` · custo ${formatCurrencyBRL(Number(o.leeva_fee))} (entregador ${formatCurrencyBRL(Number(o.driver_payout ?? 0))} + Leeva ${formatCurrencyBRL(Number(o.logistics_margin ?? 0))})`}
+                    ` · custo ${formatCurrencyBRL(Number(o.leeva_fee))}${o.route_distance_km != null ? ` · ${Number(o.route_distance_km).toFixed(1)} km` : ''}`}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

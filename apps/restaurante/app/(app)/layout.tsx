@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
 import { requireRestaurantContext, adminDb } from '@/lib/context';
-import { ensureSubscription, getActiveTerms, needsTermsAcceptance } from '@leeva/shared/services';
+import { ensureSubscription } from '@leeva/shared/services';
 import { logout } from '../login/actions';
 import { Nav } from './_lib/Nav';
 import { ThemeToggle } from './_lib/ThemeToggle';
-import { TermsGate } from './_lib/TermsGate';
 import { EmailGate } from './_lib/EmailGate';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -28,13 +27,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!rst?.onboarding_completed) {
     redirect('/onboarding');
-  }
-
-  // termos de uso obrigatórios antes de usar o painel de verdade — se uma
-  // versão nova for publicada, quem já aceitou a antiga precisa re-aceitar.
-  const terms = await getActiveTerms(db, 'restaurant');
-  if (terms && needsTermsAcceptance(ctx.termsAcceptedVersion, terms.version)) {
-    return <TermsGate terms={terms} />;
   }
 
   // Fase 5: o restaurante não cadastra mais motoboy — todos vêm da rede Leeva

@@ -64,7 +64,7 @@ export default function OrderDetail({
 }: {
   order: OrderRow;
   groupPeers?: GroupPeer[];
-  motoboy?: { fullName: string; phone: string | null };
+  motoboy?: { fullName: string; phone: string | null; avatarUrl?: string | null };
   autoOpenChat?: boolean;
   onChanged: () => void;
 }) {
@@ -108,23 +108,31 @@ export default function OrderDetail({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <div>
           <div className="card-title">Pedido</div>
-          {order.order_items.length ? (
-            order.order_items.map((i) => (
-              <div key={i.id} className="muted" style={{ fontSize: 13 }}>
-                {i.quantity}× {i.name}
-                {i.unit_price ? ` — ${formatCurrencyBRL(i.unit_price)}` : ''}
-              </div>
-            ))
-          ) : (
-            <span className="muted" style={{ fontSize: 13 }}>itens não enviados (não são necessários à logística)</span>
-          )}
+          {order.order_items.map((i) => (
+            <div key={i.id} className="muted" style={{ fontSize: 13 }}>
+              {i.quantity}× {i.name}
+              {i.unit_price ? ` — ${formatCurrencyBRL(i.unit_price)}` : ''}
+            </div>
+          ))}
           {order.customer_phone && <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Tel: {order.customer_phone}</div>}
           {order.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {order.notes}</div>}
 
           {motoboy && (
             <div className="section" style={{ marginTop: 10 }}>
               <div style={{ fontSize: 12 }} className="muted">Entregador</div>
-              <div style={{ fontWeight: 600 }}>{motoboy.fullName}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {motoboy.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={motoboy.avatarUrl} alt="" width={40} height={40} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <span
+                    style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--brand-weak, #e1f2ea)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                  >
+                    {motoboy.fullName.trim().slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <div style={{ fontWeight: 600 }}>{motoboy.fullName}</div>
+              </div>
               {motoboy.phone && (
                 <a
                   className="button secondary sm"
@@ -193,8 +201,6 @@ export default function OrderDetail({
           <table className="data" style={{ fontSize: 13, marginTop: 8 }}>
             <tbody>
               <tr><td>Distância</td><td>{order.route_distance_km != null ? `${Number(order.route_distance_km).toFixed(1)} km` : '—'}</td></tr>
-              <tr><td>Entregador (100% pela distância)</td><td>{order.driver_payout != null ? formatCurrencyBRL(Number(order.driver_payout)) : '—'}</td></tr>
-              <tr><td>Leeva (margem do seu plano)</td><td>{order.logistics_margin != null ? formatCurrencyBRL(Number(order.logistics_margin)) : '—'}</td></tr>
             </tbody>
           </table>
 
@@ -225,12 +231,6 @@ export default function OrderDetail({
                 ? 'Entregador atribuído automaticamente'
                 : DISPATCH_STATE_LABELS[order.dispatch_state]}
           </div>
-          {d?.dispatchAttempts?.length ? (
-            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-              {d.dispatchAttempts.length} tentativa(s) —{' '}
-              {d.dispatchAttempts.map((a) => a.outcome ?? 'aguardando').join(', ')}
-            </div>
-          ) : null}
           {!order.motoboy_id && ['none', 'searching'].includes(order.dispatch_state) && (
             <div style={{ marginTop: 8 }}>
               <button
