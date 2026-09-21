@@ -375,11 +375,14 @@ export async function requestPayout(
 
   const { data: existing } = await db
     .from('payout_batches')
-    .select('id')
+    .select('id, status')
     .eq('motoboy_id', motoboyId)
     .eq('period_date', today)
     .maybeSingle();
-  if (existing) {
+  // pedido anterior que falhou (erro do sistema/banco): devolve o valor pra
+  // carteira e libera nova tentativa em vez de travar o dia.
+  if (existing?.status === 'failed') await releaseFailedBatch(db, existing.id);
+  if (existing && existing.status !== 'failed') {
     return { ok: false, error: 'Você já solicitou um repasse hoje. Tente de novo amanhã.', code: 'already_requested_today' };
   }
 
@@ -428,7 +431,10 @@ export async function requestPayout(
   }
 
   const p = await processPayoutBatch(db, batch.id);
-  if (p.status === 'failed') return { ok: false, error: p.error ?? 'a transferência falhou — tente de novo mais tarde' };
+  if (p.status === 'failed') {
+    await releaseFailedBatch(db, batch.id);
+    return { ok: false, error: p.error ?? 'a transferência falhou — tente de novo mais tarde' };
+  }
 
   const { data: final } = await db
     .from('payout_batches')
@@ -438,6 +444,12 @@ export async function requestPayout(
   const gross = round(Number(final?.amount ?? p.amount));
   const fee = round(Number(final?.transfer_fee ?? 0));
   return { ok: true, amount: gross, fee, netAmount: round(gross - fee), simulated: !!final?.simulated };
+}
+
+/** Lote que falhou: os ganhos voltam a ficar disponíveis e o lote sai do caminho. */
+async function releaseFailedBatch(db: DB, batchId: string): Promise<void> {
+  await db.from('driver_earnings').update({ batch_id: null }).eq('batch_id', batchId);
+  await db.from('payout_batches').delete().eq('id', batchId);
 }
 
 /**
