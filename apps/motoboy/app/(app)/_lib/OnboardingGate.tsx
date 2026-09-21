@@ -50,6 +50,19 @@ export function OnboardingGate({
             <p className="muted" style={{ fontSize: 13 }}>
               Você vai receber um e-mail assim que sua conta for aprovada.
             </p>
+            <div className="panel" style={{ padding: 12, marginTop: 12 }}>
+              <div style={{ fontWeight: 600 }}>📲 Enquanto isso, baixe o app do Leeva</div>
+              <p className="muted" style={{ fontSize: 13, margin: '6px 0 10px' }}>
+                Com o app (Android) você recebe as corridas com aviso e som, mesmo com a tela bloqueada. Use o mesmo
+                e-mail e senha do cadastro.
+              </p>
+              <a className="button" href="https://leeva-apk.vercel.app" target="_blank" rel="noreferrer" style={{ textDecoration: 'none', textAlign: 'center' }}>
+                Baixar o app (Android)
+              </a>
+              <p className="muted" style={{ fontSize: 11, margin: '8px 0 0' }}>
+                Ao abrir o arquivo, o Android pode pedir para permitir a instalação de fontes desconhecidas — toque em Permitir.
+              </p>
+            </div>
           </>
         )}
 
