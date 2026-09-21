@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -57,6 +57,10 @@ export function LoginScreen(): React.JSX.Element {
 
         <Button label="Entrar" onPress={handleSubmit} loading={loading} style={styles.submit} />
 
+        <Pressable onPress={() => void Linking.openURL(`${API_URL}/esqueci-senha`)}>
+          <Text style={styles.forgot}>Esqueci minha senha</Text>
+        </Pressable>
+
         <Button
           label="Quero entregar pelo Leeva"
           variant="outline"
@@ -76,6 +80,7 @@ function makeStyles(t: Theme) {
     warn: { fontFamily: t.fonts.body, fontSize: 13, color: t.colors.danger, marginBottom: t.spacing.md },
     form: { flex: 1, justifyContent: 'center' },
     submit: { marginTop: t.spacing.sm, marginBottom: t.spacing.md },
+    forgot: { fontFamily: t.fonts.bodySemiBold, fontSize: 14, color: t.colors.primary, textAlign: 'center', marginBottom: t.spacing.md },
     hint: { fontFamily: t.fonts.body, fontSize: 12, color: t.colors.textSecondary, marginTop: t.spacing.sm, textAlign: 'center' },
   });
 }

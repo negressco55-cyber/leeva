@@ -29,6 +29,9 @@ export default function LoginPage() {
         <button className="button" type="submit" disabled={pending}>
           {pending ? 'Entrando…' : 'Entrar'}
         </button>
+        <Link href="/esqueci-senha" className="muted" style={{ fontSize: 13 }}>
+          Esqueci minha senha
+        </Link>
       </form>
 
       <p className="muted" style={{ marginTop: 16 }}>

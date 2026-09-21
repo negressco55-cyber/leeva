@@ -5,6 +5,7 @@ import { Alert, Image, Linking, StyleSheet, Text, TextInput, View } from 'react-
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
+import { DeliveryChat } from '../../components/DeliveryChat';
 import { MapaEntrega } from '../../components/MapaEntrega';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -42,7 +43,7 @@ async function takeDeliveryPhoto(): Promise<string | null> {
     return null;
   }
   const result = await ImagePicker.launchCameraAsync({
-    quality: 0.5,
+    quality: 0.35,
     base64: true,
     exif: false,
   });
@@ -160,6 +161,15 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
             )}
           </View>
         )}
+
+        {!entregue && d.pickupPhone ? (
+          <Button
+            label="WhatsApp do restaurante"
+            variant="outline"
+            onPress={() => void Linking.openURL(`https://wa.me/55${d.pickupPhone!.replace(/D/g, '')}`)}
+          />
+        ) : null}
+        {!entregue ? <DeliveryChat orderId={d.id} /> : null}
 
         {entregue && <Button label="Concluir" onPress={() => navigation.goBack()} />}
       </View>

@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 
     const restIds = [...new Set((orders ?? []).map((o) => o.restaurant_id))];
     const { data: rests } = restIds.length
-      ? await db.from('restaurants').select('id, name, address, latitude, longitude').in('id', restIds)
+      ? await db.from('restaurants').select('id, name, address, phone, latitude, longitude').in('id', restIds)
       : { data: [] };
     const byRest = new Map((rests ?? []).map((r) => [r.id, r]));
 
@@ -42,6 +42,7 @@ export async function GET(req: Request) {
         dropoffLng: o.longitude != null ? Number(o.longitude) : null,
         pickupName: r?.name ?? 'Restaurante',
         pickupAddress: r?.address ?? null,
+        pickupPhone: r?.phone ?? null,
         pickupLat: r?.latitude != null ? Number(r.latitude) : null,
         pickupLng: r?.longitude != null ? Number(r.longitude) : null,
         payout: o.driver_payout != null ? Number(o.driver_payout) : null,

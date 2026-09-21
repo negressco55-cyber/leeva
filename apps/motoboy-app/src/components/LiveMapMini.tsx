@@ -81,7 +81,7 @@ export function LiveMapMini(): React.JSX.Element {
         // OSM padrão (sem chave) — o CARTO passou a exigir API key.
         <Image
           key={`${tx}-${ty}`}
-          source={{ uri: `https://${sub}.tile.openstreetmap.org/${z}/${wx}/${ty}.png` }}
+          source={{ uri: `https://${sub}.tile.openstreetmap.org/${z}/${wx}/${ty}.png`, headers: { 'User-Agent': 'LeevaMotoboy/1.0 (contato@leeva.app)', Referer: 'https://leeva-motoboy.vercel.app' } }}
           style={{ position: 'absolute', width: TILE, height: TILE, left: tx * TILE - originX, top: ty * TILE - originY }}
         />,
       );

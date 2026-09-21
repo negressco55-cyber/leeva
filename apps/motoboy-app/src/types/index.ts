@@ -96,6 +96,7 @@ export interface Delivery {
   dropoffLng: number | null;
   pickupName: string;
   pickupAddress: string | null;
+  pickupPhone?: string | null;
   pickupLat: number | null;
   pickupLng: number | null;
   payout: number | null;

@@ -1,7 +1,7 @@
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Bike } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,11 +23,15 @@ export function HomeScreen(): React.JSX.Element {
   const nav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const [refreshing, setRefreshing] = React.useState(false);
 
-  useEffect(() => {
-    if (activeDelivery && activeDelivery.status !== 'delivered') {
-      nav.navigate('Entrega');
-    }
-  }, [activeDelivery, nav]);
+  // sempre que a Home ganha foco (voltou de outra tela / reabriu o app) e
+  // existe corrida em andamento, volta direto pra tela da corrida.
+  useFocusEffect(
+    useCallback(() => {
+      if (activeDelivery && activeDelivery.status !== 'delivered') {
+        nav.navigate('Entrega');
+      }
+    }, [activeDelivery, nav]),
+  );
 
   const approval = me?.approvalStatus ?? 'pending_approval';
   const podeFicarOnline = approval === 'approved' && !me?.terms;

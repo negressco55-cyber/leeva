@@ -278,14 +278,21 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       try {
         let coords: { lat: number; lng: number } | null = null;
         try {
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.LocationAccuracy.Balanced });
-          coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          // última posição conhecida (instantânea) — só cai pro GPS ao vivo se
+          // não houver, e mesmo assim com teto de 4s pra não travar a confirmação.
+          const last = await Location.getLastKnownPositionAsync({ maxAge: 120000 });
+          const pos =
+            last ??
+            (await Promise.race([
+              Location.getCurrentPositionAsync({ accuracy: Location.LocationAccuracy.Balanced }),
+              new Promise<null>((r) => setTimeout(() => r(null), 4000)),
+            ]));
+          if (pos) coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         } catch {
           coords = null; // sem GPS: o servidor confirma mas marca 'sem localização'
         }
         await deliverWithProof(activeDelivery.id, { photoBase64, confirmationCode, lat: coords?.lat, lng: coords?.lng });
-        await reloadDeliveries();
-        await refreshMe();
+        await Promise.all([reloadDeliveries(), refreshMe()]);
         return true;
       } catch (e) {
         const err = e as { status?: number; message?: string };
