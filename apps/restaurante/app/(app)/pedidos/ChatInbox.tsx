@@ -35,6 +35,16 @@ function beep(): void {
   }
 }
 
+/** Notificação do navegador (aparece mesmo com a aba em segundo plano), se o restaurante permitiu. */
+function notifyBrowser(c: { orderNumber: number | null; lastMessage: { body: string } } | undefined): void {
+  try {
+    if (!c || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    new Notification('Mensagem do entregador — pedido #' + c.orderNumber, { body: c.lastMessage.body.slice(0, 120) });
+  } catch {
+    /* navegador sem suporte */
+  }
+}
+
 const SEEN_KEY = 'leeva-chats-seen';
 function loadSeen(): Record<string, string> {
   try {
@@ -67,7 +77,10 @@ export function ChatInbox({ onOpenOrder }: { onOpenOrder: (orderId: string) => v
         const hasNew = d.conversations.some(
           (c) => c.lastMessage.senderType === 'motoboy' && seen[c.orderId] !== c.lastMessage.id,
         );
-        if (hasNew) beep();
+        if (hasNew) {
+          beep();
+          notifyBrowser(d.conversations.find((c) => c.lastMessage.senderType === 'motoboy' && seen[c.orderId] !== c.lastMessage.id));
+        }
       }
       firstLoad.current = false;
       setConversations(d.conversations);
@@ -82,12 +95,20 @@ export function ChatInbox({ onOpenOrder }: { onOpenOrder: (orderId: string) => v
     return () => clearInterval(iv);
   }, [load]);
 
-  if (!conversations.length) return null;
+  const [perm, setPerm] = useState<string>(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
+  const askPerm = perm === 'default' && (
+    <button type="button" className="btn sm" style={{ marginBottom: 10 }} onClick={() => void Notification.requestPermission().then(setPerm)}>
+      🔔 Ativar avisos do navegador pra novas mensagens
+    </button>
+  );
+
+  if (!conversations.length) return askPerm || null;
 
   const seen = loadSeen();
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
+      {askPerm}
       <div className="card-title">💬 Chats abertos</div>
       <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
         {conversations.map((c) => {

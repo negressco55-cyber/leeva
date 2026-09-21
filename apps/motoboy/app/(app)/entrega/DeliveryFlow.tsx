@@ -34,6 +34,8 @@ type Delivery = {
   ready_at: string | null;
   preparing_at: string | null;
   prep_estimate_minutes: number | null;
+  source?: string;
+  ifood_locator?: string | null;
   order_items: { name: string; quantity: number; notes: string | null }[];
   accepted: boolean;
 };
@@ -107,6 +109,7 @@ export default function DeliveryFlow({
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  const [ifoodOk, setIfoodOk] = useState(false);
 
   // realtime → recarrega, mas com debounce e nunca no meio de uma ação
   useEffect(() => {
@@ -155,7 +158,8 @@ export default function DeliveryFlow({
   }
 
   async function confirmDelivery(id: string) {
-    if (!photo || code.trim().length < 4) return;
+    const isIfood = deliveries[0]?.source === 'ifood';
+    if (!photo || (!isIfood && code.trim().length < 4)) return;
     setBusy(true);
     setErr(null);
     try {
@@ -167,6 +171,7 @@ export default function DeliveryFlow({
           action: 'deliver',
           photoBase64: photo,
           confirmationCode: code.trim(),
+          ifoodConfirmed: ifoodOk,
           lat: pos?.lat ?? null,
           lng: pos?.lng ?? null,
         }),
@@ -305,17 +310,33 @@ export default function DeliveryFlow({
                   <button className="button ghost" type="button" disabled={busy} onClick={() => setPhoto(null)}>
                     Tirar outra
                   </button>
-                  <input
-                    className="input"
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="Código de confirmação do cliente"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  />
+                  {current.source === 'ifood' ? (
+                    <>
+                      <div className="panel" style={{ padding: 12 }}>
+                        <div className="muted" style={{ fontSize: 12 }}>Localizador do iFood</div>
+                        <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '0.15em' }}>{current.ifood_locator ?? '—'}</div>
+                        <a className="button secondary" href="https://confirmacao-entrega-propria.ifood.com.br/" target="_blank" rel="noreferrer" style={{ textAlign: 'center', marginTop: 8 }}>
+                          Abrir confirmação do iFood
+                        </a>
+                      </div>
+                      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+                        <input type="checkbox" checked={ifoodOk} onChange={(e) => setIfoodOk(e.target.checked)} />
+                        Confirmei a entrega no link do iFood
+                      </label>
+                    </>
+                  ) : (
+                    <input
+                      className="input"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="Código de confirmação do cliente"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    />
+                  )}
                   <button
                     className="button"
-                    disabled={busy || code.trim().length < 4}
+                    disabled={busy || (current.source === 'ifood' ? !ifoodOk : code.trim().length < 4)}
                     onClick={() => confirmDelivery(current.id)}
                   >
                     {busy ? 'Confirmando…' : 'Confirmar entrega'}
