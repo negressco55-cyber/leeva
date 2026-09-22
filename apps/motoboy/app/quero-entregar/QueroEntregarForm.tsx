@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 import { useActionState } from 'react';
 import Link from 'next/link';
 import { submitSignup, type SignupState } from './actions';
@@ -88,8 +88,24 @@ export default function QueroEntregarForm({
       );
       return;
     }
-    startTransition(() => action(fd));
+    startTransition(() => {
+      try {
+        action(fd);
+      } catch {
+        setClientError('Não foi possível enviar. Confira sua internet e tente de novo — se estiver no navegador do WhatsApp, tente abrir o link no Chrome.');
+      }
+    });
   }
+
+  // rede caiu / conexão instável durante o envio: mostra mensagem em vez de tela quebrada
+  useEffect(() => {
+    const onRejection = (ev: PromiseRejectionEvent) => {
+      ev.preventDefault();
+      setClientError('Não foi possível enviar. Confira sua internet e tente de novo — se estiver no navegador do WhatsApp, tente abrir o link no Chrome.');
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => window.removeEventListener('unhandledrejection', onRejection);
+  }, []);
 
   return (
     <div className="screen">
