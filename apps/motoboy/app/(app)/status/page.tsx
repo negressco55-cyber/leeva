@@ -38,6 +38,7 @@ export default async function StatusPage() {
         doneToday={(deliveredToday ?? []).length}
         earnedToday={earnedToday}
         kmToday={kmToday}
+        approved={ctx.approvalStatus === 'approved'}
       />
       <NotificationSetup askNow={ctx.status !== 'offline'} />
     </div>

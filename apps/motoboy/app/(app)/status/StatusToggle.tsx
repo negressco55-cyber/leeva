@@ -15,6 +15,7 @@ export default function StatusToggle({
   doneToday,
   earnedToday,
   kmToday,
+  approved,
 }: {
   restaurantId: string | null;
   motoboyId: string;
@@ -24,6 +25,7 @@ export default function StatusToggle({
   doneToday: number;
   earnedToday: number;
   kmToday: number;
+  approved: boolean;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<MotoboyStatus>(initialStatus);
@@ -33,6 +35,7 @@ export default function StatusToggle({
   const online = status !== 'offline';
 
   async function toggle() {
+    if (!approved) return;
     setBusy(true);
     setErr(null);
     try {
@@ -68,7 +71,17 @@ export default function StatusToggle({
         </div>
 
         <div className="home-status-content">
-          {online ? (
+          {!approved ? (
+            <>
+              <div className="home-idle-icon">
+                <Bike size={30} strokeWidth={2} />
+              </div>
+              <div className="home-status-title">Cadastro em análise</div>
+              <p className="home-status-subtitle">
+                Complete seus dados e aguarde a aprovação pra poder ficar disponível.
+              </p>
+            </>
+          ) : online ? (
             <>
               <div className="home-radar">
                 <span className="home-radar-ring" />
@@ -94,9 +107,15 @@ export default function StatusToggle({
           )}
         </div>
 
-        <button type="button" className={`home-toggle-btn ${online ? 'on' : 'off'}`} onClick={toggle} disabled={busy}>
-          {busy ? 'Um instante…' : online ? 'Ficar indisponível' : 'Ficar disponível'}
-        </button>
+        {approved ? (
+          <button type="button" className={`home-toggle-btn ${online ? 'on' : 'off'}`} onClick={toggle} disabled={busy}>
+            {busy ? 'Um instante…' : online ? 'Ficar indisponível' : 'Ficar disponível'}
+          </button>
+        ) : (
+          <Link href="/documentos" className="home-toggle-btn off" style={{ textAlign: 'center', textDecoration: 'none' }}>
+            Completar cadastro
+          </Link>
+        )}
       </div>
 
       {err && <p style={{ color: 'var(--danger)', margin: 0, textAlign: 'center' }}>{err}</p>}
