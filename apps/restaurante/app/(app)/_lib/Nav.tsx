@@ -56,6 +56,9 @@ const I = {
       <path d="M8.5 17h7l2-7h2M6 10h5l3 7M13 6h3" />
     </>
   ),
+  heart: (
+    <path d="M12 20.5s-7.5-4.6-9.8-9C.7 8.1 2 4.5 5.6 3.8c2-.4 3.9.5 5 2.1 1.1-1.6 3-2.5 5-2.1 3.6.7 4.9 4.3 3.4 7.7-2.3 4.4-9.8 9-9.8 9z" />
+  ),
 } as const;
 
 type IconKey = keyof typeof I;
@@ -64,6 +67,7 @@ const NAV: { href: string; label: string; icon: IconKey }[] = [
   { href: '/dashboard', label: 'Visão geral', icon: 'home' },
   { href: '/pedidos', label: 'Pedidos', icon: 'orders' },
   { href: '/mapa', label: 'Mapa', icon: 'map' },
+  { href: '/entregadores', label: 'Entregadores', icon: 'heart' },
   { href: '/indicadores', label: 'Indicadores', icon: 'chart' },
   { href: '/creditos', label: 'Créditos', icon: 'ticket' },
   { href: '/financeiro', label: 'Financeiro', icon: 'money' },

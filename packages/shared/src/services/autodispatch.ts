@@ -25,6 +25,7 @@ import { classifyOfferQuality } from './reputation';
 import { sendPushToMotoboy } from './push';
 import { planGroupForOrder, applyGroupPlan, dissolveGroup, type GroupPlan } from './grouping-dispatch';
 import { notifyForStatusChange } from './events';
+import { getDriverPrefSets } from './driver-prefs';
 
 type DB = SupabaseClient<Database>;
 
@@ -38,6 +39,11 @@ export const DEFAULT_DISPATCH_WEIGHTS = {
   rating: 5,
 };
 export type DispatchWeights = typeof DEFAULT_DISPATCH_WEIGHTS;
+
+/** Pontos extra pro motoboy marcado como favorito por aquele restaurante —
+ *  soma-se ao score (que vai até ~100), suficiente pra decidir empates e
+ *  disputas próximas sem ignorar quem está muito mais longe/carregado. */
+const FAVORITE_BONUS = 12;
 
 export const DEFAULT_LOGISTICS_CONFIG: LogisticsConfig = {
   service_radius_km: 8,
@@ -171,6 +177,12 @@ export async function scoreCandidatesForOrder(
 
   const { data: motoboys } = await q;
 
+  // favorito/bloqueado é do restaurante, independente do bloqueio geral do admin
+  const { blocked: blockedByRestaurant, favorite: favoritedByRestaurant } = await getDriverPrefSets(
+    db,
+    order.restaurant_id,
+  );
+
   // entregas ativas de cada motoboy
   const motoboyIds = (motoboys ?? []).map((m) => m.id);
   const { data: activeOrders } = motoboyIds.length
@@ -197,6 +209,7 @@ export async function scoreCandidatesForOrder(
 
   for (const m of motoboys ?? []) {
     if (exclude.has(m.id)) continue;
+    if (blockedByRestaurant.has(m.id)) continue; // bloqueado por esse restaurante — nem entra no pool
     const load = byDriver.get(m.id) ?? { count: 0, drops: [] };
     const max = m.max_concurrent_deliveries ?? 3;
     const tickExtra = opts.tickLoad?.get(m.id) ?? 0; // ofertas já feitas neste tick
@@ -278,9 +291,12 @@ export async function scoreCandidatesForOrder(
       history: round(historyScore * weights.history),
       rating: round(ratingScore * weights.rating),
     };
+    const isFavorite = favoritedByRestaurant.has(m.id);
+    if (isFavorite) breakdown.favorite = FAVORITE_BONUS;
     let score = round(Object.values(breakdown).reduce((s, v) => s + v, 0));
     if (blockers.length) score = Math.min(score, 8);
 
+    if (isFavorite) reasons.push('favorito deste restaurante');
     if (m.status === 'available') reasons.push('disponível');
     else if (m.status === 'on_delivery' && effectiveLoad < max)
       reasons.push(`em entrega, com folga (${effectiveLoad}/${max})`);
