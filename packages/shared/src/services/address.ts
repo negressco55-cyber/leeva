@@ -84,18 +84,17 @@ export async function resolveDeliveryLocation(
   const confirmedProvided =
     input.confirmed && provided && withinRadius(near, provided) ? provided : null;
 
+  // Ponto confirmado vence o geocoder: o gratuito (Nominatim) muitas vezes só
+  // acha a RUA, não o número — o pino que o restaurante ajustou no mapa, ou a
+  // coordenada que o iFood/API mandou, é mais precisa que isso.
+  if (confirmedProvided) return { ok: true, ...confirmedProvided, label: null, via: 'confirmed' };
+
   let hit: GeocodeResult | null = null;
   try {
     hit = await getMapProvider().geocode(input.address, near ?? provided ?? undefined);
   } catch (e) {
-    if (e instanceof GeocoderUnavailableError) {
-      // instabilidade de terceiro: não punir o restaurante. Se ele confirmou
-      // um ponto, usa; senão pede confirmação.
-      if (confirmedProvided) {
-        return { ok: true, ...confirmedProvided, label: null, via: 'confirmed' };
-      }
-      return { ok: false, reason: 'geocoder_unavailable' };
-    }
+    // instabilidade de terceiro: pede pro restaurante confirmar o ponto
+    if (e instanceof GeocoderUnavailableError) return { ok: false, reason: 'geocoder_unavailable' };
     throw e;
   }
 
@@ -106,18 +105,11 @@ export async function resolveDeliveryLocation(
     if (plausible) {
       return { ok: true, latitude: hit.latitude, longitude: hit.longitude, label: hit.label, via: 'geocode' };
     }
-    // geocoder devolveu algo, mas fraco (só cidade/região) ou longe demais:
-    // se o restaurante confirmou um ponto, respeita; senão, não encontrado.
-    if (confirmedProvided) {
-      return { ok: true, ...confirmedProvided, label: hit.label, via: 'confirmed' };
-    }
+    // geocoder devolveu algo, mas fraco (só cidade/região) ou longe demais
     return { ok: false, reason: 'address_not_found' };
   }
 
   // geocoder respondeu "nada": endereço não existe
-  if (confirmedProvided) {
-    return { ok: true, ...confirmedProvided, label: null, via: 'confirmed' };
-  }
   return { ok: false, reason: 'address_not_found' };
 }
 
@@ -165,24 +157,18 @@ export async function resolvePickupLocation(
     ? { latitude: input.latitude as number, longitude: input.longitude as number }
     : null;
   const confirmedProvided = input.confirmed && provided ? provided : null;
+  if (confirmedProvided) return { ok: true, ...confirmedProvided, label: null, via: 'confirmed' };
 
   let hit: GeocodeResult | null = null;
   try {
     hit = await getMapProvider().geocode(input.address, provided ?? undefined);
   } catch (e) {
-    if (e instanceof GeocoderUnavailableError) {
-      return confirmedProvided
-        ? { ok: true, ...confirmedProvided, label: null, via: 'confirmed' }
-        : { ok: false, reason: 'geocoder_unavailable' };
-    }
+    if (e instanceof GeocoderUnavailableError) return { ok: false, reason: 'geocoder_unavailable' };
     throw e;
   }
 
   if (hit && hit.precision !== 'area' && hit.precision !== 'unknown') {
     return { ok: true, latitude: hit.latitude, longitude: hit.longitude, label: hit.label, via: 'geocode' };
-  }
-  if (confirmedProvided) {
-    return { ok: true, ...confirmedProvided, label: hit?.label ?? null, via: 'confirmed' };
   }
   return { ok: false, reason: 'address_not_found' };
 }

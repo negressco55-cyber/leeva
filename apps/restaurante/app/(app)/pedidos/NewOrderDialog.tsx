@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost, ApiError } from '../_lib/client';
+import PinPicker from '../_lib/PinPicker';
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -39,6 +40,9 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
   const [geocoding, setGeocoding] = useState(false);
   const [confirmManual, setConfirmManual] = useState(false);
+  const [precision, setPrecision] = useState<string | null>(null);
+  const [pickup, setPickup] = useState<{ lat: number; lng: number } | null>(null);
+  const [pinMoved, setPinMoved] = useState(false);
   const [orderValue, setOrderValue] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
@@ -62,6 +66,8 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
     setGeoStatus('idle');
     setGeoLabel(null);
     setConfirmManual(false);
+    setPrecision(null);
+    setPinMoved(false);
   }, [address]);
 
   // pré-visualização da taxa sempre que a localização mudar
@@ -84,13 +90,24 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
     setGeocoding(true);
     setGeoLabel(null);
     try {
-      const r = await apiGet<{ ok: boolean; latitude?: number; longitude?: number; label?: string; error?: string }>(
+      const r = await apiGet<{
+        ok: boolean;
+        latitude?: number;
+        longitude?: number;
+        label?: string;
+        precision?: string;
+        pickup?: { lat: number; lng: number } | null;
+        error?: string;
+      }>(
         `/api/geocode?q=${encodeURIComponent(address)}`,
       );
       if (r.ok && r.latitude != null) {
         setLat(String(r.latitude));
         setLng(String(r.longitude));
         setGeoLabel(r.label ?? 'Endereço localizado');
+        setPrecision(r.precision ?? null);
+        setPickup(r.pickup ?? null);
+        setPinMoved(false);
         setGeoStatus('ok');
       } else {
         setGeoStatus('not_found');
@@ -119,7 +136,8 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
         address,
         latitude: lat ? Number(lat) : null,
         longitude: lng ? Number(lng) : null,
-        addressConfirmed: manualOk,
+        // o restaurante viu (e pode ter ajustado) o ponto no mapa → coordenada confiável
+        addressConfirmed: manualOk || located,
         total: collectOnDelivery && orderValue ? Number(orderValue) : 0,
         paymentMethod,
         paymentStatus,
@@ -168,6 +186,30 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
               <span style={{ fontSize: 12, color: 'var(--ok)' }}>✓ {geoLabel}</span>
             )}
           </div>
+
+          {located && lat && lng && (
+            <div style={{ display: 'grid', gap: 6 }}>
+              {precision !== 'exact' && !pinMoved && (
+                <div className="op-alert warning" style={{ marginBottom: 0 }}>
+                  Achamos a rua, mas não o número exato. <b>Arraste o pino 🏠 até a casa do cliente</b> (ou toque no
+                  lugar certo do mapa) para a distância e o valor ficarem certos.
+                </div>
+              )}
+              <PinPicker
+                lat={Number(lat)}
+                lng={Number(lng)}
+                pickup={pickup}
+                onMove={(la, ln) => {
+                  setLat(String(la));
+                  setLng(String(ln));
+                  setPinMoved(true);
+                }}
+              />
+              <div className="muted" style={{ fontSize: 12 }}>
+                {pinMoved ? '✓ Ponto ajustado por você.' : 'Confira se o pino 🏠 está na casa do cliente. 🏪 é o seu restaurante.'}
+              </div>
+            </div>
+          )}
 
           {geoStatus === 'not_found' && (
             <div className="op-alert critical" style={{ marginBottom: 0 }}>

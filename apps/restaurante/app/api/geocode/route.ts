@@ -22,7 +22,11 @@ export async function GET(req: Request) {
         : undefined;
     const hit = await getMapProvider().geocode(q, near);
     if (!hit) return json({ ok: false, error: 'endereço não encontrado', code: 'address_not_found' }, 200);
-    return json({ ok: true, ...hit });
+    return json({
+      ok: true,
+      ...hit,
+      pickup: near ? { lat: near.latitude, lng: near.longitude } : null,
+    });
   } catch (e) {
     if (e instanceof GeocoderUnavailableError) {
       return json({ ok: false, error: 'serviço de mapas instável', code: 'geocoder_unavailable' }, 503);

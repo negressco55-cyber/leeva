@@ -28,6 +28,8 @@ type FakeSpec = {
   restaurantRow: Record<string, unknown>;
   motoboys: Record<string, unknown>[];
   activeOrders?: Record<string, unknown>[];
+  /** restaurant_driver_prefs: favorito/bloqueado por restaurante */
+  prefs?: Record<string, unknown>[];
 };
 
 function makeFakeDb(spec: FakeSpec) {
@@ -41,6 +43,7 @@ function makeFakeDb(spec: FakeSpec) {
       if (table === 'restaurants') return chainable(spec.restaurantRow);
       if (table === 'terms_versions') return chainable(null);
       if (table === 'motoboys') return chainable(spec.motoboys);
+      if (table === 'restaurant_driver_prefs') return chainable(spec.prefs ?? []);
       throw new Error(`tabela não mockada no teste: ${table}`);
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -194,4 +197,24 @@ test('Bloco 3: pedido sem estimativa de preparo despacha na hora (fallback já u
   const near = candidates[0] as ScoredCandidate;
   assert.equal(near.minutesUntilDispatch, null);
   assert.equal(near.blockers.length, 0);
+});
+
+test('favorito do restaurante ganha prioridade num empate; bloqueado nem entra', async () => {
+  const same = { latitude: PICKUP.latitude + 3 / 111, longitude: PICKUP.longitude };
+  const db = makeFakeDb({
+    orderRow: baseOrder({ status: 'ready' }),
+    restaurantRow: RESTAURANT,
+    motoboys: [motoboy('a', 'A', same), motoboy('b', 'B', same), motoboy('c', 'C', nearMotoboy)],
+    prefs: [
+      { motoboy_id: 'b', kind: 'favorite' },
+      { motoboy_id: 'c', kind: 'blocked' },
+    ],
+  });
+
+  const { candidates } = await scoreCandidatesForOrder(db, 'order-1');
+  assert.equal(candidates.find((x) => x.motoboyId === 'c'), undefined, 'bloqueado não pode receber oferta');
+  const a = candidates.find((x) => x.motoboyId === 'a')!;
+  const b = candidates.find((x) => x.motoboyId === 'b')!;
+  assert.ok(b.score > a.score, `favorito devia pontuar mais: ${b.score} vs ${a.score}`);
+  assert.equal(candidates[0]!.motoboyId, 'b');
 });
