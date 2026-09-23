@@ -330,8 +330,14 @@ label .input, label select, label textarea { margin-top: var(--s1); }
   display: flex;
   flex-direction: column;
 }
-.home-map-backdrop { position: absolute; inset: 0; }
-.home-map-scrim { position: absolute; inset: 0; background: var(--bg); opacity: 0.82; }
+/* Fundo decorativo do card de status — era um mosaico de tiles do
+   OpenStreetMap, mas o serviço gratuito passou a bloquear esse uso
+   ("Access blocked"); virou um degradê simples na cor da marca. */
+.home-map-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, var(--brand-weak) 0%, var(--bg) 70%);
+}
 .home-status-content {
   position: relative;
   flex: 1;

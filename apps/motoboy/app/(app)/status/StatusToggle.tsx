@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Bike } from 'lucide-react';
 import { formatCurrencyBRL, type MotoboyStatus } from '@leeva/shared';
-import LiveMap from '../_lib/LiveMap';
 import Avatar from '../_lib/Avatar';
 
 export default function StatusToggle({
@@ -65,10 +64,7 @@ export default function StatusToggle({
       </div>
 
       <div className="home-status-card">
-        <div className="home-map-backdrop" aria-hidden>
-          <LiveMap height={520} />
-          <div className="home-map-scrim" />
-        </div>
+        <div className="home-map-backdrop" aria-hidden />
 
         <div className="home-status-content">
           {!approved ? (
