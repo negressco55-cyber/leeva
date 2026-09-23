@@ -1,10 +1,10 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
 import type { Theme } from '../theme/theme';
 
-const TILE = 256;
+const TILE = 256; // escala da projeção (só pra posicionar A e B)
 
 interface Props {
   pickup: { lat: number; lng: number } | null;
@@ -29,9 +29,9 @@ function pickZoom(a: { lat: number; lng: number }, b: { lat: number; lng: number
 }
 
 /**
- * Mini-mapa real da corrida — mosaico de tiles (Carto dark, raster, sem chave
- * nem biblioteca) com traço e pinos por cima. Estático. Espelha o RouteMap do
- * PWA. Nada de WebView num card que aparece e some em segundos.
+ * Mini-mapa esquemático da corrida — traço A→B e pinos sobre fundo liso.
+ * Antes usava tiles do OpenStreetMap, que bloqueou o app ("Access blocked").
+ * Estático, sem WebView num card que aparece e some em segundos.
  */
 export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, width, height = 148 }: Props): React.JSX.Element {
   const t = useTheme();
@@ -44,31 +44,6 @@ export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, 
   const c = project((pickup.lat + dropoff.lat) / 2, (pickup.lng + dropoff.lng) / 2, z);
   const originX = c.x * TILE - width / 2;
   const originY = c.y * TILE - height / 2;
-  const tx0 = Math.floor(originX / TILE);
-  const ty0 = Math.floor(originY / TILE);
-  const cols = Math.ceil(width / TILE) + 2;
-  const rows = Math.ceil(height / TILE) + 2;
-  const nTiles = 2 ** z;
-
-  const tiles: React.JSX.Element[] = [];
-  for (let i = 0; i < cols; i++) {
-    for (let j = 0; j < rows; j++) {
-      const tx = tx0 + i;
-      const ty = ty0 + j;
-      if (ty < 0 || ty >= nTiles) continue;
-      const wx = ((tx % nTiles) + nTiles) % nTiles;
-      const sub = 'abc'[(tx + ty) % 3];
-      tiles.push(
-        // OSM padrão (sem chave) — o CARTO passou a exigir API key.
-        <Image
-          key={`${tx}-${ty}`}
-          source={{ uri: `https://${sub}.tile.openstreetmap.org/${z}/${wx}/${ty}.png`, headers: { 'User-Agent': 'LeevaMotoboy/1.0 (contato@leeva.app)', Referer: 'https://leeva-motoboy.vercel.app' } }}
-          style={{ position: 'absolute', width: TILE, height: TILE, left: tx * TILE - originX, top: ty * TILE - originY }}
-        />,
-      );
-    }
-  }
-
   const toPx = (p: { lat: number; lng: number }) => {
     const q = project(p.lat, p.lng, z);
     return { x: q.x * TILE - originX, y: q.y * TILE - originY };
@@ -80,7 +55,6 @@ export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, 
 
   return (
     <View style={[styles.wrap, { width, height }]}>
-      {tiles}
       <View
         style={[
           styles.line,
@@ -93,7 +67,6 @@ export const RouteMapMini = React.memo(function RouteMapMini({ pickup, dropoff, 
       <View style={[styles.pin, styles.pinDrop, { left: b.x - 12, top: b.y - 12 }]}>
         <Text style={styles.pinLabel}>B</Text>
       </View>
-      <Text style={styles.attr}>© OpenStreetMap</Text>
     </View>
   );
 });
@@ -127,16 +100,5 @@ function makeStyles(t: Theme) {
     pinPickup: { backgroundColor: t.colors.accent },
     pinDrop: { backgroundColor: t.colors.primary },
     pinLabel: { fontFamily: t.fonts.bodySemiBold, fontSize: 12, color: '#fff' },
-    attr: {
-      position: 'absolute',
-      right: 4,
-      bottom: 3,
-      fontSize: 8,
-      color: 'rgba(255,255,255,0.7)',
-      backgroundColor: 'rgba(0,0,0,0.35)',
-      paddingHorizontal: 4,
-      borderRadius: 3,
-      overflow: 'hidden',
-    },
   });
 }
