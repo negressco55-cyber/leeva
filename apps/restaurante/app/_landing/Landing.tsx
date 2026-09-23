@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import styles from './landing.module.css';
+import SavingsCalculator from './SavingsCalculator';
 
 /**
  * Página pública de venda do Leeva para comércios (raiz para quem não está
  * logado e /lojistas). Só promete o que o produto já faz hoje.
  * Valores: entregador R$ 2,00/km, mínimo R$ 5,00 (payout_policies) + margem
- * do plano Livre R$ 1,00 por entrega. Se mudar lá, mude aqui.
+ * do plano Livre R$ 1,00 por entrega. Se mudar lá, mude aqui. A página mostra
+ * só o TOTAL por entrega — a divisão entregador/Leeva não é exibida.
  */
 
 const PER_KM = 2;
@@ -14,6 +16,7 @@ const LEEVA_FEE = 1;
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const courier = (km: number) => Math.max(km * PER_KM, MIN_PAYOUT);
+const total = (km: number) => courier(km) + LEEVA_FEE;
 
 const EXAMPLES = [1.5, 3, 5, 8];
 
@@ -50,7 +53,7 @@ const FEATURES = [
 const FAQ = [
   {
     q: 'Tem mensalidade ou fidelidade?',
-    a: 'Não. Você paga só as entregas que fizer: o valor do entregador mais R$ 1,00 do Leeva por entrega. Pode parar de usar quando quiser.',
+    a: 'Não. Você paga só as entregas que fizer, pelo valor calculado pela distância. Pode parar de usar quando quiser.',
   },
   {
     q: 'Como eu pago?',
@@ -109,7 +112,7 @@ function OrderPreview() {
         </div>
         <div>
           <dt>Custo total</dt>
-          <dd>{brl(courier(2.8) + LEEVA_FEE)}</dd>
+          <dd>{brl(total(2.8))}</dd>
         </div>
       </dl>
       <div className={styles.previewCode}>
@@ -131,6 +134,7 @@ export default function Landing() {
         <nav className={styles.navLinks} aria-label="Seções">
           <a href="#como-funciona">Como funciona</a>
           <a href="#precos">Preços</a>
+          <a href="#entregadores">Entregadores</a>
           <a href="#duvidas">Dúvidas</a>
         </nav>
         <div className={styles.navCta}>
@@ -160,7 +164,13 @@ export default function Landing() {
                 Ver preços
               </a>
             </div>
-            <p className={styles.small}>Cadastro em poucos minutos. Sem cartão de crédito.</p>
+            <p className={styles.small}>
+              Cadastro em poucos minutos. Sem cartão de crédito. É entregador?{' '}
+              <a href="https://leeva-motoboy.vercel.app/quero-entregar" className={styles.inlineLink}>
+                Cadastre-se aqui
+              </a>
+              .
+            </p>
           </div>
           <OrderPreview />
         </section>
@@ -196,34 +206,26 @@ export default function Landing() {
           <div className={styles.priceIntro}>
             <h2 className={styles.h2}>Preço por entrega, sem mensalidade</h2>
             <p className={styles.lead}>
-              Cada entrega custa o valor do entregador pela distância mais <strong>{brl(LEEVA_FEE)}</strong> do Leeva. Nada
-              de taxa fixa, fidelidade ou porcentagem sobre a sua venda.
+              Cada entrega tem um valor calculado pela distância, e ele aparece antes de você confirmar. Nada de taxa fixa,
+              fidelidade ou porcentagem sobre a sua venda.
             </p>
           </div>
 
           <div className={styles.priceWrap}>
             <div className={styles.formula}>
               <div>
-                <span className={styles.formulaLabel}>Entregador</span>
-                <strong>{brl(PER_KM)} por km</strong>
-                <span className={styles.formulaNote}>mínimo de {brl(MIN_PAYOUT)}</span>
-              </div>
-              <span className={styles.plus} aria-hidden="true">+</span>
-              <div>
-                <span className={styles.formulaLabel}>Leeva</span>
-                <strong>{brl(LEEVA_FEE)} por entrega</strong>
-                <span className={styles.formulaNote}>sem mensalidade</span>
+                <span className={styles.formulaLabel}>Entregas a partir de</span>
+                <strong className={styles.bigPrice}>{brl(total(0))}</strong>
+                <span className={styles.formulaNote}>tudo incluso, sem mensalidade</span>
               </div>
             </div>
 
             <div className={styles.tableWrap}>
               <table className={styles.table}>
-                <caption className={styles.caption}>Exemplos de custo total por entrega</caption>
+                <caption className={styles.caption}>Exemplos de custo por entrega</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Distância</th>
-                    <th scope="col">Entregador</th>
-                    <th scope="col">Leeva</th>
+                    <th scope="col">Distância até o cliente</th>
                     <th scope="col">Você paga</th>
                   </tr>
                 </thead>
@@ -231,9 +233,7 @@ export default function Landing() {
                   {EXAMPLES.map((km) => (
                     <tr key={km}>
                       <td>{km.toLocaleString('pt-BR')} km</td>
-                      <td>{brl(courier(km))}</td>
-                      <td>{brl(LEEVA_FEE)}</td>
-                      <td className={styles.total}>{brl(courier(km) + LEEVA_FEE)}</td>
+                      <td className={styles.total}>{brl(total(km))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -241,9 +241,10 @@ export default function Landing() {
             </div>
           </div>
           <p className={styles.small}>
-            A distância é a do trajeto de rua entre a sua loja e o cliente. O valor aparece antes de você confirmar cada
-            entrega. O pagamento é por crédito pré-pago via Pix.
+            A distância é a do trajeto de rua entre a sua loja e o cliente. O pagamento é por crédito pré-pago via Pix.
           </p>
+
+          <SavingsCalculator perKm={PER_KM} minPayout={MIN_PAYOUT} fee={LEEVA_FEE} />
         </section>
 
         <section className={`${styles.section} ${styles.sectionSunk}`}>
@@ -261,6 +262,38 @@ export default function Landing() {
               <h3 className={styles.h3}>Leeva</h3>
               <p className={styles.body}>Você paga só a entrega feita, pelo valor da distância. Dia parado, custo zero.</p>
             </div>
+          </div>
+        </section>
+
+        <section id="entregadores" className={styles.section}>
+          <div className={styles.split}>
+            <div>
+              <p className={styles.kicker}>Para entregadores</p>
+              <h2 className={styles.h2}>Entregue pelo Leeva na sua região</h2>
+              <p className={styles.body}>
+                Cadastre-se pelo site, envie seus documentos e, depois de aprovado, é só ficar disponível no app para receber
+                corridas perto de você.
+              </p>
+              <div className={styles.heroActions}>
+                <a href="https://leeva-motoboy.vercel.app/quero-entregar" className={`${styles.btn} ${styles.btnLg}`}>
+                  Quero ser entregador
+                </a>
+              </div>
+            </div>
+            <ul className={styles.perks}>
+              <li>
+                <h3 className={styles.h3}>Valor antes de aceitar</h3>
+                <p className={styles.body}>Você vê quanto vai ganhar e a distância da corrida antes de dizer sim.</p>
+              </li>
+              <li>
+                <h3 className={styles.h3}>Saque por Pix</h3>
+                <p className={styles.body}>O que você ganhou fica na carteira do app e você saca por Pix, uma vez por dia.</p>
+              </li>
+              <li>
+                <h3 className={styles.h3}>Você escolhe quando trabalhar</h3>
+                <p className={styles.body}>Fica disponível quando quiser. Recusar uma corrida ruim não te prejudica.</p>
+              </li>
+            </ul>
           </div>
         </section>
 

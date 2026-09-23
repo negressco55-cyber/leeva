@@ -452,6 +452,108 @@
   color: var(--muted);
 }
 
+
+/* ---------- extras: link no texto, preço grande, entregadores, calculadora ---------- */
+.inlineLink {
+  color: var(--brand);
+  font-weight: 600;
+}
+.bigPrice {
+  font-size: 34px !important;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: start;
+}
+.split .body {
+  margin-top: -8px;
+}
+.perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.perks li {
+  border-top: 1px solid var(--border-strong);
+  padding-block: 18px;
+}
+.calc {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 32px;
+  margin-top: 48px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+.calcInputs {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.field input {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  font-variant-numeric: tabular-nums;
+  max-width: 220px;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-weak);
+}
+.calcResult {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  background: var(--brand-weak);
+  border-radius: var(--r);
+  padding: 24px;
+}
+.calcResult .bigPrice {
+  color: var(--text);
+}
+.calcVerdict {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 12px 0 4px;
+  line-height: 1.45;
+}
+@media (max-width: 900px) {
+  .split,
+  .calc {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+@media (max-width: 640px) {
+  .calc {
+    padding: 18px;
+  }
+  .field input {
+    max-width: none;
+  }
+}
+
 /* ---------- responsivo ---------- */
 @media (max-width: 900px) {
   .hero,
