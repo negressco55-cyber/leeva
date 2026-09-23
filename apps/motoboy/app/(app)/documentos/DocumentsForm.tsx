@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Circle } from 'lucide-react';
+import { PersonalDataCard } from './PersonalDataCard';
 
 type DocType = 'personal' | 'personal_back' | 'vehicle' | 'avatar';
 
@@ -11,6 +12,8 @@ type Status = {
   personalDocBackUrl: string | null;
   vehicleDocUrl: string | null;
   avatarUrl: string | null;
+  cpf: string | null;
+  city: string | null;
 };
 
 const META: Record<DocType, { title: string; hint: string; capture: 'environment' | 'user' | undefined; accept: string }> = {
@@ -151,21 +154,61 @@ function DocCard({
   );
 }
 
-export function DocumentsForm({ initial }: { initial: Status }) {
+/** Checklist "Meus dados": dados pessoais + 4 documentos, um de cada vez —
+ *  cada envio é pequeno e isolado, então uma internet ruim nunca derruba o
+ *  cadastro inteiro (era exatamente o problema do formulário único antigo). */
+export function DocumentsForm({ initial, showProgress = false }: { initial: Status; showProgress?: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState(initial);
+  const [personalData, setPersonalData] = useState({ cpf: initial.cpf, city: initial.city });
 
   function handleUploaded(type: DocType, url: string) {
     setStatus((s) => ({ ...s, [STATUS_KEY[type]]: url }));
     router.refresh();
   }
 
+  const items = [
+    !!personalData.cpf && !!personalData.city,
+    !!status.personalDocUrl,
+    !!status.personalDocBackUrl,
+    !!status.vehicleDocUrl,
+    !!status.avatarUrl,
+  ];
+  const doneCount = items.filter(Boolean).length;
+
   return (
     <div className="grid" style={{ gap: 12 }}>
+      {showProgress && (
+        <div className="panel" style={{ padding: 14 }}>
+          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+            <strong style={{ fontSize: 14 }}>Progresso</strong>
+            <span className="muted" style={{ fontSize: 13 }}>{doneCount} de {items.length}</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${(doneCount / items.length) * 100}%`,
+                background: 'var(--brand)',
+                borderRadius: 999,
+                transition: 'width .3s',
+              }}
+            />
+          </div>
+        </div>
+      )}
+      <PersonalDataCard
+        initialCpf={personalData.cpf}
+        initialCity={personalData.city}
+        onSaved={(cpf, city) => {
+          setPersonalData({ cpf, city });
+          router.refresh();
+        }}
+      />
+      <DocCard type="avatar" url={status.avatarUrl} onUploaded={handleUploaded} />
       <DocCard type="personal" url={status.personalDocUrl} onUploaded={handleUploaded} />
       <DocCard type="personal_back" url={status.personalDocBackUrl} onUploaded={handleUploaded} />
       <DocCard type="vehicle" url={status.vehicleDocUrl} onUploaded={handleUploaded} />
-      <DocCard type="avatar" url={status.avatarUrl} onUploaded={handleUploaded} />
     </div>
   );
 }

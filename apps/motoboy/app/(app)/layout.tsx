@@ -1,5 +1,5 @@
 import { requireMotoboyContext, adminDb } from '@/lib/context';
-import { getActiveTerms, needsTermsAcceptance } from '@leeva/shared/services';
+import { getActiveTerms, needsTermsAcceptance, getDriverDocsStatus } from '@leeva/shared/services';
 import LocationSender from './LocationSender';
 import OffersPanel from './OffersPanel';
 import { OnboardingGate } from './_lib/OnboardingGate';
@@ -9,7 +9,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const ctx = await requireMotoboyContext();
 
   // GATE: aprovação + termos antes de usar o app
-  if (ctx.approvalStatus === 'pending_approval') return <OnboardingGate state="pending_approval" />;
+  if (ctx.approvalStatus === 'pending_approval') {
+    const docsStatus = await getDriverDocsStatus(adminDb(), ctx.motoboyId);
+    return <OnboardingGate state="pending_approval" docsStatus={docsStatus} />;
+  }
   if (ctx.approvalStatus === 'rejected')
     return <OnboardingGate state="rejected" reason={ctx.approvalReason} />;
   const terms = await getActiveTerms(adminDb());

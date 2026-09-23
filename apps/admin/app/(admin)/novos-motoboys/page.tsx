@@ -18,11 +18,16 @@ export default async function NovosMotoboys() {
 
       {pending.length === 0 && <div className="card muted">Nenhum cadastro pendente.</div>}
 
-      {pending.map((d) => (
+      {pending.map((d) => {
+        const complete = !!(d.cpf && d.city && d.personalDocUrl && d.personalDocBackUrl && d.vehicleDocUrl && d.avatarUrl);
+        return (
         <div className="card" key={d.id}>
           <div className="grid-2">
             <div>
-              <div className="card-title">{d.fullName}</div>
+              <div className="card-title">
+                {d.fullName}
+                {!complete && <span className="tag" style={{ marginLeft: 8 }}>cadastro incompleto</span>}
+              </div>
               <dl className="kv">
                 <dt>WhatsApp</dt>
                 <dd>
@@ -75,11 +80,17 @@ export default async function NovosMotoboys() {
               <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
                 Links expiram em 3 dias — se der erro, atualize a página. A validação de Receita / antecedentes é feita fora daqui.
               </p>
+              {!complete && (
+                <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  Cadastro rápido — o motoboy ainda não terminou de enviar CPF/cidade/documentos. Normal logo após o cadastro.
+                </p>
+              )}
             </div>
           </div>
           <ApproveButtons motoboyId={d.id} name={d.fullName} />
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }

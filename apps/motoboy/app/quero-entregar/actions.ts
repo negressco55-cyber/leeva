@@ -4,19 +4,17 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createLeevaAdminClient, createLeevaServerClient } from '@leeva/shared/server';
 import { isSupabaseAdminConfigured, onlyDigits } from '@leeva/shared';
-import { createSelfServiceDriver, setDriverDocPaths, isValidCpf, sendNewDriverSignupEmail, acceptTerms } from '@leeva/shared/services';
+import { createSelfServiceDriver, sendNewDriverSignupEmail, acceptTerms } from '@leeva/shared/services';
 
 export type SignupState = { error?: string };
 
-const MAX_FILE = 5 * 1024 * 1024;
-const OK_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const EXT: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'application/pdf': 'pdf',
-};
-
+/**
+ * Cadastro RÁPIDO — só nome, e-mail, telefone e senha. CPF, cidade,
+ * documentos e selfie ficam pro checklist "Meus dados" logo depois (ver
+ * app/(app)/documentos), um item de cada vez. Um formulário grande com 4
+ * fotos de uma vez só é frágil em internet ruim — foi o que dava "erro ao
+ * enviar" antes.
+ */
 export async function submitSignup(_prev: SignupState, form: FormData): Promise<SignupState> {
   if (!isSupabaseAdminConfigured()) return { error: 'Sistema em configuração — tente mais tarde.' };
 
@@ -24,40 +22,13 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   const email = String(form.get('email') ?? '').trim().toLowerCase();
   const password = String(form.get('password') ?? '');
   const phone = onlyDigits(String(form.get('phone') ?? ''));
-  const cpf = String(form.get('cpf') ?? '');
-  const city = String(form.get('city') ?? 'João Pessoa - PB').trim() || 'João Pessoa - PB';
   const termsVersionRaw = form.get('termsVersion');
   const termsVersion = termsVersionRaw ? Number(termsVersionRaw) : null;
-
-  // cada documento tem dois inputs (foto tirada na hora OU PDF/arquivo da
-  // galeria) — usa o que a pessoa preencheu.
-  const pick = (base: string): File | null => {
-    const photo = form.get(`${base}Photo`) as File | null;
-    if (photo && photo.size > 0) return photo;
-    const pdf = form.get(`${base}Pdf`) as File | null;
-    if (pdf && pdf.size > 0) return pdf;
-    return null;
-  };
-  const personalFront = pick('personalDocFront');
-  const personalBack = pick('personalDocBack');
-  const vehicleDoc = pick('vehicleDoc');
-  const selfie = pick('selfie');
 
   if (fullName.length < 3) return { error: 'Informe seu nome completo.' };
   if (!email.includes('@')) return { error: 'E-mail inválido.' };
   if (password.length < 6) return { error: 'A senha precisa ter ao menos 6 caracteres.' };
   if (phone.length < 10) return { error: 'Telefone inválido (com DDD).' };
-  if (!isValidCpf(cpf)) return { error: 'CPF inválido.' };
-  for (const [label, f] of [
-    ['pessoal (frente)', personalFront],
-    ['pessoal (verso)', personalBack],
-    ['do veículo', vehicleDoc],
-    ['— selfie (foto do seu rosto)', selfie],
-  ] as const) {
-    if (!f) return { error: label.startsWith('—') ? 'Tire uma selfie (foto do seu rosto) para continuar.' : `Anexe o documento ${label}.` };
-    if (f.size > MAX_FILE) return { error: `O documento ${label} passa de 5 MB.` };
-    if (!OK_TYPES.includes(f.type)) return { error: `Documento ${label}: use foto (JPG/PNG) ou PDF.` };
-  }
 
   const admin = createLeevaAdminClient();
 
@@ -74,38 +45,14 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
   }
   const userId = created.user.id;
 
-  // 2. cria o cadastro do motoboy (pending_approval)
-  const res = await createSelfServiceDriver(admin, {
-    userId,
-    fullName,
-    phone,
-    cpf,
-    city,
-  });
+  // 2. cria o cadastro do motoboy (pending_approval) — sem CPF/cidade ainda
+  const res = await createSelfServiceDriver(admin, { userId, fullName, phone });
   if (!res.ok) {
     await admin.auth.admin.deleteUser(userId).catch(() => {});
     return { error: res.error };
   }
 
-  // 3. upload dos documentos
-  try {
-    const up = async (f: File, name: string) => {
-      const path = `${res.motoboyId}/${name}.${EXT[f.type] ?? 'bin'}`;
-      await admin.storage.from('driver-documents').upload(path, f, { contentType: f.type, upsert: true });
-      return path;
-    };
-    const pPath = await up(personalFront!, 'personal');
-    const pBackPath = await up(personalBack!, 'personal_back');
-    const vPath = await up(vehicleDoc!, 'vehicle');
-    await setDriverDocPaths(admin, res.motoboyId, pPath, vPath, pBackPath);
-    const sPath = await up(selfie!, 'selfie');
-    await admin.from('motoboys').update({ avatar_url: sPath }).eq('id', res.motoboyId);
-  } catch {
-    // não bloqueia — o admin pode pedir o reenvio; mas registra
-    console.error('[signup] upload de documento falhou');
-  }
-
-  // 3.5. aceite dos termos de uso, já no cadastro
+  // 3. aceite dos termos de uso, já no cadastro
   if (termsVersion != null) {
     const ip = await currentIp();
     await acceptTerms(admin, res.motoboyId, termsVersion, ip).catch(() => {});
@@ -113,10 +60,10 @@ export async function submitSignup(_prev: SignupState, form: FormData): Promise<
 
   // 4. avisa o operador (best-effort — não bloqueia o cadastro)
   if (process.env.OPS_ALERT_EMAIL) {
-    await sendNewDriverSignupEmail(process.env.OPS_ALERT_EMAIL, fullName, city).catch(() => {});
+    await sendNewDriverSignupEmail(process.env.OPS_ALERT_EMAIL, fullName, '—').catch(() => {});
   }
 
-  // 5. login
+  // 5. login — a partir daqui o motoboy completa CPF/documentos no checklist
   const supabase = await createLeevaServerClient();
   const { error: sErr } = await supabase.auth.signInWithPassword({ email, password });
   if (sErr) redirect('/login');

@@ -7,53 +7,13 @@ import { submitSignup, type SignupState } from './actions';
 
 const initial: SignupState = {};
 
-const MAX_SIDE = 1600;
-const MAX_TOTAL = 3.8 * 1024 * 1024; // a Vercel recusa envios acima de ~4,5 MB
-
-/** Reduz a foto no celular antes de enviar (foto de câmera passa de 5 MB e
- *  estourava o limite de envio). PDF e formatos que o navegador não abre
- *  seguem como estão. */
-async function shrinkImage(file: File): Promise<File> {
-  if (!file.type.startsWith('image/') || file.size === 0) return file;
-  try {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-    const w = Math.round(bmp.width * scale);
-    const h = Math.round(bmp.height * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return file;
-    ctx.drawImage(bmp, 0, 0, w, h);
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.8));
-    if (!blob || blob.size >= file.size) return file;
-    return new File([blob], file.name.replace(/.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
-  } catch {
-    return file;
-  }
-}
-
-/** Duas formas de anexar: tirar foto na hora (força a câmera) ou escolher
- *  um arquivo já existente — PDF ou foto da galeria. Separar os dois evita
- *  o problema comum de celular perder a foto tirada na hora num único
- *  input genérico. */
-function DocInputs({ label, base, facing = 'environment' }: { label: string; base: string; facing?: 'user' | 'environment' }) {
-  return (
-    <div className="panel" style={{ padding: 12, display: 'grid', gap: 6 }}>
-      <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
-      <label className="muted" style={{ fontSize: 12 }}>
-        Tirar foto agora
-        <input className="input" type="file" name={`${base}Photo`} accept="image/*" capture={facing} />
-      </label>
-      <label className="muted" style={{ fontSize: 12 }}>
-        ou escolher arquivo (foto da galeria ou PDF)
-        <input className="input" type="file" name={`${base}Pdf`} accept="image/*,application/pdf" />
-      </label>
-    </div>
-  );
-}
-
+/**
+ * Cadastro RÁPIDO — nome, e-mail, telefone e senha. Sem CPF, sem documentos:
+ * isso tudo é preenchido depois, um item de cada vez, no checklist "Meus
+ * dados" (que aparece assim que a conta é criada). Um formulário pequeno
+ * como esse é muito mais confiável numa internet ruim do que mandar 4 fotos
+ * de uma vez só — era isso que quebrava antes.
+ */
 export default function QueroEntregarForm({
   terms,
 }: {
@@ -63,36 +23,16 @@ export default function QueroEntregarForm({
   const [showTerms, setShowTerms] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
-  const [preparing, setPreparing] = useState(false);
 
-  async function prepareAndSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function prepareAndSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setClientError(null);
-    setPreparing(true);
-    let total = 0;
-    try {
-      for (const [key, value] of Array.from(fd.entries())) {
-        if (value instanceof File && value.size > 0) {
-          const small = await shrinkImage(value);
-          fd.set(key, small);
-          total += small.size;
-        }
-      }
-    } finally {
-      setPreparing(false);
-    }
-    if (total > MAX_TOTAL) {
-      setClientError(
-        'Os arquivos estão grandes demais. Use "Tirar foto agora" em vez de PDF, ou envie PDFs menores (até 1 MB cada).',
-      );
-      return;
-    }
     startTransition(() => {
       try {
         action(fd);
       } catch {
-        setClientError('Não foi possível enviar. Confira sua internet e tente de novo — se estiver no navegador do WhatsApp, tente abrir o link no Chrome.');
+        setClientError('Não foi possível enviar. Confira sua internet e tente de novo.');
       }
     });
   }
@@ -111,11 +51,10 @@ export default function QueroEntregarForm({
     <div className="screen">
       <h1>Quero entregar pelo Leeva</h1>
       <p className="muted">
-        Cadastre-se para entrar na rede de entregadores. Seu cadastro passa por uma análise antes de você
-        começar a receber ofertas.
+        Cadastro rápido — leva 1 minuto. Seus documentos e CPF você envia logo depois, um de cada vez.
       </p>
 
-      <form onSubmit={prepareAndSubmit} className="panel grid" style={{ marginTop: 16, gap: 12 }} encType="multipart/form-data">
+      <form onSubmit={prepareAndSubmit} className="panel grid" style={{ marginTop: 16, gap: 12 }}>
         <label>
           Nome completo
           <input className="input" name="fullName" required />
@@ -132,27 +71,6 @@ export default function QueroEntregarForm({
           Telefone (com DDD)
           <input className="input" name="phone" inputMode="tel" required />
         </label>
-        <label>
-          CPF
-          <input className="input" name="cpf" inputMode="numeric" required />
-        </label>
-        <label>
-          Cidade de atuação
-          <input className="input" name="city" defaultValue="João Pessoa - PB" required />
-        </label>
-
-        <DocInputs label="Documento pessoal (CNH ou RG) — frente" base="personalDocFront" />
-        <DocInputs label="Documento pessoal (CNH ou RG) — verso" base="personalDocBack" />
-        <DocInputs label="Documento do veículo (CRLV)" base="vehicleDoc" />
-        <DocInputs label="Selfie — foto do seu rosto (sem óculos escuros ou capacete)" base="selfie" facing="user" />
-        <p className="muted" style={{ fontSize: 11, margin: 0 }}>
-          Se &quot;Tirar foto agora&quot; não funcionar no seu celular, use a opção &quot;escolher arquivo&quot; — ela também
-          aceita PDF.
-        </p>
-
-        <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-          A chave Pix pra receber os repasses você cadastra depois, na aba Carteira.
-        </p>
 
         {terms && (
           <div className="panel" style={{ padding: 12, display: 'grid', gap: 8 }}>
@@ -194,8 +112,8 @@ export default function QueroEntregarForm({
 
         {(clientError || state.error) && <p style={{ color: 'var(--danger)' }}>{clientError ?? state.error}</p>}
 
-        <button className="button" type="submit" disabled={pending || preparing || (!!terms && !accepted)}>
-          {preparing ? 'Preparando fotos…' : pending ? 'Enviando…' : 'Enviar cadastro'}
+        <button className="button" type="submit" disabled={pending || (!!terms && !accepted)}>
+          {pending ? 'Enviando…' : 'Criar minha conta'}
         </button>
       </form>
 

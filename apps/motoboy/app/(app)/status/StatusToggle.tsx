@@ -14,6 +14,7 @@ export default function StatusToggle({
   activeDeliveries,
   doneToday,
   earnedToday,
+  kmToday,
 }: {
   restaurantId: string | null;
   motoboyId: string;
@@ -22,6 +23,7 @@ export default function StatusToggle({
   activeDeliveries: number;
   doneToday: number;
   earnedToday: number;
+  kmToday: number;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<MotoboyStatus>(initialStatus);
@@ -100,19 +102,29 @@ export default function StatusToggle({
       {err && <p style={{ color: 'var(--danger)', margin: 0, textAlign: 'center' }}>{err}</p>}
 
       <div className="home-sheet">
-        <div className="row" style={{ gap: 12 }}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <strong style={{ fontSize: 14 }}>Resumo do dia</strong>
+          <Link href="/pagamentos" className="muted" style={{ fontSize: 13 }}>
+            Ver extrato completo →
+          </Link>
+        </div>
+        <div className="row" style={{ gap: 10, marginTop: 8 }}>
           <div className="panel" style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{formatCurrencyBRL(earnedToday)}</div>
-            <div className="muted" style={{ fontSize: 13 }}>ganhos hoje</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{formatCurrencyBRL(earnedToday)}</div>
+            <div className="muted" style={{ fontSize: 12 }}>ganhos hoje</div>
           </div>
           <div className="panel" style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{doneToday}</div>
-            <div className="muted" style={{ fontSize: 13 }}>entregas hoje</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{doneToday}</div>
+            <div className="muted" style={{ fontSize: 12 }}>entregas hoje</div>
+          </div>
+          <div className="panel" style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{kmToday.toFixed(1)} km</div>
+            <div className="muted" style={{ fontSize: 12 }}>rodados hoje</div>
           </div>
         </div>
 
         {activeDeliveries > 0 && (
-          <Link href="/entrega" className="button" style={{ textAlign: 'center' }}>
+          <Link href="/entrega" className="button" style={{ textAlign: 'center', marginTop: 10 }}>
             Ver entrega atual
           </Link>
         )}

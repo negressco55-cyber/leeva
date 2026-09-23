@@ -102,8 +102,10 @@ export type SelfServiceDriverInput = {
   userId: string;
   fullName: string;
   phone: string;
-  cpf: string;
-  city: string;
+  /** CPF e cidade agora são opcionais no cadastro rápido — completados depois
+   *  em "Meus dados" (setPersonalData), junto com os documentos. */
+  cpf?: string;
+  city?: string;
   /** Cadastra depois, na Carteira — não é mais pedido no cadastro inicial. */
   pixKey?: string;
   pixKeyType?: string;
@@ -113,12 +115,13 @@ export async function createSelfServiceDriver(
   db: DB,
   input: SelfServiceDriverInput,
 ): Promise<{ ok: true; motoboyId: string } | { ok: false; error: string }> {
-  const cpf = cleanCpf(input.cpf);
-  if (!isValidCpf(cpf)) return { ok: false, error: 'CPF inválido' };
-
-  // duplicidade
-  const { data: dupCpf } = await db.from('motoboys').select('id').eq('cpf', cpf).maybeSingle();
-  if (dupCpf) return { ok: false, error: 'Já existe um cadastro com esse CPF.' };
+  let cpf: string | null = null;
+  if (input.cpf) {
+    cpf = cleanCpf(input.cpf);
+    if (!isValidCpf(cpf)) return { ok: false, error: 'CPF inválido' };
+    const { data: dupCpf } = await db.from('motoboys').select('id').eq('cpf', cpf).maybeSingle();
+    if (dupCpf) return { ok: false, error: 'Já existe um cadastro com esse CPF.' };
+  }
   const { data: dupPhone } = await db
     .from('motoboys')
     .select('id')
@@ -139,7 +142,7 @@ export async function createSelfServiceDriver(
       full_name: input.fullName.slice(0, 200),
       phone: input.phone.slice(0, 40),
       cpf,
-      city: input.city.slice(0, 120),
+      city: input.city ? input.city.slice(0, 120) : null,
       pix_key: input.pixKey ? input.pixKey.slice(0, 140) : null,
       pix_key_type: input.pixKeyType ?? null,
     })
@@ -147,6 +150,25 @@ export async function createSelfServiceDriver(
     .single();
   if (error || !data) return { ok: false, error: 'não foi possível criar o cadastro' };
   return { ok: true, motoboyId: data.id };
+}
+
+/** Completa CPF + cidade depois do cadastro rápido (tela "Meus dados"). */
+export async function setPersonalData(
+  db: DB,
+  motoboyId: string,
+  input: { cpf: string; city: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const cpf = cleanCpf(input.cpf);
+  if (!isValidCpf(cpf)) return { ok: false, error: 'CPF inválido' };
+  const city = input.city.trim();
+  if (city.length < 2) return { ok: false, error: 'Informe a cidade' };
+
+  const { data: dupCpf } = await db.from('motoboys').select('id').eq('cpf', cpf).neq('id', motoboyId).maybeSingle();
+  if (dupCpf) return { ok: false, error: 'Já existe um cadastro com esse CPF.' };
+
+  const { error } = await db.from('motoboys').update({ cpf, city: city.slice(0, 120) }).eq('id', motoboyId);
+  if (error) return { ok: false, error: 'não foi possível salvar' };
+  return { ok: true };
 }
 
 export async function setDriverDocPaths(
@@ -214,12 +236,14 @@ export type DriverDocsStatus = {
   personalDocBackUrl: string | null;
   vehicleDocUrl: string | null;
   avatarUrl: string | null;
+  cpf: string | null;
+  city: string | null;
 };
 
 export async function getDriverDocsStatus(db: DB, motoboyId: string): Promise<DriverDocsStatus> {
   const { data: m } = await db
     .from('motoboys')
-    .select('personal_doc_path, personal_doc_back_path, vehicle_doc_path, avatar_url')
+    .select('personal_doc_path, personal_doc_back_path, vehicle_doc_path, avatar_url, cpf, city')
     .eq('id', motoboyId)
     .maybeSingle();
   return {
@@ -227,6 +251,8 @@ export async function getDriverDocsStatus(db: DB, motoboyId: string): Promise<Dr
     personalDocBackUrl: await signDoc(db, m?.personal_doc_back_path ?? null),
     vehicleDocUrl: await signDoc(db, m?.vehicle_doc_path ?? null),
     avatarUrl: await signDoc(db, m?.avatar_url ?? null),
+    cpf: m?.cpf ?? null,
+    city: m?.city ?? null,
   };
 }
 
