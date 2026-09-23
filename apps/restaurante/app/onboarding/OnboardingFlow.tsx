@@ -11,7 +11,7 @@ type Plan = {
   code: string;
   name: string;
   monthly_price: number;
-  per_delivery_price: number;
+  per_delivery_margin: number;
   features: unknown;
   trial_days: number;
 };
@@ -193,7 +193,7 @@ export default function OnboardingFlow({
             <label key={p.code} className="op-alert" style={{ cursor: 'pointer', background: planCode === p.code ? 'var(--accent-soft)' : 'transparent' }}>
               <input type="radio" checked={planCode === p.code} onChange={() => setPlanCode(p.code)} style={{ marginRight: 8 }} />
               <div style={{ flex: 1 }}>
-                <strong>{p.name}</strong> — {formatCurrencyBRL(p.monthly_price)}/mês + {formatCurrencyBRL(p.per_delivery_price)} por entrega
+                <strong>{p.name}</strong> — {Number(p.monthly_price) > 0 ? `${formatCurrencyBRL(p.monthly_price)}/mês + ` : 'sem mensalidade — '}{formatCurrencyBRL(p.per_delivery_margin)} por entrega (além do valor do entregador)
                 <div className="muted" style={{ fontSize: 12 }}>
                   {p.trial_days} dias grátis · {(p.features as { leeva_network?: boolean }).leeva_network ? 'rede Leeva' : 'frota própria'}
                   {(p.features as { heatmap?: boolean }).heatmap ? ' · heatmap' : ''}

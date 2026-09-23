@@ -12,7 +12,7 @@ import { defaultBusinessHours, type BusinessHours } from '@leeva/shared/services
 import { apiPost } from '../_lib/client';
 import { BusinessHoursEditor } from '../_lib/BusinessHoursEditor';
 
-type Plan = { code: string; name: string; monthly_price: number; per_delivery_price: number; features: unknown };
+type Plan = { code: string; name: string; monthly_price: number; per_delivery_margin: number; features: unknown };
 
 export default function ConfigForm({
   isOwner,
@@ -227,7 +227,7 @@ export default function ConfigForm({
         {plans.map((p) => (
           <div key={p.code} className="op-alert" style={{ background: p.code === currentPlan ? 'var(--accent-soft)' : 'transparent' }}>
             <div style={{ flex: 1 }}>
-              <strong>{p.name}</strong> — {formatCurrencyBRL(p.monthly_price)}/mês + {formatCurrencyBRL(p.per_delivery_price)}/entrega
+              <strong>{p.name}</strong> — {Number(p.monthly_price) > 0 ? `${formatCurrencyBRL(p.monthly_price)}/mês + ` : 'sem mensalidade — '}{formatCurrencyBRL(p.per_delivery_margin)}/entrega (além do valor do entregador)
             </div>
             {p.code === currentPlan ? (
               <span className="tag green">atual</span>

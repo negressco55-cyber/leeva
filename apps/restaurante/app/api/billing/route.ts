@@ -10,7 +10,7 @@ export async function GET() {
     const usage = await getUsageSummary(db, ctx.restaurantId);
     const { data: plans } = await db
       .from('plans')
-      .select('code, name, monthly_price, per_delivery_price, features, trial_days')
+      .select('code, name, monthly_price, per_delivery_margin, features, trial_days')
       .eq('active', true)
       .order('sort_order');
     return json({ usage, plans: plans ?? [] });

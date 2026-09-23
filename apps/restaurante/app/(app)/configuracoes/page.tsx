@@ -18,7 +18,7 @@ export default async function ConfiguracoesPage() {
     getUsageSummary(db, ctx.restaurantId),
     db
       .from('plans')
-      .select('code, name, monthly_price, per_delivery_price, features')
+      .select('code, name, monthly_price, per_delivery_margin, features')
       .eq('active', true)
       .order('sort_order'),
   ]);
