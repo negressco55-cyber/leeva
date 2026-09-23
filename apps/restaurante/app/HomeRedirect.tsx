@@ -11,7 +11,9 @@ import { useRouter } from 'next/navigation';
  * Por isso isso aqui roda no navegador: confere o fragmento antes de
  * decidir pra onde mandar.
  */
-export default function HomeRedirect({ loggedIn }: { loggedIn: boolean }) {
+/** `stayWhenLoggedOut`: a raiz mostra a landing pra quem não está logado —
+ *  aí só tratamos os fragmentos de recuperação/confirmação e ficamos. */
+export default function HomeRedirect({ loggedIn, stayWhenLoggedOut = false }: { loggedIn: boolean; stayWhenLoggedOut?: boolean }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -25,8 +27,9 @@ export default function HomeRedirect({ loggedIn }: { loggedIn: boolean }) {
       router.replace('/dashboard');
       return;
     }
-    router.replace(loggedIn ? '/dashboard' : '/login');
-  }, [loggedIn, router]);
+    if (loggedIn) router.replace('/dashboard');
+    else if (!stayWhenLoggedOut) router.replace('/login');
+  }, [loggedIn, stayWhenLoggedOut, router]);
 
   return null;
 }

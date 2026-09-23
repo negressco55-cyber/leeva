@@ -1,7 +1,12 @@
+import type { Metadata } from 'next';
 import { isSupabaseConfigured } from '@leeva/shared';
 import { createLeevaServerClient } from '@leeva/shared/server';
 import SetupNotice from './SetupNotice';
 import HomeRedirect from './HomeRedirect';
+import Landing from './_landing/Landing';
+import { landingMetadata } from './_landing/metadata';
+
+export const metadata: Metadata = landingMetadata;
 
 export default async function Home() {
   if (!isSupabaseConfigured()) {
@@ -13,5 +18,12 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return <HomeRedirect loggedIn={!!user} />;
+  // logado → painel; visitante → página de apresentação do Leeva
+  if (user) return <HomeRedirect loggedIn />;
+  return (
+    <>
+      <HomeRedirect loggedIn={false} stayWhenLoggedOut />
+      <Landing />
+    </>
+  );
 }

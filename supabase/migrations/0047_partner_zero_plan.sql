@@ -23,5 +23,5 @@ on conflict (code) do update set
 -- Enquanto a mensalidade não é cobrada de verdade (billing.ts só exibe),
 -- só o plano sem mensalidade fica visível; Pro/Scale dariam margem menor
 -- por entrega sem cobrar nada. Aplicado em produção em 2026-09-23.
-update public.plans set name = 'Livre', monthly_price = 0 where code = 'start';
+update public.plans set name = 'Livre', monthly_price = 0, per_delivery_margin = 1.00 where code = 'start';
 update public.plans set active = false where code in ('pro', 'business');
