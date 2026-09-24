@@ -22,7 +22,6 @@ const LEEVA_FEE = 1;
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const total = (km: number) => Math.max(km * PER_KM, MIN_PAYOUT) + LEEVA_FEE;
 
-const EXAMPLES = [1.5, 3, 5, 8];
 const CADASTRO_ENTREGADOR = 'https://leeva-motoboy.vercel.app/quero-entregar';
 
 const FRASES: { t: ReactNode; s: string }[] = [
@@ -323,32 +322,6 @@ export default function Landing() {
                 Cada entrega tem um valor calculado pela distância, e ele aparece antes de você confirmar. Nada de taxa fixa ou
                 porcentagem sobre a sua venda.
               </p>
-            </div>
-            <div className={styles.precoGrid}>
-              <div className={`${styles.precoCard} ${styles.revela}`} data-revela>
-                <small>Entregas a partir de</small>
-                <strong>{brl(total(0))}</strong>
-                <span>tudo incluso · pago com crédito via Pix</span>
-              </div>
-              <div className={`${styles.tabelaWrap} ${styles.revela}`} data-revela>
-                <table className={styles.tabela}>
-                  <caption>Exemplos de custo por entrega</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Distância até o cliente</th>
-                      <th scope="col">Você paga</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {EXAMPLES.map((km) => (
-                      <tr key={km}>
-                        <td>{km.toLocaleString('pt-BR')} km</td>
-                        <td>{brl(total(km))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
             <div className={styles.revela} data-revela>
               <SavingsCalculator perKm={PER_KM} minPayout={MIN_PAYOUT} fee={LEEVA_FEE} />
