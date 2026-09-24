@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import styles from './landing.module.css';
-import SavingsCalculator from './SavingsCalculator';
 import LandingFx from './LandingFx';
 import { body, display, mono } from './fonts';
 
@@ -322,9 +321,6 @@ export default function Landing() {
                 Cada entrega tem um valor calculado pela distância, e ele aparece antes de você confirmar. Nada de taxa fixa ou
                 porcentagem sobre a sua venda.
               </p>
-            </div>
-            <div className={styles.revela} data-revela>
-              <SavingsCalculator perKm={PER_KM} minPayout={MIN_PAYOUT} fee={LEEVA_FEE} />
             </div>
           </div>
         </section>
