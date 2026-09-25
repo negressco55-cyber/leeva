@@ -11,6 +11,7 @@ import {
 import { defaultBusinessHours, type BusinessHours } from '@leeva/shared/services/business-hours';
 import { apiPost } from '../_lib/client';
 import { BusinessHoursEditor } from '../_lib/BusinessHoursEditor';
+import { Icon } from '../../_icons/Icon';
 
 type Plan = { code: string; name: string; monthly_price: number; per_delivery_margin: number; features: unknown };
 
@@ -210,7 +211,7 @@ export default function ConfigForm({
 
       {msg?.warnings?.length ? (
         <div className="op-alert warning">
-          <div>{msg.warnings.map((w, i) => <div key={i}>⚠️ {w}</div>)}</div>
+          <div>{msg.warnings.map((w, i) => <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}><Icon name="alert" size={13} /> {w}</div>)}</div>
         </div>
       ) : null}
       {msg?.ok && !msg.warnings?.length && <div className="op-alert ok">Salvo.</div>}

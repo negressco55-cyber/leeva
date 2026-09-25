@@ -11,6 +11,7 @@ import {
   type PaymentStatus,
 } from '@leeva/shared';
 import RouteMap from './_lib/RouteMap';
+import { MessageCircle, Wallet, CheckCircle2 } from 'lucide-react';
 
 type Offer = {
   offerId: string;
@@ -80,10 +81,10 @@ function playOfferSound(): void {
 }
 
 const QUALITY_LABEL: Record<string, { text: string; color: string }> = {
-  excellent: { text: '🟢 Ótima oferta', color: 'var(--ok)' },
-  good: { text: '🟢 Boa oferta', color: 'var(--ok)' },
-  acceptable: { text: '🟡 Oferta razoável', color: 'var(--warn)' },
-  poor: { text: '⚪ Oferta pouco vantajosa', color: 'var(--muted)' },
+  excellent: { text: 'Ótima oferta', color: 'var(--ok)' },
+  good: { text: 'Boa oferta', color: 'var(--ok)' },
+  acceptable: { text: 'Oferta razoável', color: 'var(--warn)' },
+  poor: { text: 'Oferta pouco vantajosa', color: 'var(--muted)' },
 };
 
 /**
@@ -197,7 +198,8 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                   {grouped ? `Rota — ${o.routeStops!.length} entregas` : `Coleta · ${o.pickupName ?? 'restaurante'}`}
                 </span>
                 {o.quality && (
-                  <span className="offer-quality" style={{ color: QUALITY_LABEL[o.quality]!.color }}>
+                  <span className="offer-quality" style={{ color: QUALITY_LABEL[o.quality]!.color, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 999, background: QUALITY_LABEL[o.quality]!.color, flexShrink: 0 }} />
                     {QUALITY_LABEL[o.quality]!.text}
                   </span>
                 )}
@@ -211,7 +213,7 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  💬 WhatsApp do restaurante
+                  <MessageCircle size={14} /> WhatsApp do restaurante
                 </a>
               )}
 
@@ -260,11 +262,11 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
 
               {collectOnDelivery ? (
                 <div className="offer-collect">
-                  💰 Receber do cliente na entrega: {formatCurrencyBRL(o.orderAmount)}
+                  <Wallet size={14} /> Receber do cliente na entrega: {formatCurrencyBRL(o.orderAmount)}
                 </div>
               ) : (
                 <div className="offer-collect offer-collect--paid">
-                  ✅ Já pago — {PAYMENT_METHOD_LABELS[o.paymentMethod]}
+                  <CheckCircle2 size={14} /> Já pago — {PAYMENT_METHOD_LABELS[o.paymentMethod]}
                 </div>
               )}
               {o.notes && <div className="muted" style={{ fontSize: 13 }}>Obs: {o.notes}</div>}

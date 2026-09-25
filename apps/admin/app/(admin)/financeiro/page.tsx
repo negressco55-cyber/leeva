@@ -1,6 +1,7 @@
 import { adminDb } from '@/lib/context';
 import { getAdminFinance, type AdminPeriod } from '@leeva/shared/services';
 import { StatCard, PeriodNav, money, num } from '../_lib/ui';
+import { Icon } from '../../_icons/Icon';
 
 export const dynamic = 'force-dynamic';
 const PERIODS: AdminPeriod[] = ['today', '7d', '30d', 'month'];
@@ -48,7 +49,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
           <StatCard label="Churn mensal" value={u.churnRate == null ? '—' : `${u.churnRate}%`} />
           <StatCard label="LTV" value={money(u.ltv)} hint={u.ltvNote} />
         </div>
-        {u.ltvNote && <p className="muted" style={{ fontSize: 12 }}>⚠️ {u.ltvNote}</p>}
+        {u.ltvNote && <p className="muted" style={{ fontSize: 12 }}><Icon name="alert" size={12} /> {u.ltvNote}</p>}
       </div>
     </>
   );

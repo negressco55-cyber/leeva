@@ -13,6 +13,7 @@ import {
 import type { Situation, MapData } from '@leeva/shared/services';
 import { apiGet, apiPost } from '../_lib/client';
 import LeevaMap, { type MapMarker } from '../_lib/LeevaMap';
+import { Icon } from '../../_icons/Icon';
 
 type Alert = { key: string; severity: string; title: string; message: string };
 
@@ -185,7 +186,7 @@ export default function OpsCenter({
           <div className="card">
             <div className="card-title">Central de alertas</div>
             {alerts.filter((a) => a.severity !== 'ok').length === 0 ? (
-              <div className="muted" style={{ fontSize: 13 }}>Nenhum problema prioritário. 🟢</div>
+              <div className="muted" style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}><span className="dot ok" /> Nenhum problema prioritário.</div>
             ) : (
               alerts
                 .filter((a) => a.severity !== 'ok')

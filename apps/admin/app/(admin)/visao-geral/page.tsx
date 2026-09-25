@@ -23,14 +23,14 @@ export default async function VisaoGeral({ searchParams }: { searchParams: Promi
 
       {(() => {
         const h = o.dispatchHealth;
-        const color = h.status === 'ok' ? '#16a34a' : h.status === 'warn' ? '#d97706' : '#dc2626';
-        const dot = h.status === 'ok' ? '🟢' : h.status === 'warn' ? '🟡' : '🔴';
+        const color = h.status === 'ok' ? 'var(--ok)' : h.status === 'warn' ? 'var(--warn)' : 'var(--danger)';
+        const dotClass = h.status === 'ok' ? 'ok' : h.status === 'warn' ? 'warn' : 'danger';
         return (
           <div className="card" style={{ borderLeft: `3px solid ${color}` }}>
             <div className="card-title">Motor de despacho</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>
-                {dot}{' '}
+              <span style={{ fontSize: 15, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                <span className={`dot ${dotClass}`} />
                 {h.secondsSinceLastRun == null
                   ? 'sem execução'
                   : h.secondsSinceLastRun < 90

@@ -1,6 +1,7 @@
 import { adminDb } from '@/lib/context';
 import { getPendingDrivers } from '@leeva/shared/services';
 import { ApproveButtons } from './ApproveButtons';
+import { Icon } from '../../_icons/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export default async function NovosMotoboys() {
                 <dt>WhatsApp</dt>
                 <dd>
                   <a href={`https://wa.me/${d.phone.replace(/D/g, '').startsWith('55') ? d.phone.replace(/D/g, '') : '55' + d.phone.replace(/D/g, '')}`} target="_blank" rel="noreferrer">
-                    💬 {d.phone} (chamar no WhatsApp)
+                    <Icon name="whatsapp" size={13} /> {d.phone} (chamar no WhatsApp)
                   </a>
                 </dd>
                 <dt>CPF</dt>
@@ -50,28 +51,28 @@ export default async function NovosMotoboys() {
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {d.personalDocUrl ? (
                   <a className="btn sm" href={d.personalDocUrl} target="_blank" rel="noreferrer">
-                    📄 Documento pessoal (frente)
+                    <Icon name="file" size={13} /> Documento pessoal (frente)
                   </a>
                 ) : (
                   <span className="tag red">sem documento pessoal (frente)</span>
                 )}
                 {d.personalDocBackUrl ? (
                   <a className="btn sm" href={d.personalDocBackUrl} target="_blank" rel="noreferrer">
-                    📄 Documento pessoal (verso)
+                    <Icon name="file" size={13} /> Documento pessoal (verso)
                   </a>
                 ) : (
                   <span className="tag red">sem documento pessoal (verso)</span>
                 )}
                 {d.vehicleDocUrl ? (
                   <a className="btn sm" href={d.vehicleDocUrl} target="_blank" rel="noreferrer">
-                    🚗 Documento do veículo
+                    <Icon name="car" size={13} /> Documento do veículo
                   </a>
                 ) : (
                   <span className="tag red">sem documento do veículo</span>
                 )}
                 {d.avatarUrl ? (
                   <a className="btn sm" href={d.avatarUrl} target="_blank" rel="noreferrer">
-                    🙂 Selfie (rosto)
+                    <Icon name="user" size={13} /> Selfie (rosto)
                   </a>
                 ) : (
                   <span className="tag red">sem selfie</span>

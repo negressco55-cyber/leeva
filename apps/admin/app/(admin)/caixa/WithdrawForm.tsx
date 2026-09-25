@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Icon } from '../../_icons/Icon';
 
 export function WithdrawForm({ available }: { available: number }) {
   const router = useRouter();
@@ -61,7 +62,7 @@ export function WithdrawForm({ available }: { available: number }) {
       />
       {overAvailable && (
         <p style={{ color: '#d97706', fontSize: 12, marginTop: 6 }}>
-          ⚠️ Esse valor é maior que o disponível ({available.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) — provavelmente mexe no dinheiro de restaurante ou motoboy.
+          <Icon name="alert" size={13} /> Esse valor é maior que o disponível ({available.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) — provavelmente mexe no dinheiro de restaurante ou motoboy.
         </p>
       )}
       <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>

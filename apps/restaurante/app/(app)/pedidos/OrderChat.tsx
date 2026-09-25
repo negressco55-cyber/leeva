@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../_lib/client';
+import { Icon } from '../../_icons/Icon';
 
 type Message = { id: string; senderType: 'restaurant' | 'motoboy'; senderId: string; body: string; createdAt: string };
 
@@ -53,7 +54,7 @@ export function OrderChat({ orderId, startOpen }: { orderId: string; startOpen?:
   if (!open) {
     return (
       <button className="button secondary" onClick={() => setOpen(true)} style={{ marginTop: 10 }}>
-        💬 Chat com o entregador
+        <Icon name="message" size={14} /> Chat com o entregador
       </button>
     );
   }

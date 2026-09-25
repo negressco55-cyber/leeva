@@ -5,6 +5,7 @@ import LocationSender from './LocationSender';
 import OffersPanel from './OffersPanel';
 import { OnboardingGate } from './_lib/OnboardingGate';
 import { TabBar } from './_lib/TabBar';
+import { Clock } from 'lucide-react';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireMotoboyContext();
@@ -37,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             fontWeight: 600,
           }}
         >
-          ⏳ Cadastro em análise — complete seus dados para poder ficar disponível →
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Clock size={14} /> Cadastro em análise — complete seus dados para poder ficar disponível →</span>
         </Link>
       )}
 

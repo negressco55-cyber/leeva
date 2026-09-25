@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost, ApiError } from '../_lib/client';
 import PinPicker from '../_lib/PinPicker';
+import { Icon } from '../../_icons/Icon';
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -180,7 +181,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="btn sm" onClick={geocode} disabled={geocoding || address.trim().length < 5}>
-              {geocoding ? 'Localizando…' : '📍 Localizar no mapa'}
+              {geocoding ? 'Localizando…' : <><Icon name="pin" size={13} /> Localizar no mapa</>}
             </button>
             {located && (
               <span style={{ fontSize: 12, color: 'var(--ok)' }}>✓ {geoLabel}</span>
@@ -191,7 +192,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
             <div style={{ display: 'grid', gap: 6 }}>
               {precision !== 'exact' && !pinMoved && (
                 <div className="op-alert warning" style={{ marginBottom: 0 }}>
-                  Achamos a rua, mas não o número exato. <b>Arraste o pino 🏠 até a casa do cliente</b> (ou toque no
+                  Achamos a rua, mas não o número exato. <b>Arraste o pino <Icon name="pin" size={12} /> até a casa do cliente</b> (ou toque no
                   lugar certo do mapa) para a distância e o valor ficarem certos.
                 </div>
               )}
@@ -206,7 +207,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
                 }}
               />
               <div className="muted" style={{ fontSize: 12 }}>
-                {pinMoved ? '✓ Ponto ajustado por você.' : 'Confira se o pino 🏠 está na casa do cliente. 🏪 é o seu restaurante.'}
+                {pinMoved ? '✓ Ponto ajustado por você.' : <>Confira se o pino <Icon name="pin" size={12} /> está na casa do cliente. <Icon name="store" size={12} /> é o seu restaurante.</>}
               </div>
             </div>
           )}

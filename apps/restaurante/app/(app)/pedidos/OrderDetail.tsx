@@ -13,6 +13,7 @@ import {
 } from '@leeva/shared';
 import { apiGet, apiPost } from '../_lib/client';
 import { OrderChat } from './OrderChat';
+import { Icon } from '../../_icons/Icon';
 
 type OrderRow = {
   id: string;
@@ -141,7 +142,7 @@ export default function OrderDetail({
                   target="_blank"
                   rel="noreferrer"
                 >
-                  💬 WhatsApp do entregador
+                  <Icon name="whatsapp" size={14} /> WhatsApp do entregador
                 </a>
               )}
               <OrderChat orderId={order.id} startOpen={autoOpenChat} />

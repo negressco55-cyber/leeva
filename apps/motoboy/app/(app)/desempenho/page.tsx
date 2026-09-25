@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react';
 import { requireMotoboyContext, adminDb } from '@/lib/context';
 import { getDriverPerformance } from '@leeva/shared/services';
+import { Star } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: ReactNode; value: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
       <span className="muted">{label}</span>
@@ -34,7 +36,7 @@ export default async function Desempenho() {
         <div className="muted">Índice de confiabilidade</div>
       </div>
 
-      <Row label="⭐ Avaliação" value={p.rating.toFixed(1)} />
+      <Row label={<><Star size={13} style={{ marginRight: 4 }} />Avaliação</>} value={p.rating.toFixed(1)} />
       <Row label="Aceitação de ofertas adequadas" value={`${Math.round(p.acceptanceRate)}%`} />
       <Row label="Finalização" value={`${Math.round(p.completionRate)}%`} />
       <Row label="Pontualidade" value={`${Math.round(p.punctualityRate)}%`} />

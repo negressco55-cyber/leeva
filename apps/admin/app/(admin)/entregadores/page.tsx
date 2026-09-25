@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { adminDb } from '@/lib/context';
 import { listDrivers } from '@leeva/shared/services';
 import { num, pctText } from '../_lib/ui';
+import { Icon } from '../../_icons/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,7 @@ export default async function Entregadores({ searchParams }: { searchParams: Pro
                 </td>
                 <td>
                   {waLink(m.phone) ? (
-                    <a href={waLink(m.phone)!} target="_blank" rel="noreferrer">💬 {m.phone}</a>
+                    <a href={waLink(m.phone)!} target="_blank" rel="noreferrer"><Icon name="whatsapp" size={12} /> {m.phone}</a>
                   ) : '—'}
                 </td>
                 <td>{m.fleet === 'leeva' ? 'Rede' : 'Própria'}</td>

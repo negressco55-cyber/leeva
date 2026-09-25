@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertTriangle } from 'lucide-react';
 
 const TYPES: { v: string; label: string }[] = [
   { v: 'cpf', label: 'CPF' },
@@ -76,7 +77,7 @@ export function PixForm({ initial }: { initial: { masked: string | null; type: s
       {msg && <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>{msg}</p>}
       {!initial.masked && (
         <p style={{ fontSize: 13, color: 'var(--warn)', marginTop: 8 }}>
-          ⚠️ Cadastre sua chave Pix para receber os repasses das entregas.
+          <AlertTriangle size={13} /> Cadastre sua chave Pix para receber os repasses das entregas.
         </p>
       )}
     </div>

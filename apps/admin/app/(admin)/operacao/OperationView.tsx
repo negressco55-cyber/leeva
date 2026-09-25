@@ -88,10 +88,10 @@ export function OperationView({
             attribution={data.mapConfig.attribution}
           />
           <div style={{ display: 'flex', gap: 14, fontSize: 12, marginTop: 8 }} className="muted">
-            <span>🔵 restaurante</span>
-            <span>🟢 entregador</span>
-            <span>🟠 entrega</span>
-            <span>🔴 sem entregador</span>
+            <span><span className="dot blue" /> restaurante</span>
+            <span><span className="dot green" /> entregador</span>
+            <span><span className="dot amber" /> entrega</span>
+            <span><span className="dot red" /> sem entregador</span>
           </div>
         </div>
 

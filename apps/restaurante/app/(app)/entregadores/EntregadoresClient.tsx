@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { apiPost } from '../_lib/client';
+import { Icon } from '../../_icons/Icon';
 
 type KnownDriver = {
   motoboyId: string;
@@ -43,7 +44,7 @@ export function EntregadoresClient({ initialDrivers }: { initialDrivers: KnownDr
   return (
     <div className="card" style={{ overflowX: 'auto' }}>
       <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-        ⭐ Favorito ganha prioridade no despacho automático. 🚫 Bloqueado nunca mais recebe oferta dos seus pedidos.
+        <Icon name="star" /> Favorito ganha prioridade no despacho automático. <Icon name="ban" /> Bloqueado nunca mais recebe oferta dos seus pedidos.
       </p>
       {err && <div className="op-alert critical">{err}</div>}
       <table className="tbl">
@@ -61,8 +62,8 @@ export function EntregadoresClient({ initialDrivers }: { initialDrivers: KnownDr
             <tr key={d.motoboyId}>
               <td>
                 {d.name}
-                {d.pref === 'favorite' && <span className="tag" style={{ marginLeft: 6 }}>⭐ favorito</span>}
-                {d.pref === 'blocked' && <span className="tag red" style={{ marginLeft: 6 }}>🚫 bloqueado</span>}
+                {d.pref === 'favorite' && <span className="tag" style={{ marginLeft: 6 }}><Icon name="star" size={11} /> favorito</span>}
+                {d.pref === 'blocked' && <span className="tag red" style={{ marginLeft: 6 }}><Icon name="ban" size={11} /> bloqueado</span>}
               </td>
               <td style={{ textAlign: 'right' }}>{d.deliveriesForRestaurant}</td>
               <td>{d.lastDeliveryAt ? new Date(d.lastDeliveryAt).toLocaleDateString('pt-BR') : '—'}</td>
@@ -70,12 +71,12 @@ export function EntregadoresClient({ initialDrivers }: { initialDrivers: KnownDr
               <td style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                 {d.pref !== 'favorite' && (
                   <button className="btn sm" disabled={busyId === d.motoboyId} onClick={() => setPref(d.motoboyId, 'favorite')}>
-                    ⭐ Favoritar
+                    <Icon name="star" size={14} /> Favoritar
                   </button>
                 )}
                 {d.pref !== 'blocked' && (
                   <button className="btn sm" disabled={busyId === d.motoboyId} onClick={() => setPref(d.motoboyId, 'blocked')}>
-                    🚫 Bloquear
+                    <Icon name="ban" size={14} /> Bloquear
                   </button>
                 )}
                 {d.pref != null && (

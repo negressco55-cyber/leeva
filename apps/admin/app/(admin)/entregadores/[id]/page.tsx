@@ -5,6 +5,7 @@ import { getDriverPerformance, getReputationConfig, getMotoboyPixInfo, getPayout
 import { money } from '../../_lib/ui';
 import { pctText } from '../../_lib/ui';
 import { BlockButton } from './BlockButton';
+import { Icon } from '../../../_icons/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,7 +72,7 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
       <div className="card">
         <div className="card-title">Desempenho</div>
         <div className="stat-row">
-          <div className="stat"><div className="v">⭐ {perf.rating.toFixed(1)}</div><div className="l">Avaliação</div></div>
+          <div className="stat"><div className="v" style={{ display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'center' }}><Icon name="star" size={16} /> {perf.rating.toFixed(1)}</div><div className="l">Avaliação</div></div>
           <div className="stat"><div className="v">{pctText(Math.round(perf.acceptanceRate))}</div><div className="l">Aceitação de ofertas adequadas</div></div>
           <div className="stat"><div className="v">{pctText(Math.round(perf.completionRate))}</div><div className="l">Finalização</div></div>
           <div className="stat"><div className="v">{pctText(Math.round(perf.punctualityRate))}</div><div className="l">Pontualidade</div></div>

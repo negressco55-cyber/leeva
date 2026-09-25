@@ -6,6 +6,7 @@ import { FLEET_MODE_LABELS, formatCurrencyBRL, type FleetMode } from '@leeva/sha
 import { defaultBusinessHours, type BusinessHours } from '@leeva/shared/services/business-hours';
 import { apiGet, apiPost } from '../(app)/_lib/client';
 import { BusinessHoursEditor } from '../(app)/_lib/BusinessHoursEditor';
+import { Icon } from '../_icons/Icon';
 
 type Plan = {
   code: string;
@@ -121,7 +122,7 @@ export default function OnboardingFlow({
             }}
           />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn sm" onClick={geocode} disabled={address.trim().length < 5}>📍 Localizar</button>
+            <button className="btn sm" onClick={geocode} disabled={address.trim().length < 5}><Icon name="pin" size={13} /> Localizar</button>
             {geoMsg && (
               <span style={{ fontSize: 12, color: located ? 'var(--ok)' : 'var(--muted)' }}>{geoMsg}</span>
             )}

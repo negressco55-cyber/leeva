@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { PersonalDataCard } from './PersonalDataCard';
+import { FileText } from 'lucide-react';
 
 type DocType = 'personal' | 'personal_back' | 'vehicle' | 'avatar';
 
@@ -126,7 +127,7 @@ function DocCard({
         <div style={{ marginBottom: 10, textAlign: type === 'avatar' ? 'center' : undefined }}>
           {isPdf ? (
             <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 60, borderRadius: 10, background: 'var(--surface-2)', padding: '0 14px', color: 'var(--text)', textDecoration: 'none', fontSize: 13 }}>
-              📄 PDF enviado — ver arquivo
+              <FileText size={14} /> PDF enviado — ver arquivo
             </a>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element

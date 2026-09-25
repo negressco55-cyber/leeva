@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 
 type Message = { id: string; senderType: 'restaurant' | 'motoboy'; senderId: string; body: string; createdAt: string };
 
@@ -55,7 +56,7 @@ export function DeliveryChat({ orderId }: { orderId: string }) {
   if (!open) {
     return (
       <button type="button" className="button secondary" onClick={() => setOpen(true)}>
-        💬 Chat com o restaurante
+        <MessageCircle size={14} /> Chat com o restaurante
       </button>
     );
   }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet } from '../_lib/client';
+import { Icon } from '../../_icons/Icon';
 
 type Conversation = {
   orderId: string;
@@ -98,7 +99,7 @@ export function ChatInbox({ onOpenOrder }: { onOpenOrder: (orderId: string) => v
   const [perm, setPerm] = useState<string>(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
   const askPerm = perm === 'default' && (
     <button type="button" className="btn sm" style={{ marginBottom: 10 }} onClick={() => void Notification.requestPermission().then(setPerm)}>
-      🔔 Ativar avisos do navegador pra novas mensagens
+      <Icon name="bell" size={14} /> Ativar avisos do navegador pra novas mensagens
     </button>
   );
 
@@ -109,7 +110,7 @@ export function ChatInbox({ onOpenOrder }: { onOpenOrder: (orderId: string) => v
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       {askPerm}
-      <div className="card-title">💬 Chats abertos</div>
+      <div className="card-title"><Icon name="message" size={13} /> Chats abertos</div>
       <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
         {conversations.map((c) => {
           const isNew = c.lastMessage.senderType === 'motoboy' && seen[c.orderId] !== c.lastMessage.id;
@@ -131,11 +132,11 @@ export function ChatInbox({ onOpenOrder }: { onOpenOrder: (orderId: string) => v
               }}
             >
               <span>
-                {isNew && '🔴 '}
+                {isNew && <span className="dot red" style={{ marginRight: 6 }} />}
                 #{c.orderNumber} — {c.customerName}
               </span>
               <span className="muted" style={{ fontSize: 12, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {c.lastMessage.senderType === 'motoboy' ? '🛵 ' : '🏪 '}
+                <Icon name={c.lastMessage.senderType === 'motoboy' ? 'car' : 'store'} size={12} style={{ marginRight: 4 }} />
                 {c.lastMessage.body}
               </span>
             </button>

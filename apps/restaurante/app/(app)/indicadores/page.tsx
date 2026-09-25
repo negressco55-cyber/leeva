@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireRestaurantContext, adminDb } from '@/lib/context';
 import { getIndicators, type Period } from '@leeva/shared/services';
 import { formatCurrencyBRL, ORDER_SOURCE_LABELS, type OrderSource } from '@leeva/shared';
+import { Icon } from '../../_icons/Icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export default async function IndicadoresPage({
       <p className="muted" style={{ fontSize: 13, marginTop: -8 }}>
         {overview.period}. Todos os números vêm do banco. Distância é estimada (linha reta ×
         fator de rua) enquanto não houver provedor de mapas configurado.
-        {truncated && ' ⚠️ Volume alto no período — números calculados sobre a amostra mais recente.'}
+        {truncated && <><Icon name="alert" size={12} /> Volume alto no período — números calculados sobre a amostra mais recente.</>}
       </p>
 
       <section className="cards">

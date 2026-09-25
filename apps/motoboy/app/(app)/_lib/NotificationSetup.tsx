@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Bell } from 'lucide-react';
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -97,7 +98,7 @@ export default function NotificationSetup({ askNow = false }: { askNow?: boolean
     if (state === 'granted') {
       return (
         <p className="muted" style={{ fontSize: 13 }}>
-          🔔 Notificações ativas.{' '}
+          <Bell size={13} /> Notificações ativas.{' '}
           <button
             onClick={sendTest}
             style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}

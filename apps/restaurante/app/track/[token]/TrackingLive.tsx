@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PublicTrackingSnapshot } from '@leeva/shared/services';
+import { Icon } from '../../_icons/Icon';
 
 /**
  * Página pública de rastreamento. Faz polling leve (15s) do snapshot para
@@ -49,10 +50,10 @@ export default function TrackingLive({
     <div className="track-wrap">
       <div className="track-card">
         <p className="muted">{snap.restaurantName}</p>
-        <h1>{snap.delivered ? 'Seu pedido foi entregue 🎉' : 'Seu pedido está a caminho'}</h1>
+        <h1 style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{snap.delivered ? <><Icon name="party" size={20} /> Seu pedido foi entregue</> : 'Seu pedido está a caminho'}</h1>
         <p className="muted">Pedido #{snap.orderNumber ?? '—'}</p>
 
-        {snap.etaText && <div className="track-eta">⏱️ {snap.etaText}</div>}
+        {snap.etaText && <div className="track-eta" style={{ display: 'flex', gap: 6, alignItems: 'center' }}><Icon name="clock" size={13} /> {snap.etaText}</div>}
 
         <ul className="track-steps">
           {snap.steps.map((s) => (

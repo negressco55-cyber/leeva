@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiPost } from '../_lib/client';
+import { Icon } from '../../_icons/Icon';
 
 export function ApproveButtons({ motoboyId, name }: { motoboyId: string; name: string }) {
   const router = useRouter();
@@ -29,10 +30,10 @@ export function ApproveButtons({ motoboyId, name }: { motoboyId: string; name: s
   return (
     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
       <button className="btn" disabled={pending} onClick={() => act('approve')}>
-        ✅ Aprovar
+        <Icon name="check" size={14} /> Aprovar
       </button>
       <button className="btn" disabled={pending} onClick={() => act('reject')}>
-        ❌ Rejeitar
+        <Icon name="x" size={14} /> Rejeitar
       </button>
       {err && <span className="muted" style={{ fontSize: 12 }}>{err}</span>}
     </div>

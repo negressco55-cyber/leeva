@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, MapPin } from 'lucide-react';
 
 /**
  * Envia a localização do motoboy enquanto ele estiver online.
@@ -53,8 +54,8 @@ export default function LocationSender({ active }: { active: boolean }) {
   return (
     <p className="muted" style={{ fontSize: 12, textAlign: 'center', marginTop: 8 }}>
       {state === 'denied'
-        ? '⚠️ Permissão de localização negada — o cliente não verá você no mapa.'
-        : '📍 Compartilhando localização durante as entregas.'}
+        ? <><AlertTriangle size={13} /> Permissão de localização negada — o cliente não verá você no mapa.</>
+        : <><MapPin size={13} /> Compartilhando localização durante as entregas.</>}
     </p>
   );
 }

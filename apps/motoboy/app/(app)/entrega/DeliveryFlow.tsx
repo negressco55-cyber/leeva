@@ -13,6 +13,7 @@ import {
 } from '@leeva/shared';
 import { computePrepStatus } from '@leeva/shared/services/prep-status';
 import { DeliveryChat } from './DeliveryChat';
+import { Wallet, Map as MapIcon, Phone, MessageCircle } from 'lucide-react';
 
 type Delivery = {
   id: string;
@@ -234,7 +235,7 @@ export default function DeliveryFlow({
         {paymentPendingOnDelivery(current.payment_method, current.payment_status) &&
           Number(current.order_amount) > 0 && (
             <p style={{ margin: '4px 0', color: 'var(--warn)' }}>
-              💰 Receber do cliente na entrega:{' '}
+              <Wallet size={14} style={{ marginRight: 4 }} />Receber do cliente na entrega:{' '}
               <strong>{formatCurrencyBRL(Number(current.order_amount))}</strong>
             </p>
           )}
@@ -242,11 +243,11 @@ export default function DeliveryFlow({
 
         <div className="grid" style={{ gap: 10, marginTop: 12 }}>
           <a className="button secondary" href={mapUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center' }}>
-            🗺️ Abrir rota no mapa
+            <MapIcon size={14} /> Abrir rota no mapa
           </a>
           {current.customer_phone && (
             <a className="button secondary" href={`tel:${current.customer_phone}`} style={{ textAlign: 'center' }}>
-              📞 Ligar para o cliente
+              <Phone size={14} /> Ligar para o cliente
             </a>
           )}
           {restaurantPhone && (
@@ -257,7 +258,7 @@ export default function DeliveryFlow({
               rel="noreferrer"
               style={{ textAlign: 'center' }}
             >
-              💬 WhatsApp do restaurante
+              <MessageCircle size={14} /> WhatsApp do restaurante
             </a>
           )}
           <DeliveryChat orderId={current.id} />
