@@ -65,3 +65,23 @@ test('taxa do cliente: fixa até X km, + por km a mais, grátis acima do pedido 
   assert.equal(computeCustomerDeliveryFee(cfg, 5, 100), 0);
   assert.equal(computeCustomerDeliveryFee({ ...cfg, customer_fee_per_extra_km: 0 }, 10, 40), 6); // fixa
 });
+
+test('taxa por bairro: vence a regra por km, ignora acento/caixa e acha no endereço', () => {
+  const cfg = {
+    customer_fee: 6,
+    customer_fee_included_km: 3,
+    customer_fee_per_extra_km: 1.5,
+    free_delivery_min_order: 80,
+    customer_fee_by_region: [
+      { region: 'Jardim Oceania', fee: 15 },
+      { region: 'Bessa', fee: 12 },
+      { region: 'Cidade Universitária', fee: 10 },
+      { region: 'Jardim Cidade Universitária', fee: 11 },
+    ],
+  };
+  assert.equal(computeCustomerDeliveryFee(cfg, 8, 40, { region: 'JD. OCEÂNIA' }), 15);
+  assert.equal(computeCustomerDeliveryFee(cfg, 8, 40, { region: null, address: 'Rua X, 10, Bessa, João Pessoa - PB' }), 12);
+  assert.equal(computeCustomerDeliveryFee(cfg, 8, 40, { address: 'Av. Y, 5 - Jardim Cidade Universitária' }), 11);
+  assert.equal(computeCustomerDeliveryFee(cfg, 5, 40, { region: 'Manaíra' }), 9); // não cadastrado → km
+  assert.equal(computeCustomerDeliveryFee(cfg, 5, 100, { region: 'Bessa' }), 0); // frete grátis vence
+});

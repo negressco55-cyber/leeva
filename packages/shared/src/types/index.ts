@@ -103,6 +103,8 @@ export type LogisticsConfig = {
   customer_fee_included_km?: number;
   /** …e + este valor por km a mais (0 = taxa fixa). */
   customer_fee_per_extra_km?: number;
+  /** Taxa por bairro (vence a regra por km quando o bairro do pedido bate). */
+  customer_fee_by_region?: { region: string; fee: number }[];
   /** Tempo prometido ao cliente (min, contado da criação do pedido). A rota
    *  do motoboy prioriza quem está mais perto de estourar esse prazo. */
   delivery_promise_minutes?: number;

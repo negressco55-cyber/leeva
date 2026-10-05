@@ -137,20 +137,63 @@ export async function isOwnFleetMonthly(db: DB, restaurantId: string): Promise<b
   return data?.fleet_mode === 'own';
 }
 
+/** "Jardim Oceania" == "jardim oceânia" == "JD. OCEANIA" — sem acento, caixa e abreviação. */
+export function normalizeBairro(s: string | null | undefined): string {
+  return (s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\bjd\.?(?=\s)/g, 'jardim')
+    .replace(/\bpq\.?(?=\s)/g, 'parque')
+    .replace(/\bres\.?(?=\s)/g, 'residencial')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Taxa do bairro, se o estabelecimento cadastrou uma pra ele. Compara com o
+ * bairro do pedido e, se não bater, procura o nome do bairro dentro do
+ * endereço (o bairro nem sempre vem separado). Nome mais longo ganha
+ * ("Jardim Cidade Universitária" antes de "Cidade Universitária").
+ */
+export function findBairroFee(
+  table: { region: string; fee: number }[] | null | undefined,
+  region: string | null | undefined,
+  address?: string | null,
+): number | null {
+  if (!table?.length) return null;
+  const r = normalizeBairro(region);
+  const addr = ` ${normalizeBairro(address)} `;
+  const sorted = [...table].sort((a, b) => b.region.length - a.region.length);
+  for (const e of sorted) {
+    const n = normalizeBairro(e.region);
+    if (n && n === r) return Math.max(0, e.fee);
+  }
+  for (const e of sorted) {
+    const n = normalizeBairro(e.region);
+    if (n && addr.includes(` ${n} `)) return Math.max(0, e.fee);
+  }
+  return null;
+}
+
 /**
  * Taxa de entrega cobrada do CLIENTE final, definida pelo estabelecimento:
- *   até `customer_fee_included_km` km → `customer_fee`
- *   cada km a mais                    → + `customer_fee_per_extra_km`
  *   pedido ≥ `free_delivery_min_order` → grátis
+ *   bairro cadastrado em `customer_fee_by_region` → taxa do bairro
+ *   senão: até `customer_fee_included_km` km → `customer_fee`
+ *          cada km a mais                    → + `customer_fee_per_extra_km`
  * É dinheiro do estabelecimento; o Leeva só calcula e mostra.
  */
 export function computeCustomerDeliveryFee(
   cfg: Pick<LogisticsConfig, 'customer_fee' | 'free_delivery_min_order'> &
-    Partial<Pick<LogisticsConfig, 'customer_fee_included_km' | 'customer_fee_per_extra_km'>>,
+    Partial<Pick<LogisticsConfig, 'customer_fee_included_km' | 'customer_fee_per_extra_km' | 'customer_fee_by_region'>>,
   distanceKm: number | null,
   orderAmount?: number | null,
+  where?: { region?: string | null; address?: string | null },
 ): number {
   if (cfg.free_delivery_min_order != null && orderAmount != null && orderAmount >= cfg.free_delivery_min_order) return 0;
+  const byBairro = findBairroFee(cfg.customer_fee_by_region, where?.region, where?.address);
+  if (byBairro != null) return round(byBairro);
   const base = Math.max(0, cfg.customer_fee ?? 0);
   const perExtra = Math.max(0, cfg.customer_fee_per_extra_km ?? 0);
   const included = Math.max(0, cfg.customer_fee_included_km ?? 0);
@@ -192,6 +235,7 @@ export async function computeDeliveryCharge(
   restaurantId: string,
   dropoff: { latitude: number; longitude: number } | null,
   orderAmount?: number | null,
+  where?: { region?: string | null; address?: string | null },
 ): Promise<DeliveryCharge> {
   const { data: rst } = await db
     .from('restaurants')
@@ -223,7 +267,7 @@ export async function computeDeliveryCharge(
   const total = ownFleet ? 0 : round(payout.total + margin);
   const { DEFAULT_LOGISTICS_CONFIG } = await import('./autodispatch');
   const cfg = { ...DEFAULT_LOGISTICS_CONFIG, ...((rst?.logistics_config as Partial<LogisticsConfig>) ?? {}) };
-  const customerDeliveryFee = computeCustomerDeliveryFee(cfg, distanceKm != null ? round(distanceKm) : null, orderAmount);
+  const customerDeliveryFee = computeCustomerDeliveryFee(cfg, distanceKm != null ? round(distanceKm) : null, orderAmount, where);
 
   return {
     distanceKm: distanceKm != null ? round(distanceKm) : null,
@@ -261,7 +305,7 @@ export async function finalizeDeliveryCharge(
 ): Promise<DeliveryCharge | null> {
   const { data: order } = await db
     .from('orders')
-    .select('id, latitude, longitude, driver_payout, delivery_fee, order_amount')
+    .select('id, latitude, longitude, driver_payout, delivery_fee, order_amount, region, customer_address')
     .eq('id', orderId)
     .maybeSingle();
   if (!order || order.driver_payout != null) return null;
@@ -273,6 +317,7 @@ export async function finalizeDeliveryCharge(
       ? { latitude: Number(order.latitude), longitude: Number(order.longitude) }
       : null,
     Number(order.order_amount ?? 0),
+    { region: order.region, address: order.customer_address },
   );
 
   await db

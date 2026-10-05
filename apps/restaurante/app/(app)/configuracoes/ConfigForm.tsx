@@ -42,6 +42,8 @@ export default function ConfigForm({
   const [L, setL] = useState<LogisticsConfig>(initial.logistics);
   const [P, setP] = useState<OwnPayout>(initial.payout);
   const nP = (k: keyof OwnPayout, v: number) => setP((s) => ({ ...s, [k]: v }));
+  const bairros = L.customer_fee_by_region ?? [];
+  const setBairros = (list: { region: string; fee: number }[]) => setL((s) => ({ ...s, customer_fee_by_region: list }));
   const [hours, setHours] = useState<BusinessHours>(initial.businessHours ?? defaultBusinessHours());
   const [lat, setLat] = useState(initial.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
@@ -208,6 +210,45 @@ export default function ConfigForm({
                 />
               </label>
             </div>
+            <div style={{ fontWeight: 600, fontSize: 13, margin: '14px 0 4px' }}>Taxa por bairro</div>
+            <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+              Bairro cadastrado aqui usa essa taxa no lugar da regra por km. Bairro que não estiver na lista cai na regra de cima.
+            </p>
+            <div style={{ display: 'grid', gap: 6 }}>
+              {bairros.map((b, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    className="input"
+                    style={{ flex: 1 }}
+                    placeholder="Bairro (ex: Manaíra)"
+                    value={b.region}
+                    onChange={(e) => setBairros(bairros.map((x, j) => (j === i ? { ...x, region: e.target.value } : x)))}
+                    disabled={!isOwner}
+                  />
+                  <input
+                    className="input"
+                    style={{ width: 110 }}
+                    type="number"
+                    step="0.5"
+                    placeholder="R$"
+                    value={b.fee}
+                    onChange={(e) => setBairros(bairros.map((x, j) => (j === i ? { ...x, fee: Number(e.target.value) } : x)))}
+                    disabled={!isOwner}
+                  />
+                  {isOwner && (
+                    <button className="btn sm" type="button" onClick={() => setBairros(bairros.filter((_, j) => j !== i))}>
+                      Tirar
+                    </button>
+                  )}
+                </div>
+              ))}
+              {isOwner && (
+                <button className="btn sm" type="button" style={{ justifySelf: 'start' }} onClick={() => setBairros([...bairros, { region: '', fee: L.customer_fee ?? 0 }])}>
+                  + Adicionar bairro
+                </button>
+              )}
+            </div>
+
             <div style={{ fontWeight: 600, fontSize: 13, margin: '14px 0 4px' }}>Quanto você paga ao motoboy</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <label>Mínimo por entrega (R$){num(P.min_payout, (v) => nP('min_payout', v))}</label>

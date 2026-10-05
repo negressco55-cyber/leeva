@@ -94,6 +94,19 @@ export async function POST(req: Request) {
       logistics.customer_fee = num(L.customer_fee, 0, 200, existing.customer_fee);
       logistics.customer_fee_included_km = num(L.customer_fee_included_km, 0, 50, existing.customer_fee_included_km ?? 3);
       logistics.customer_fee_per_extra_km = num(L.customer_fee_per_extra_km, 0, 50, existing.customer_fee_per_extra_km ?? 0);
+      if (Array.isArray(L.customer_fee_by_region)) {
+        const seen = new Set<string>();
+        logistics.customer_fee_by_region = (L.customer_fee_by_region as unknown[])
+          .map((e) => e as { region?: unknown; fee?: unknown })
+          .map((e) => ({ region: String(e.region ?? '').trim().slice(0, 60), fee: num(e.fee, 0, 500, 0) }))
+          .filter((e) => {
+            const k = e.region.toLowerCase();
+            if (!e.region || seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          })
+          .slice(0, 300);
+      }
       logistics.delivery_promise_minutes = num(L.delivery_promise_minutes, 10, 240, existing.delivery_promise_minutes ?? 50);
       logistics.free_delivery_min_order =
         L.free_delivery_min_order === null
