@@ -135,3 +135,84 @@ export async function getLogisticsFinance(db: DB, restaurantId: string, period: 
     truncated,
   };
 }
+
+// ===========================================================================
+// Frota própria — acerto com cada motoboy
+// ===========================================================================
+
+export type DriverSettlement = {
+  motoboyId: string;
+  name: string;
+  deliveries: number;
+  km: number;
+  /** quanto o estabelecimento deve pagar a ele (Σ driver_payout) */
+  toPay: number;
+  /** dinheiro vivo que ele recebeu dos clientes e precisa devolver */
+  cashCollected: number;
+  /** toPay − cashCollected: positivo = a loja paga; negativo = ele devolve */
+  balance: number;
+  /** taxas de entrega cobradas dos clientes nessas entregas */
+  customerFees: number;
+};
+
+/**
+ * Acerto da frota própria no período: por motoboy, quantas entregas, km,
+ * quanto a loja deve pagar e quanto ele recebeu em dinheiro dos clientes.
+ * Só motoboys da frota própria (os da rede Leeva recebem pela carteira).
+ */
+export async function getOwnFleetSettlement(
+  db: DB,
+  restaurantId: string,
+  period: Period,
+): Promise<{ period: string; drivers: DriverSettlement[]; totals: Omit<DriverSettlement, 'motoboyId' | 'name'> }> {
+  const { from, to, label } = periodRange(period);
+  const { data: orders } = await db
+    .from('orders')
+    .select('motoboy_id, driver_payout, route_distance_km, delivery_fee, order_amount, payment_method, payment_status, motoboys!inner(full_name, fleet)')
+    .eq('restaurant_id', restaurantId)
+    .eq('status', 'delivered')
+    .eq('motoboys.fleet', 'own')
+    .gte('delivered_at', from)
+    .lt('delivered_at', to)
+    .limit(MAX_ROWS);
+
+  const by = new Map<string, DriverSettlement>();
+  for (const o of orders ?? []) {
+    if (!o.motoboy_id) continue;
+    const m = o.motoboys as unknown as { full_name: string } | null;
+    const d =
+      by.get(o.motoboy_id) ??
+      { motoboyId: o.motoboy_id, name: m?.full_name ?? 'Entregador', deliveries: 0, km: 0, toPay: 0, cashCollected: 0, balance: 0, customerFees: 0 };
+    d.deliveries += 1;
+    d.km += Number(o.route_distance_km ?? 0);
+    d.toPay += Number(o.driver_payout ?? 0);
+    d.customerFees += Number(o.delivery_fee ?? 0);
+    // só dinheiro vivo fica com o motoboy (cartão na entrega cai na maquininha da loja)
+    if (o.payment_method === 'cash' && o.payment_status !== 'paid') d.cashCollected += Number(o.order_amount ?? 0);
+    by.set(o.motoboy_id, d);
+  }
+  const drivers = [...by.values()]
+    .map((d) => ({
+      ...d,
+      km: round(d.km, 1),
+      toPay: round(d.toPay),
+      cashCollected: round(d.cashCollected),
+      customerFees: round(d.customerFees),
+      balance: round(d.toPay - d.cashCollected),
+    }))
+    .sort((a, b) => b.deliveries - a.deliveries);
+  const sum = (k: 'deliveries' | 'km' | 'toPay' | 'cashCollected' | 'balance' | 'customerFees') =>
+    round(drivers.reduce((s, d) => s + d[k], 0));
+  return {
+    period: label,
+    drivers,
+    totals: {
+      deliveries: sum('deliveries'),
+      km: sum('km'),
+      toPay: sum('toPay'),
+      cashCollected: sum('cashCollected'),
+      balance: sum('balance'),
+      customerFees: sum('customerFees'),
+    },
+  };
+}

@@ -114,6 +114,18 @@ export interface Delivery {
   readyAt: string | null;
   preparingAt: string | null;
   prepEstimateMinutes: number | null;
+  /** chegada estimada nessa parada pela ordem atual da rota (epoch ms) */
+  routeEta?: number | null;
+  routeDeadline?: number | null;
+  /** nessa ordem, passa do tempo prometido ao cliente */
+  routeLate?: boolean;
+}
+
+/** Resumo da rota do motoboy (todas as entregas ativas, na ordem). */
+export interface RouteSummary {
+  navigationUrl: string | null;
+  totalKm: number;
+  lateMinutes: number;
 }
 
 export interface HistoricoItem {

@@ -1,5 +1,5 @@
 import { requireRestaurantContext, adminDb } from '@/lib/context';
-import { DEFAULT_LOGISTICS_CONFIG, getUsageSummary } from '@leeva/shared/services';
+import { DEFAULT_LOGISTICS_CONFIG, getUsageSummary, getPayoutPolicy } from '@leeva/shared/services';
 import type { BusinessHours } from '@leeva/shared/services/business-hours';
 import ConfigForm from './ConfigForm';
 
@@ -9,7 +9,7 @@ export default async function ConfiguracoesPage() {
   const ctx = await requireRestaurantContext();
   const db = adminDb();
 
-  const [{ data: rst }, usage, { data: plans }] = await Promise.all([
+  const [{ data: rst }, usage, { data: plans }, payout] = await Promise.all([
     db
       .from('restaurants')
       .select('name, address, phone, latitude, longitude, fleet_mode, logistics_config, business_hours')
@@ -21,6 +21,7 @@ export default async function ConfiguracoesPage() {
       .select('code, name, monthly_price, per_delivery_margin, features')
       .eq('active', true)
       .order('sort_order'),
+    getPayoutPolicy(db, ctx.restaurantId),
   ]);
 
   return (
@@ -35,6 +36,12 @@ export default async function ConfiguracoesPage() {
         fleetMode: rst?.fleet_mode ?? 'leeva',
         logistics: { ...DEFAULT_LOGISTICS_CONFIG, ...((rst?.logistics_config as object) ?? {}) },
         businessHours: (rst?.business_hours as BusinessHours | null) ?? null,
+        payout: {
+          per_km: payout.per_km,
+          min_payout: payout.min_payout,
+          group_max_stops: payout.group_max_stops ?? 3,
+          group_radius_km: payout.group_radius_km ?? 1.5,
+        },
       }}
       currentPlan={usage.plan.code}
       plans={plans ?? []}

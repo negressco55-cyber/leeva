@@ -18,7 +18,7 @@ import type { Database } from '../types/database';
 import type { LogisticsConfig } from '../types';
 import { haversineKm, minutesForKm, legEtaMin, isValidLatLng, type LatLng } from './geo';
 import { getRoutingService } from './routing';
-import { getPayoutPolicy, computeDriverPayout, computeGroupedStopPayout, computeLogisticsFinance, getPlanMargin } from './payout';
+import { getPayoutPolicy, computeDriverPayout, computeGroupedStopPayout, computeLogisticsFinance, getPlanMargin, isOwnFleetMonthly } from './payout';
 import { adjustCredit } from './credits';
 import { isRestaurantOpen, type BusinessHours } from './business-hours';
 import { classifyOfferQuality } from './reputation';
@@ -57,6 +57,9 @@ export const DEFAULT_LOGISTICS_CONFIG: LogisticsConfig = {
   max_dispatch_attempts: 4,
   default_prep_minutes: 15,
   dispatch_lead_minutes: 5,
+  customer_fee_included_km: 3,
+  customer_fee_per_extra_km: 0,
+  delivery_promise_minutes: 50,
 };
 
 export type ScoredCandidate = {
@@ -896,6 +899,11 @@ async function applyRideAlongDiscount(db: DB, orderId: string, restaurantId: str
   const currentPayout = order?.driver_payout != null ? Number(order.driver_payout) : null;
   if (currentPayout == null || acceptedPayout >= currentPayout - 0.01) return; // não é desconto — nada a ajustar
 
+  // frota própria: o Leeva não cobra por entrega — só corrige o valor do motoboy
+  if (await isOwnFleetMonthly(db, restaurantId)) {
+    await db.from('orders').update({ driver_payout: acceptedPayout }).eq('id', orderId);
+    return;
+  }
   const margin = round(await getPlanMargin(db, restaurantId));
   const newTotal = round(acceptedPayout + margin);
   const prevTotal = order?.customer_fee != null ? Number(order.customer_fee) : null;
@@ -977,10 +985,11 @@ export async function finalizeLogisticsForOrder(db: DB, orderId: string, restaur
 
   const { data: rst } = await db
     .from('restaurants')
-    .select('latitude, longitude, logistics_config')
+    .select('latitude, longitude, logistics_config, fleet_mode')
     .eq('id', restaurantId)
     .maybeSingle();
   const cfg = { ...DEFAULT_LOGISTICS_CONFIG, ...((rst?.logistics_config as Partial<LogisticsConfig>) ?? {}) };
+  const ownFleet = rst?.fleet_mode === 'own';
 
   const pickup: LatLng | null = isValidLatLng(rst?.latitude, rst?.longitude)
     ? { latitude: rst!.latitude as number, longitude: rst!.longitude as number }
@@ -1006,8 +1015,10 @@ export async function finalizeLogisticsForOrder(db: DB, orderId: string, restaur
   // A taxa da LOGÍSTICA cobrada do restaurante é a configurada em
   // logistics_config (não a delivery_fee da venda, que é dinheiro do
   // restaurante). Um valor explícito em order.customer_fee tem prioridade.
-  const customerFee =
-    order.customer_fee != null && Number(order.customer_fee) > 0
+  // Frota própria: o Leeva não cobra nada por entrega (só a mensalidade).
+  const customerFee = ownFleet
+    ? 0
+    : order.customer_fee != null && Number(order.customer_fee) > 0
       ? Number(order.customer_fee)
       : cfg.customer_fee;
 

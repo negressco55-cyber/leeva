@@ -124,7 +124,7 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   }
 
   async function submit() {
-    if (fromIfood && ifoodLocator.replace(/D/g, '').length !== 8) {
+    if (fromIfood && ifoodLocator.replace(/\D/g, '').length !== 8) {
       setErr('Informe o localizador do iFood (8 números).');
       return;
     }

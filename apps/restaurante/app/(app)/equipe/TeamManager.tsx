@@ -18,7 +18,25 @@ type Member = {
   lastSeen: string | null;
 };
 
-export default function TeamManager({ team }: { team: Member[] }) {
+const APK_URL = 'https://leeva-apk.vercel.app';
+const ACTIVATE_URL = 'https://leeva-motoboy.vercel.app/ativar';
+
+/** Convite pronto pro WhatsApp do entregador: baixar o app + ativar a conta com o telefone cadastrado. */
+function inviteLink(m: Member, restaurantName: string): string {
+  const digits = m.phone.replace(/\D/g, '');
+  const to = digits.length <= 11 ? `55${digits}` : digits;
+  const first = m.full_name.split(' ')[0];
+  const text = [
+    `Oi ${first}! Você foi cadastrado como entregador${restaurantName ? ` da ${restaurantName}` : ''} no Leeva. As entregas e a rota chegam pelo app.`,
+    '',
+    `1) Baixe o app: ${APK_URL}`,
+    `2) Ative sua conta aqui com o telefone ${digits} e crie um e-mail e senha: ${ACTIVATE_URL}`,
+    '3) Entre no app com esse e-mail e senha e toque em "Ficar disponível" quando estiver trabalhando.',
+  ].join('\n');
+  return `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
+}
+
+export default function TeamManager({ team, restaurantName }: { team: Member[]; restaurantName: string }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -61,7 +79,7 @@ export default function TeamManager({ team }: { team: Member[] }) {
           </button>
         </div>
         <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-          O entregador ativa a própria conta no app do Leeva usando o mesmo telefone.
+          Depois de adicionar, clique em &quot;Mandar convite&quot;: abre o WhatsApp dele com o link do app e da ativação prontos.
         </p>
         {err && <div className="op-alert critical">{err}</div>}
       </div>
@@ -81,7 +99,14 @@ export default function TeamManager({ team }: { team: Member[] }) {
                 <td>{m.deliveries_completed}</td>
                 <td>{m.deliveries_completed ? `${Math.round((m.deliveries_late / m.deliveries_completed) * 100)}%` : '—'}</td>
                 <td>{Number(m.rating).toFixed(1)}</td>
-                <td><button className="btn sm" onClick={() => toggle(m.id, m.active)}>{m.active ? 'Desativar' : 'Reativar'}</button></td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {!m.user_id && (
+                    <a className="btn sm primary" href={inviteLink(m, restaurantName)} target="_blank" rel="noreferrer" style={{ marginRight: 6 }}>
+                      Mandar convite
+                    </a>
+                  )}
+                  <button className="btn sm" onClick={() => toggle(m.id, m.active)}>{m.active ? 'Desativar' : 'Reativar'}</button>
+                </td>
               </tr>
             ))}
             {team.length === 0 && <tr><td colSpan={7} className="muted">Nenhum entregador cadastrado.</td></tr>}

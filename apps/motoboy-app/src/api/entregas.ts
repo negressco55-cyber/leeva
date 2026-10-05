@@ -1,5 +1,5 @@
 import { apiGet, apiSend } from './client';
-import type { Delivery, HistoricoResponse, Offer, OrderStatus } from '../types';
+import type { Delivery, HistoricoResponse, Offer, OrderStatus, RouteSummary } from '../types';
 
 export async function getOffers(): Promise<Offer[]> {
   const d = await apiGet<{ offers: Offer[] }>('/api/offers');
@@ -11,8 +11,20 @@ export function respondOffer(offerId: string, action: 'accept' | 'decline'): Pro
 }
 
 export async function getActiveDeliveries(): Promise<Delivery[]> {
-  const d = await apiGet<{ deliveries: Delivery[] }>('/api/entrega');
-  return d.deliveries ?? [];
+  return (await getActiveRoute()).deliveries;
+}
+
+/** Entregas ativas já na ordem da rota + resumo (km, atraso, link do Google Maps). */
+export async function getActiveRoute(): Promise<{ deliveries: Delivery[]; route: RouteSummary | null }> {
+  const d = await apiGet<{ deliveries: Delivery[]; route?: RouteSummary }>('/api/entrega');
+  return { deliveries: d.deliveries ?? [], route: d.route ?? null };
+}
+
+/** Ações na rota: reordenar, voltar pra ordem sugerida, "retirei todos". */
+export function routeAction(
+  body: { action: 'reorder'; orderIds: string[] } | { action: 'reset' } | { action: 'pickup_all' },
+): Promise<{ ok: boolean; count?: number }> {
+  return apiSend('/api/entrega/rota', 'POST', body);
 }
 
 export function advanceDelivery(

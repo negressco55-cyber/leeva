@@ -7,7 +7,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
-import type { PayoutConfig } from '../types';
+import type { PayoutConfig, LogisticsConfig } from '../types';
 import { haversineKm, minutesForKm, isValidLatLng, type LatLng } from './geo';
 import { getRoutingService } from './routing';
 
@@ -127,8 +127,40 @@ const money = (n: number) => `R$ ${n.toFixed(2)}`;
 // FASE 4 — cálculo automático da taxa de entrega (fonte única)
 // ===========================================================================
 
-/** Margem do Leeva por entrega, do plano do restaurante. */
+/**
+ * Frota própria (modelo mensal, estilo Foody): o estabelecimento usa os
+ * próprios motoboys e paga eles direto. O Leeva só cobra a mensalidade —
+ * nada por entrega, sem crédito, sem carteira do motoboy.
+ */
+export async function isOwnFleetMonthly(db: DB, restaurantId: string): Promise<boolean> {
+  const { data } = await db.from('restaurants').select('fleet_mode').eq('id', restaurantId).maybeSingle();
+  return data?.fleet_mode === 'own';
+}
+
+/**
+ * Taxa de entrega cobrada do CLIENTE final, definida pelo estabelecimento:
+ *   até `customer_fee_included_km` km → `customer_fee`
+ *   cada km a mais                    → + `customer_fee_per_extra_km`
+ *   pedido ≥ `free_delivery_min_order` → grátis
+ * É dinheiro do estabelecimento; o Leeva só calcula e mostra.
+ */
+export function computeCustomerDeliveryFee(
+  cfg: Pick<LogisticsConfig, 'customer_fee' | 'free_delivery_min_order'> &
+    Partial<Pick<LogisticsConfig, 'customer_fee_included_km' | 'customer_fee_per_extra_km'>>,
+  distanceKm: number | null,
+  orderAmount?: number | null,
+): number {
+  if (cfg.free_delivery_min_order != null && orderAmount != null && orderAmount >= cfg.free_delivery_min_order) return 0;
+  const base = Math.max(0, cfg.customer_fee ?? 0);
+  const perExtra = Math.max(0, cfg.customer_fee_per_extra_km ?? 0);
+  const included = Math.max(0, cfg.customer_fee_included_km ?? 0);
+  const extraKm = distanceKm != null ? Math.max(0, distanceKm - included) : 0;
+  return round(base + extraKm * perExtra);
+}
+
+/** Margem do Leeva por entrega, do plano do restaurante (zero na frota própria). */
 export async function getPlanMargin(db: DB, restaurantId: string): Promise<number> {
+  if (await isOwnFleetMonthly(db, restaurantId)) return 0;
   const { data } = await db
     .from('subscriptions')
     .select('plans(per_delivery_margin)')
@@ -143,7 +175,11 @@ export type DeliveryCharge = {
   durationMin: number | null;
   driverPayout: number; // 100% para o motoboy
   margin: number; // margem do Leeva (do plano)
-  total: number; // descontado do crédito do restaurante = driverPayout + margin
+  total: number; // descontado do crédito do restaurante = driverPayout + margin (0 na frota própria)
+  /** frota própria: o estabelecimento paga o motoboy direto, o Leeva não cobra por entrega */
+  ownFleet: boolean;
+  /** taxa de entrega do cliente final pela tabela do estabelecimento */
+  customerDeliveryFee: number;
   breakdown: { label: string; amount: number }[];
 };
 
@@ -155,12 +191,14 @@ export async function computeDeliveryCharge(
   db: DB,
   restaurantId: string,
   dropoff: { latitude: number; longitude: number } | null,
+  orderAmount?: number | null,
 ): Promise<DeliveryCharge> {
   const { data: rst } = await db
     .from('restaurants')
-    .select('latitude, longitude')
+    .select('latitude, longitude, fleet_mode, logistics_config')
     .eq('id', restaurantId)
     .maybeSingle();
+  const ownFleet = rst?.fleet_mode === 'own';
 
   const pickup: LatLng | null = isValidLatLng(rst?.latitude, rst?.longitude)
     ? { latitude: rst!.latitude as number, longitude: rst!.longitude as number }
@@ -181,8 +219,11 @@ export async function computeDeliveryCharge(
 
   const policy = await getPayoutPolicy(db, restaurantId);
   const payout = computeDriverPayout(policy, { distanceKm });
-  const margin = round(await getPlanMargin(db, restaurantId));
-  const total = round(payout.total + margin);
+  const margin = ownFleet ? 0 : round(await getPlanMargin(db, restaurantId));
+  const total = ownFleet ? 0 : round(payout.total + margin);
+  const { DEFAULT_LOGISTICS_CONFIG } = await import('./autodispatch');
+  const cfg = { ...DEFAULT_LOGISTICS_CONFIG, ...((rst?.logistics_config as Partial<LogisticsConfig>) ?? {}) };
+  const customerDeliveryFee = computeCustomerDeliveryFee(cfg, distanceKm != null ? round(distanceKm) : null, orderAmount);
 
   return {
     distanceKm: distanceKm != null ? round(distanceKm) : null,
@@ -190,7 +231,11 @@ export async function computeDeliveryCharge(
     driverPayout: payout.total,
     margin,
     total,
-    breakdown: [...payout.breakdown, { label: 'Margem Leeva (plano)', amount: margin }],
+    ownFleet,
+    customerDeliveryFee,
+    breakdown: ownFleet
+      ? payout.breakdown
+      : [...payout.breakdown, { label: 'Margem Leeva (plano)', amount: margin }],
   };
 }
 
@@ -216,7 +261,7 @@ export async function finalizeDeliveryCharge(
 ): Promise<DeliveryCharge | null> {
   const { data: order } = await db
     .from('orders')
-    .select('id, latitude, longitude, driver_payout')
+    .select('id, latitude, longitude, driver_payout, delivery_fee, order_amount')
     .eq('id', orderId)
     .maybeSingle();
   if (!order || order.driver_payout != null) return null;
@@ -227,6 +272,7 @@ export async function finalizeDeliveryCharge(
     order.latitude != null && order.longitude != null
       ? { latitude: Number(order.latitude), longitude: Number(order.longitude) }
       : null,
+    Number(order.order_amount ?? 0),
   );
 
   await db
@@ -239,6 +285,9 @@ export async function finalizeDeliveryCharge(
       // logistics_margin (coluna gerada) = leeva_fee − driver_payout = margem do Leeva.
       customer_fee: charge.total,
       leeva_fee: charge.total,
+      // frota própria: taxa do cliente pela tabela do estabelecimento — só
+      // se o canal de venda não trouxe uma (site/iFood já cobraram a deles)
+      ...(charge.ownFleet && !(Number(order.delivery_fee) > 0) ? { delivery_fee: charge.customerDeliveryFee } : {}),
     })
     .eq('id', orderId);
 

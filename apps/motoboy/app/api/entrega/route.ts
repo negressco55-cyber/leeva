@@ -1,5 +1,6 @@
 import { getMotoboyContextFromReq, adminDb } from '@/lib/context';
 import { json, unauthorized, serverError } from '@/lib/api';
+import { getMotoboyRoute, sortByRoute } from '@leeva/shared/services';
 
 /**
  * Entrega(s) ativa(s) do motoboy — JSON para o app nativo. Mesma consulta
@@ -10,7 +11,9 @@ export async function GET(req: Request) {
   if (!ctx) return unauthorized();
   try {
     const db = adminDb();
-    const { data: orders } = await db
+    // ordem da rota (sugerida pelo Leeva ou escolhida pelo motoboy)
+    const route = await getMotoboyRoute(db, ctx.motoboyId);
+    const { data: ordersRaw } = await db
       .from('orders')
       .select(
         'id, order_number, status, customer_name, customer_phone, customer_address, latitude, longitude, order_amount, driver_payout, payment_method, payment_status, notes, eta_min, eta_max, group_id, group_sequence, restaurant_id, ready_at, prep_estimate_minutes, preparing_at, source, ifood_locator',
@@ -22,6 +25,8 @@ export async function GET(req: Request) {
       .in('status', ['preparing', 'ready', 'assigned', 'picked_up', 'in_route'])
       .order('assigned_at', { ascending: true })
       .limit(20);
+    const orders = sortByRoute(ordersRaw ?? [], route);
+    const stopInfo = new Map(route.stops.map((s) => [s.orderId, s]));
 
     const restIds = [...new Set((orders ?? []).map((o) => o.restaurant_id))];
     const { data: rests } = restIds.length
@@ -59,10 +64,16 @@ export async function GET(req: Request) {
         readyAt: o.ready_at,
         preparingAt: o.preparing_at,
         prepEstimateMinutes: o.prep_estimate_minutes,
+        routeEta: stopInfo.get(o.id)?.eta ?? null,
+        routeDeadline: stopInfo.get(o.id)?.deadline ?? null,
+        routeLate: stopInfo.get(o.id)?.late ?? false,
       };
     });
 
-    return json({ deliveries });
+    return json({
+      deliveries,
+      route: { navigationUrl: route.navigationUrl, totalKm: route.totalKm, lateMinutes: route.lateMinutes },
+    });
   } catch (e) {
     return serverError(e);
   }

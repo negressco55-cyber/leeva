@@ -9,7 +9,7 @@ export default async function EquipePage() {
   const ctx = await requireRestaurantContext();
   const db = adminDb();
 
-  const { data: rst } = await db.from('restaurants').select('fleet_mode').eq('id', ctx.restaurantId).maybeSingle();
+  const { data: rst } = await db.from('restaurants').select('fleet_mode, name').eq('id', ctx.restaurantId).maybeSingle();
   if (rst?.fleet_mode !== 'own' && rst?.fleet_mode !== 'hybrid') redirect('/dashboard');
 
   const { data: team } = await db
@@ -28,6 +28,7 @@ export default async function EquipePage() {
         </div>
       </div>
       <TeamManager
+        restaurantName={rst?.name ?? ''}
         team={(team ?? []).map((m) => ({
           ...m,
           statusLabel: MOTOBOY_STATUS_LABELS[m.status],

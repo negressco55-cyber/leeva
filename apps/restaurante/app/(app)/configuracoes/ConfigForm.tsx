@@ -14,6 +14,7 @@ import { BusinessHoursEditor } from '../_lib/BusinessHoursEditor';
 import { Icon } from '../../_icons/Icon';
 
 type Plan = { code: string; name: string; monthly_price: number; per_delivery_margin: number; features: unknown };
+type OwnPayout = { per_km: number; min_payout: number; group_max_stops: number; group_radius_km: number };
 
 export default function ConfigForm({
   isOwner,
@@ -31,6 +32,7 @@ export default function ConfigForm({
     fleetMode: FleetMode;
     logistics: LogisticsConfig;
     businessHours: BusinessHours | null;
+    payout: OwnPayout;
   };
   currentPlan: string;
   plans: Plan[];
@@ -38,6 +40,8 @@ export default function ConfigForm({
   const router = useRouter();
   const [fleetMode, setFleetMode] = useState(initial.fleetMode);
   const [L, setL] = useState<LogisticsConfig>(initial.logistics);
+  const [P, setP] = useState<OwnPayout>(initial.payout);
+  const nP = (k: keyof OwnPayout, v: number) => setP((s) => ({ ...s, [k]: v }));
   const [hours, setHours] = useState<BusinessHours>(initial.businessHours ?? defaultBusinessHours());
   const [lat, setLat] = useState(initial.latitude != null ? String(initial.latitude) : '');
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
@@ -61,6 +65,7 @@ export default function ConfigForm({
         logistics: L,
         businessHours: hours,
         whatsapp: whatsapp.trim() || null,
+        ...(fleetMode === 'own' ? { payout: P } : {}),
       });
       setMsg({ ok: true, warnings: r.warnings });
       router.refresh();
@@ -173,6 +178,61 @@ export default function ConfigForm({
         ))}
       </div>
 
+      {fleetMode === 'own' && (() => {
+        // simulação pra o dono enxergar o efeito: entrega de 5 km
+        const km = 5;
+        const clientFee = (L.customer_fee ?? 0) + Math.max(0, km - (L.customer_fee_included_km ?? 0)) * (L.customer_fee_per_extra_km ?? 0);
+        const driverPay = Math.max(km * P.per_km, P.min_payout);
+        return (
+          <div className="card">
+            <div className="card-title">Suas taxas e o pagamento do motoboy</div>
+            <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+              Na frota própria quem define é você. O Leeva só calcula e mostra — o dinheiro é seu e você paga seus motoboys direto
+              (o acerto de cada um fica em Financeiro). Pedidos do site ou iFood que já vêm com taxa mantêm a taxa deles.
+            </p>
+            <div style={{ fontWeight: 600, fontSize: 13, margin: '8px 0 4px' }}>Taxa de entrega cobrada do cliente</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <label>Taxa (R$){num(L.customer_fee, (v) => nL('customer_fee', v))}</label>
+              <label>Vale até (km){num(L.customer_fee_included_km ?? 3, (v) => nL('customer_fee_included_km', v), '1')}</label>
+              <label>Cada km a mais (R$){num(L.customer_fee_per_extra_km ?? 0, (v) => nL('customer_fee_per_extra_km', v))}</label>
+              <label>
+                Grátis em pedido acima de (R$)
+                <input
+                  className="input"
+                  type="number"
+                  step="1"
+                  placeholder="sem frete grátis"
+                  value={L.free_delivery_min_order ?? ''}
+                  onChange={(e) => setL((s) => ({ ...s, free_delivery_min_order: e.target.value ? Number(e.target.value) : null }))}
+                  disabled={!isOwner}
+                />
+              </label>
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 13, margin: '14px 0 4px' }}>Quanto você paga ao motoboy</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <label>Mínimo por entrega (R$){num(P.min_payout, (v) => nP('min_payout', v))}</label>
+              <label>Por km (R$){num(P.per_km, (v) => nP('per_km', v))}</label>
+            </div>
+            <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              Paga o maior entre os dois. Quer valor fixo por entrega? Coloque R$ 0 no km.
+            </p>
+            <div style={{ fontWeight: 600, fontSize: 13, margin: '14px 0 4px' }}>Rota</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <label>Tempo prometido ao cliente (min){num(L.delivery_promise_minutes ?? 50, (v) => nL('delivery_promise_minutes', v), '5')}</label>
+              <label>Máx. pedidos por saída{num(P.group_max_stops, (v) => nP('group_max_stops', v), '1')}</label>
+              <label>Juntar entregas a até (km){num(P.group_radius_km, (v) => nP('group_radius_km', v))}</label>
+            </div>
+            <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              O Leeva junta pedidos próximos numa saída só e monta a ordem pra ninguém passar do tempo prometido. O motoboy pode mudar a ordem no app.
+            </p>
+            <div className="op-alert" style={{ marginTop: 8 }}>
+              Exemplo, entrega de {km} km: cliente paga <strong>{formatCurrencyBRL(clientFee)}</strong> · você paga ao motoboy{' '}
+              <strong>{formatCurrencyBRL(driverPay)}</strong>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="card">
         <div className="card-title">Logística</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -228,7 +288,10 @@ export default function ConfigForm({
         {plans.map((p) => (
           <div key={p.code} className="op-alert" style={{ background: p.code === currentPlan ? 'var(--accent-soft)' : 'transparent' }}>
             <div style={{ flex: 1 }}>
-              <strong>{p.name}</strong> — {Number(p.monthly_price) > 0 ? `${formatCurrencyBRL(p.monthly_price)}/mês + ` : 'sem mensalidade — '}{formatCurrencyBRL(p.per_delivery_margin)}/entrega (além do valor do entregador)
+              <strong>{p.name}</strong> —{' '}
+              {Number(p.per_delivery_margin) === 0 && Number(p.monthly_price) > 0
+                ? `${formatCurrencyBRL(p.monthly_price)}/mês, sem taxa por entrega`
+                : `${Number(p.monthly_price) > 0 ? `${formatCurrencyBRL(p.monthly_price)}/mês + ` : 'sem mensalidade — '}${formatCurrencyBRL(p.per_delivery_margin)}/entrega (além do valor do entregador)`}
             </div>
             {p.code === currentPlan ? (
               <span className="tag green">atual</span>

@@ -13,7 +13,7 @@ import {
 } from '@leeva/shared';
 import { computePrepStatus } from '@leeva/shared/services/prep-status';
 import { DeliveryChat } from './DeliveryChat';
-import { Wallet, Map as MapIcon, Phone, MessageCircle } from 'lucide-react';
+import { Wallet, Map as MapIcon, Phone, MessageCircle, Route, PackageCheck, AlertTriangle } from 'lucide-react';
 
 type Delivery = {
   id: string;
@@ -39,7 +39,13 @@ type Delivery = {
   ifood_locator?: string | null;
   order_items: { name: string; quantity: number; notes: string | null }[];
   accepted: boolean;
+  route_late?: boolean;
+  route_eta?: number | null;
 };
+
+type RouteSummary = { navigationUrl: string | null; totalKm: number; lateMinutes: number };
+
+const hhmm = (ms: number) => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 function prepBadge(d: Pick<Delivery, 'ready_at' | 'preparing_at' | 'prep_estimate_minutes'>): { text: string; cls: string } | null {
   const p = computePrepStatus({ readyAt: d.ready_at, preparingAt: d.preparing_at, prepEstimateMinutes: d.prep_estimate_minutes });
@@ -96,11 +102,13 @@ export default function DeliveryFlow({
   restaurantId,
   restaurantPhone,
   deliveries,
+  route,
 }: {
   motoboyId: string;
   restaurantId: string | null;
   restaurantPhone?: string | null;
   deliveries: Delivery[];
+  route?: RouteSummary;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -148,6 +156,31 @@ export default function DeliveryFlow({
     }
   }
 
+  async function routeAction(body: unknown) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch('/api/entrega/rota', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Não foi possível mudar a rota. Tente de novo.');
+      start(() => router.refresh());
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** "Fazer esta agora": joga a parada escolhida pro topo, mantém o resto. */
+  function doFirst(id: string) {
+    const ids = [id, ...deliveries.map((d) => d.id).filter((x) => x !== id)];
+    return routeAction({ action: 'reorder', orderIds: ids });
+  }
+
   async function onPickPhoto(file: File | undefined) {
     if (!file) return;
     setPhotoErr(null);
@@ -191,6 +224,7 @@ export default function DeliveryFlow({
 
   const current = deliveries[0]!;
   const rest = deliveries.slice(1);
+  const waitingPickup = deliveries.filter((d) => d.status === 'assigned' && d.accepted);
   const step = NEXT[current.status];
   const mapUrl =
     current.latitude != null
@@ -200,6 +234,36 @@ export default function DeliveryFlow({
   return (
     <div className="grid" style={{ gap: 16 }}>
       {err && <div className="panel" style={{ color: 'var(--danger)' }}>{err}</div>}
+
+      {deliveries.length > 1 && (
+        <div className="panel">
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <strong>
+              <Route size={14} /> Sua rota: {deliveries.length} paradas
+              {route?.totalKm ? ` · ~${route.totalKm.toFixed(1)} km` : ''}
+            </strong>
+          </div>
+          {route?.lateMinutes ? (
+            <p style={{ color: 'var(--warn)', fontSize: 13, margin: '6px 0 0' }}>
+              <AlertTriangle size={13} /> Nessa ordem, algum pedido passa ~{route.lateMinutes} min do prazo.
+            </p>
+          ) : (
+            <p className="muted" style={{ fontSize: 13, margin: '6px 0 0' }}>Ordem montada pra ninguém atrasar. Você pode mudar.</p>
+          )}
+          <div className="grid" style={{ gap: 8, marginTop: 10 }}>
+            {route?.navigationUrl && (
+              <a className="button secondary" href={route.navigationUrl} target="_blank" rel="noreferrer" style={{ textAlign: 'center' }}>
+                <MapIcon size={14} /> Rota completa no Google Maps
+              </a>
+            )}
+            {current.status === 'assigned' && waitingPickup.length > 1 && (
+              <button className="button" disabled={busy} onClick={() => routeAction({ action: 'pickup_all' })}>
+                <PackageCheck size={14} /> {busy ? 'Aguarde…' : `Retirei todos (${waitingPickup.length} pedidos)`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="panel">
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -352,10 +416,29 @@ export default function DeliveryFlow({
 
       {rest.length > 0 && (
         <div className="panel">
-          <strong>Próximas ({rest.length})</strong>
-          {rest.map((d) => (
-            <div key={d.id} className="muted" style={{ fontSize: 14, marginTop: 6 }}>
-              #{d.order_number} — {d.customer_name} — {d.customer_address}
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <strong>Próximas ({rest.length})</strong>
+            <button className="button ghost" style={{ fontSize: 12, padding: '4px 8px' }} disabled={busy} onClick={() => routeAction({ action: 'reset' })}>
+              Usar ordem sugerida
+            </button>
+          </div>
+          {rest.map((d, i) => (
+            <div key={d.id} style={{ fontSize: 14, marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span className="badge">{i + 2}</span>
+              <div style={{ flex: 1 }}>
+                <div>#{d.order_number} — {d.customer_name}</div>
+                <div className="muted" style={{ fontSize: 13 }}>{d.customer_address}</div>
+                {d.route_eta ? (
+                  <div style={{ fontSize: 12, color: d.route_late ? 'var(--warn)' : undefined }} className={d.route_late ? '' : 'muted'}>
+                    chega ~{hhmm(d.route_eta)}{d.route_late ? ' · passa do prazo' : ''}
+                  </div>
+                ) : null}
+              </div>
+              {current.status !== 'in_route' && (
+                <button className="button secondary" style={{ fontSize: 12, padding: '6px 10px' }} disabled={busy} onClick={() => doFirst(d.id)}>
+                  Fazer agora
+                </button>
+              )}
             </div>
           ))}
         </div>

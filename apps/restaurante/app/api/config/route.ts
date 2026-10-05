@@ -2,7 +2,7 @@ import { getApiContext, adminDb } from '@/lib/context';
 import { json, unauthorized, forbidden, serverError } from '@/lib/api';
 import { DEFAULT_LOGISTICS_CONFIG, getPayoutPolicy } from '@leeva/shared/services';
 import { sanitizeBusinessHours } from '@leeva/shared/services/business-hours';
-import type { LogisticsConfig } from '@leeva/shared';
+import type { LogisticsConfig, PayoutConfig } from '@leeva/shared';
 import type { Database } from '@leeva/shared/types';
 
 const num = (v: unknown, min: number, max: number, dflt: number) => {
@@ -36,11 +36,13 @@ export async function GET() {
 }
 
 /**
- * Taxas e remuneração (taxa do cliente, pedido mínimo, frete grátis,
- * per_km/mínimo do motoboy) NÃO são mais editáveis pelo restaurante —
+ * Rede Leeva: taxas e remuneração (taxa do cliente, pedido mínimo, frete
+ * grátis, per_km/mínimo do motoboy) NÃO são editáveis pelo restaurante —
  * só o admin da plataforma mexe nisso (apps/admin/restaurantes/[id]).
- * O restaurante só ajusta o operacional: raio, tempos, ligar/desligar
- * despacho automático e agrupamento.
+ *
+ * Frota própria (modelo mensal): o motoboy é do estabelecimento e quem paga
+ * é ele — então ELE define a taxa do cliente, o tempo prometido e quanto
+ * paga ao motoboy (body.payout → payout_policies do restaurante).
  */
 export async function POST(req: Request) {
   const ctx = await getApiContext();
@@ -54,12 +56,13 @@ export async function POST(req: Request) {
       logistics?: Partial<LogisticsConfig>;
       businessHours?: unknown;
       whatsapp?: string | null;
+      payout?: Partial<PayoutConfig>;
     };
     const db = adminDb();
 
     const { data: current } = await db
       .from('restaurants')
-      .select('logistics_config')
+      .select('logistics_config, fleet_mode')
       .eq('id', ctx.restaurantId)
       .maybeSingle();
     const existing: LogisticsConfig = { ...DEFAULT_LOGISTICS_CONFIG, ...((current?.logistics_config as object) ?? {}) };
@@ -84,6 +87,45 @@ export async function POST(req: Request) {
     const fleetMode = ['own', 'leeva', 'hybrid'].includes(body.fleetMode ?? '')
       ? body.fleetMode
       : undefined;
+
+    // frota própria: o estabelecimento define as próprias taxas
+    const ownFleet = (fleetMode ?? current?.fleet_mode) === 'own';
+    if (ownFleet) {
+      logistics.customer_fee = num(L.customer_fee, 0, 200, existing.customer_fee);
+      logistics.customer_fee_included_km = num(L.customer_fee_included_km, 0, 50, existing.customer_fee_included_km ?? 3);
+      logistics.customer_fee_per_extra_km = num(L.customer_fee_per_extra_km, 0, 50, existing.customer_fee_per_extra_km ?? 0);
+      logistics.delivery_promise_minutes = num(L.delivery_promise_minutes, 10, 240, existing.delivery_promise_minutes ?? 50);
+      logistics.free_delivery_min_order =
+        L.free_delivery_min_order === null
+          ? null
+          : typeof L.free_delivery_min_order === 'number' && L.free_delivery_min_order > 0
+            ? num(L.free_delivery_min_order, 1, 100000, 0)
+            : existing.free_delivery_min_order;
+
+      if (body.payout) {
+        const P = body.payout;
+        const cur = await getPayoutPolicy(db, ctx.restaurantId);
+        const perKm = num(P.per_km, 0, 50, cur.per_km);
+        const merged: PayoutConfig = {
+          ...cur,
+          per_km: perKm,
+          per_km_grouped: perKm, // na frota própria parada extra paga igual
+          min_payout: num(P.min_payout, 0, 500, cur.min_payout),
+          group_max_stops: Math.round(num(P.group_max_stops, 1, 8, cur.group_max_stops ?? 3)),
+          group_radius_km: num(P.group_radius_km, 0.3, 10, cur.group_radius_km ?? 1.5),
+        };
+        const { data: pol } = await db
+          .from('payout_policies')
+          .select('id')
+          .eq('restaurant_id', ctx.restaurantId)
+          .maybeSingle();
+        if (pol) {
+          await db.from('payout_policies').update({ config: merged as never, active: true, updated_at: new Date().toISOString() }).eq('id', pol.id);
+        } else {
+          await db.from('payout_policies').insert({ restaurant_id: ctx.restaurantId, name: 'Do estabelecimento', config: merged as never, active: true });
+        }
+      }
+    }
 
     const businessHours = sanitizeBusinessHours(body.businessHours);
 

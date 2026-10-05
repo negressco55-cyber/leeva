@@ -1429,6 +1429,7 @@ export type Database = {
           restaurant_id: string
           route_distance_km: number | null
           route_duration_min: number | null
+          route_position: number | null
           source: Database["public"]["Enums"]["order_source"]
           status: Database["public"]["Enums"]["order_status"]
           updated_at: string
@@ -1487,6 +1488,7 @@ export type Database = {
           restaurant_id: string
           route_distance_km?: number | null
           route_duration_min?: number | null
+          route_position?: number | null
           source?: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           updated_at?: string
@@ -1545,6 +1547,7 @@ export type Database = {
           restaurant_id?: string
           route_distance_km?: number | null
           route_duration_min?: number | null
+          route_position?: number | null
           source?: Database["public"]["Enums"]["order_source"]
           status?: Database["public"]["Enums"]["order_status"]
           updated_at?: string

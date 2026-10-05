@@ -32,7 +32,7 @@ export default async function NovosMotoboys() {
               <dl className="kv">
                 <dt>WhatsApp</dt>
                 <dd>
-                  <a href={`https://wa.me/${d.phone.replace(/D/g, '').startsWith('55') ? d.phone.replace(/D/g, '') : '55' + d.phone.replace(/D/g, '')}`} target="_blank" rel="noreferrer">
+                  <a href={`https://wa.me/${d.phone.replace(/\D/g, '').startsWith('55') ? d.phone.replace(/\D/g, '') : '55' + d.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
                     <Icon name="whatsapp" size={13} /> {d.phone} (chamar no WhatsApp)
                   </a>
                 </dd>

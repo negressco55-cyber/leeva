@@ -24,6 +24,10 @@ const ACAO: Partial<Record<OrderStatus, string>> = {
 };
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
+const hhmm = (ms: number) => {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
 
 function prepBadge(d: Delivery, t: Theme): { text: string; color: string } | null {
   if (d.readyAt) return { text: '🔔 Pronto pra retirada', color: t.colors.success };
@@ -56,7 +60,7 @@ async function takeDeliveryPhoto(): Promise<string | null> {
 export function EntregaScreen({ navigation }: Props): React.JSX.Element {
   const t = useTheme();
   const styles = makeStyles(t);
-  const { activeDelivery, advancing, advanceActive, confirmDelivery } = useRide();
+  const { activeDelivery, nextDeliveries, route, advancing, advanceActive, confirmDelivery, doFirst, resetRoute, pickUpAll } = useRide();
   const { position } = usePosition();
   const [photo, setPhoto] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -100,6 +104,31 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
             </View>
           );
         })()}
+
+      {nextDeliveries.length > 0 && !entregue && (
+        <Card style={[styles.card, { marginTop: t.spacing.md }]}>
+          <Text style={styles.label}>
+            Sua rota: {nextDeliveries.length + 1} paradas{route?.totalKm ? ` · ~${route.totalKm.toFixed(1)} km` : ''}
+          </Text>
+          <Text style={[styles.dest, { marginTop: 0, color: route?.lateMinutes ? t.colors.accent : t.colors.textSecondary }]}>
+            {route?.lateMinutes
+              ? `Nessa ordem, algum pedido passa ~${route.lateMinutes} min do prazo.`
+              : 'Ordem montada pra ninguém atrasar. Você pode mudar lá embaixo.'}
+          </Text>
+          <View style={{ gap: t.spacing.sm, marginTop: t.spacing.sm }}>
+            {route?.navigationUrl ? (
+              <Button label="Rota completa no Google Maps" variant="outline" onPress={() => void Linking.openURL(route.navigationUrl!)} />
+            ) : null}
+            {naColeta && nextDeliveries.some((n) => n.status === 'assigned') ? (
+              <Button
+                label={`Retirei todos (${1 + nextDeliveries.filter((n) => n.status === 'assigned').length} pedidos)`}
+                loading={advancing}
+                onPress={() => void pickUpAll()}
+              />
+            ) : null}
+          </View>
+        </Card>
+      )}
 
       <Card style={styles.valorCard}>
         <Text style={styles.valorLabel}>Você recebe por esta entrega</Text>
@@ -192,7 +221,7 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
           <Button
             label="WhatsApp do restaurante"
             variant="outline"
-            onPress={() => void Linking.openURL(`https://wa.me/55${d.pickupPhone!.replace(/D/g, '')}`)}
+            onPress={() => void Linking.openURL(`https://wa.me/55${d.pickupPhone!.replace(/\D/g, '')}`)}
           />
         ) : null}
         {!entregue ? <DeliveryChat orderId={d.id} /> : null}
@@ -221,6 +250,36 @@ export function EntregaScreen({ navigation }: Props): React.JSX.Element {
           <Text style={styles.endereco}>{d.notes}</Text>
         </Card>
       ) : null}
+
+      {nextDeliveries.length > 0 && (
+        <Card style={styles.card}>
+          <View style={styles.nextHeader}>
+            <Text style={styles.label}>Próximas ({nextDeliveries.length})</Text>
+            <Pressable onPress={() => void resetRoute()} disabled={advancing}>
+              <Text style={styles.link}>Usar ordem sugerida</Text>
+            </Pressable>
+          </View>
+          {nextDeliveries.map((n, i) => (
+            <View key={n.id} style={styles.nextRow}>
+              <Text style={styles.nextNum}>{i + 2}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.endereco}>{n.customerName}</Text>
+                <Text style={[styles.dest, { marginTop: 2 }]}>{n.dropoffAddress}</Text>
+                {n.routeEta ? (
+                  <Text style={[styles.dest, { marginTop: 2, color: n.routeLate ? t.colors.accent : t.colors.textSecondary }]}>
+                    chega ~{hhmm(n.routeEta)}{n.routeLate ? ' · passa do prazo' : ''}
+                  </Text>
+                ) : null}
+              </View>
+              {d.status !== 'in_route' ? (
+                <Pressable style={styles.nowBtn} onPress={() => void doFirst(n.id)} disabled={advancing}>
+                  <Text style={styles.nowBtnText}>Fazer agora</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+        </Card>
+      )}
 
       {d.pickupLat != null && d.dropoffLat != null && (
         <MapaEntrega
@@ -276,6 +335,26 @@ function makeStyles(t: Theme) {
     dest: { fontFamily: t.fonts.body, fontSize: 13, color: t.colors.textSecondary, marginTop: 6 },
     mapa: { height: 240, borderRadius: t.radius.lg, borderWidth: 1, borderColor: t.colors.border, marginBottom: t.spacing.md },
     actions: { marginTop: t.spacing.sm, gap: t.spacing.md },
+    nextHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    link: { fontFamily: t.fonts.bodySemiBold, fontSize: 12.5, color: t.colors.primary },
+    nextRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: t.colors.border,
+      marginTop: 6,
+    },
+    nextNum: { fontFamily: t.fonts.heading, fontSize: 18, color: t.colors.textSecondary, width: 22, textAlign: 'center' },
+    nowBtn: {
+      borderWidth: 1,
+      borderColor: t.colors.primary,
+      borderRadius: t.radius.pill,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+    },
+    nowBtnText: { fontFamily: t.fonts.bodySemiBold, fontSize: 12.5, color: t.colors.primary },
     empty: { fontFamily: t.fonts.body, color: t.colors.textSecondary, textAlign: 'center', marginTop: t.spacing.xxl },
   });
 }

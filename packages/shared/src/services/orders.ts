@@ -119,6 +119,12 @@ export async function createOrderFromNormalized(
       ? '[VOCÊ DECIDE] '
       : '';
 
+  // Frota própria: a taxa de entrega é do estabelecimento — guarda a que o
+  // canal de venda (site/iFood) já cobrou do cliente. Nos outros modos o
+  // Leeva calcula a sua (finalizeDeliveryCharge) e essa coluna fica 0.
+  const { data: rstMode } = await db.from('restaurants').select('fleet_mode').eq('id', restaurantId).maybeSingle();
+  const channelDeliveryFee = rstMode?.fleet_mode === 'own' ? clampMoney(n.deliveryFee) : 0;
+
   const { data: order, error } = await db
     .from('orders')
     .insert({
@@ -137,7 +143,7 @@ export async function createOrderFromNormalized(
       // entrega (motoboy precisa saber quanto cobrar). Senão, o Leeva não
       // toca no dinheiro da venda.
       order_amount: clampMoney(n.total),
-      delivery_fee: 0, // taxa manual removida — o Leeva calcula (finalizeDeliveryCharge)
+      delivery_fee: channelDeliveryFee, // 0 fora da frota própria — o Leeva calcula (finalizeDeliveryCharge)
       payment_method: n.paymentMethod ?? 'unknown',
       payment_status: n.paymentStatus ?? 'pending',
       notes: n.notes

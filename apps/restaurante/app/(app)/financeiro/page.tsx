@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireRestaurantContext, adminDb } from '@/lib/context';
-import { getLogisticsFinance, getUsageSummary, type Period } from '@leeva/shared/services';
+import { getLogisticsFinance, getUsageSummary, getOwnFleetSettlement, type Period } from '@leeva/shared/services';
 import { formatCurrencyBRL } from '@leeva/shared';
 
 export const dynamic = 'force-dynamic';
@@ -18,10 +18,13 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const period = (PERIODS.find((p) => p.k === sp.period)?.k ?? '30d') as Period;
 
-  const [fin, saas] = await Promise.all([
+  const [fin, saas, { data: rst }] = await Promise.all([
     getLogisticsFinance(db, ctx.restaurantId, period),
     getUsageSummary(db, ctx.restaurantId),
+    db.from('restaurants').select('fleet_mode').eq('id', ctx.restaurantId).maybeSingle(),
   ]);
+  const ownFleet = rst?.fleet_mode === 'own';
+  const acerto = ownFleet ? await getOwnFleetSettlement(db, ctx.restaurantId, period) : null;
 
   return (
     <>
@@ -56,6 +59,58 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         </p>
       </div>
 
+      {acerto && (
+        <div className="card">
+          <div className="card-title">Acerto dos motoboys — {acerto.period}</div>
+          <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+            Quanto você paga a cada um pelas entregas feitas, já descontando o dinheiro vivo que ele recebeu dos clientes.
+          </p>
+          {acerto.drivers.length === 0 ? (
+            <p className="muted">Nenhuma entrega da sua equipe no período.</p>
+          ) : (
+            <table className="data">
+              <thead>
+                <tr><th>Motoboy</th><th>Entregas</th><th>Km</th><th>A pagar</th><th>Dinheiro com ele</th><th>Acerto</th></tr>
+              </thead>
+              <tbody>
+                {acerto.drivers.map((d) => (
+                  <tr key={d.motoboyId}>
+                    <td>{d.name}</td>
+                    <td>{d.deliveries}</td>
+                    <td>{d.km.toFixed(1)}</td>
+                    <td>{formatCurrencyBRL(d.toPay)}</td>
+                    <td>{d.cashCollected > 0 ? formatCurrencyBRL(d.cashCollected) : '—'}</td>
+                    <td>
+                      <strong>
+                        {d.balance >= 0
+                          ? `você paga ${formatCurrencyBRL(d.balance)}`
+                          : `ele devolve ${formatCurrencyBRL(-d.balance)}`}
+                      </strong>
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td><strong>Total</strong></td>
+                  <td>{acerto.totals.deliveries}</td>
+                  <td>{acerto.totals.km.toFixed(1)}</td>
+                  <td>{formatCurrencyBRL(acerto.totals.toPay)}</td>
+                  <td>{acerto.totals.cashCollected > 0 ? formatCurrencyBRL(acerto.totals.cashCollected) : '—'}</td>
+                  <td>
+                    <strong>{formatCurrencyBRL(acerto.totals.balance)}</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+          {acerto.totals.customerFees > 0 && (
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Taxas de entrega cobradas dos clientes no período: {formatCurrencyBRL(acerto.totals.customerFees)}.
+            </p>
+          )}
+        </div>
+      )}
+
+      {!ownFleet && (
       <div className="card">
         <div className="card-title">Financeiro da logística — {fin.period}</div>
         {fin.deliveries === 0 ? (
@@ -98,6 +153,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           </>
         )}
       </div>
+      )}
     </>
   );
 }

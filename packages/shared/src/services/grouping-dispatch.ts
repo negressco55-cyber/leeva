@@ -20,6 +20,8 @@ import { haversineKm, isValidLatLng, type LatLng } from './geo';
 import { getRoutingService } from './routing';
 import { getPayoutPolicy, computeDriverPayout, computeGroupedStopPayout, getPlanMargin } from './payout';
 import { adjustCredit } from './credits';
+import { optimizeStopOrder } from './route-optimizer';
+import type { LogisticsConfig } from '../types';
 
 type DB = SupabaseClient<Database>;
 
@@ -39,6 +41,9 @@ export type GroupStop = {
 
 export type GroupPlan = {
   restaurantId: string;
+  /** pedido âncora: é quem carrega a oferta no despacho (group_lead), mesmo
+   *  que o otimizador não o coloque como 1ª parada */
+  leadOrderId: string;
   orderIds: string[];
   stops: GroupStop[];
   totalPayout: number;
@@ -53,7 +58,7 @@ export type GroupPlan = {
 export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<GroupPlan | null> {
   const { data: lead } = await db
     .from('orders')
-    .select('id, restaurant_id, latitude, longitude, customer_address, region, status, payment_method, payment_status, group_id, motoboy_id')
+    .select('id, restaurant_id, latitude, longitude, customer_address, region, status, payment_method, payment_status, group_id, motoboy_id, created_at')
     .eq('id', leadOrderId)
     .maybeSingle();
   if (!lead || lead.group_id || lead.motoboy_id) return null;
@@ -66,10 +71,13 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
 
   const { data: rst } = await db
     .from('restaurants')
-    .select('latitude, longitude')
+    .select('latitude, longitude, fleet_mode, logistics_config')
     .eq('id', lead.restaurant_id)
     .maybeSingle();
   if (!isValidLatLng(rst?.latitude, rst?.longitude)) return null;
+  // frota própria: o Leeva não cobra por entrega — o restaurante paga o motoboy direto
+  const ownFleet = rst?.fleet_mode === 'own';
+  const promiseMin = ((rst?.logistics_config as Partial<LogisticsConfig> | null)?.delivery_promise_minutes) ?? 50;
   const origin: LatLng = { latitude: rst!.latitude as number, longitude: rst!.longitude as number };
 
   // candidatos: mesmo restaurante, ainda sem motoboy, sem grupo, prontos p/ despacho,
@@ -103,6 +111,7 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
       address: s.customer_address,
       region: s.region,
       point: { latitude: s.latitude as number, longitude: s.longitude as number } as LatLng,
+      createdAt: s.created_at as string | undefined,
     }))
     // só quem está dentro do raio do destino do lead
     .filter((s) => (haversineKm(leadPoint, s.point) ?? Infinity) <= radiusKm)
@@ -111,7 +120,9 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
   if (!pool.length) return null;
 
   // sequência: restaurante → lead → vizinho mais próximo → ... (nearest-neighbor)
-  const chosen = [{ orderId: lead.id, address: lead.customer_address, region: lead.region, point: leadPoint }];
+  const chosen: { orderId: string; address: string; region: string | null; point: LatLng; createdAt?: string }[] = [
+    { orderId: lead.id, address: lead.customer_address, region: lead.region, point: leadPoint, createdAt: lead.created_at },
+  ];
   const rest = [...pool];
   while (chosen.length < maxStops && rest.length) {
     const last = chosen[chosen.length - 1]!.point;
@@ -130,6 +141,19 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
     rest.splice(bi, 1);
   }
   if (chosen.length < 2) return null;
+
+  // ORDEM das paradas: quem está mais perto de estourar o prazo prometido vai
+  // antes, e entre ordens equivalentes a que roda menos (route-optimizer).
+  const best = optimizeStopOrder(
+    origin,
+    chosen.map((c) => ({
+      id: c.orderId,
+      point: c.point,
+      deadline: c.createdAt ? new Date(c.createdAt).getTime() + promiseMin * 60_000 : null,
+    })),
+  );
+  const byId = new Map(chosen.map((c) => [c.orderId, c]));
+  chosen.splice(0, chosen.length, ...best.order.map((id) => byId.get(id)!));
 
   const routing = getRoutingService();
   const margin = round(await getPlanMargin(db, lead.restaurant_id));
@@ -150,7 +174,7 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
       lng: c.point.longitude,
       legKm,
       payout,
-      total: round(payout + margin),
+      total: ownFleet ? 0 : round(payout + margin),
     });
     prev = c.point;
   }
@@ -160,6 +184,7 @@ export async function planGroupForOrder(db: DB, leadOrderId: string): Promise<Gr
 
   return {
     restaurantId: lead.restaurant_id,
+    leadOrderId: lead.id,
     orderIds: stops.map((s) => s.orderId),
     stops,
     totalPayout,
@@ -189,7 +214,7 @@ export async function applyGroupPlan(db: DB, plan: GroupPlan): Promise<{ ok: boo
       .update({
         group_id: groupId,
         group_sequence: stop.seq,
-        group_lead: stop.seq === 1,
+        group_lead: stop.orderId === plan.leadOrderId,
         driver_payout: stop.payout,
         customer_fee: stop.total,
         leeva_fee: stop.total,

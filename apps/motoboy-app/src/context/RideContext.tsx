@@ -2,12 +2,12 @@ import * as Location from 'expo-location';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
 
-import { advanceDelivery, deliverWithProof, getActiveDeliveries, getOffers, respondOffer } from '../api/entregas';
+import { advanceDelivery, deliverWithProof, getActiveRoute, getOffers, respondOffer, routeAction } from '../api/entregas';
 import { sendLocation, setOnline } from '../api/motoboy';
 import { subscribeMotoboyRealtime, unsubscribeMotoboyRealtime } from '../api/realtime';
 import { startBackgroundLocation, stopBackgroundLocation } from '../lib/backgroundLocation';
 import { playOfferAlert } from '../lib/offerAlert';
-import { NEXT_STATUS, type Delivery, type Offer } from '../types';
+import { NEXT_STATUS, type Delivery, type Offer, type RouteSummary } from '../types';
 import { useAuth } from './AuthContext';
 import { usePosition } from './PositionContext';
 
@@ -20,7 +20,16 @@ interface RideContextValue {
   togglingOnline: boolean;
   offer: Offer | null;
   activeDelivery: Delivery | null;
+  /** as próximas paradas da rota, na ordem (sem a atual) */
+  nextDeliveries: Delivery[];
+  route: RouteSummary | null;
   advancing: boolean;
+  /** "Fazer esta agora": a parada escolhida vai pro topo da rota */
+  doFirst: (orderId: string) => Promise<void>;
+  /** volta pra ordem sugerida pelo Leeva */
+  resetRoute: () => Promise<void>;
+  /** marca como retirados todos os pedidos esperando coleta */
+  pickUpAll: () => Promise<void>;
   goOnline: () => Promise<void>;
   goOffline: () => Promise<void>;
   acceptOffer: () => Promise<void>;
@@ -53,6 +62,9 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
   const [togglingOnline, setToggling] = useState(false);
   const [offer, setOfferState] = useState<Offer | null>(null);
   const [activeDelivery, setActiveState] = useState<Delivery | null>(null);
+  const [nextDeliveries, setNextState] = useState<Delivery[]>([]);
+  const [route, setRouteState] = useState<RouteSummary | null>(null);
+  const nextKeyRef = useRef('');
   const [advancing, setAdvancing] = useState(false);
 
   const watchRef = useRef<Location.LocationSubscription | null>(null);
@@ -120,12 +132,47 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
 
   const reloadDeliveries = useCallback(async () => {
     try {
-      const list = await getActiveDeliveries();
+      const { deliveries: list, route: r } = await getActiveRoute();
       setActive(list[0] ?? null);
+      // só troca o estado se mudou de verdade (o polling roda a cada 5s)
+      const rest = list.slice(1);
+      const key = JSON.stringify([rest.map((d) => [d.id, d.status, d.routeLate]), r]);
+      if (key !== nextKeyRef.current) {
+        nextKeyRef.current = key;
+        setNextState(rest);
+        setRouteState(r);
+      }
     } catch {
       /* ignora */
     }
   }, [setActive]);
+
+  const runRouteAction = useCallback(
+    async (body: Parameters<typeof routeAction>[0]) => {
+      setAdvancing(true);
+      try {
+        await routeAction(body);
+        await reloadDeliveries();
+      } catch (e) {
+        Alert.alert('Não deu para mudar a rota', (e as Error).message || 'Tente de novo.');
+      } finally {
+        setAdvancing(false);
+      }
+    },
+    [reloadDeliveries],
+  );
+
+  const doFirst = useCallback(
+    async (orderId: string) => {
+      const ids = [orderId, ...(activeDelivery ? [activeDelivery.id] : []), ...nextDeliveries.map((d) => d.id)].filter(
+        (id, i, arr) => arr.indexOf(id) === i,
+      );
+      await runRouteAction({ action: 'reorder', orderIds: ids });
+    },
+    [activeDelivery, nextDeliveries, runRouteAction],
+  );
+  const resetRoute = useCallback(() => runRouteAction({ action: 'reset' }), [runRouteAction]);
+  const pickUpAll = useCallback(() => runRouteAction({ action: 'pickup_all' }), [runRouteAction]);
 
   const tick = useCallback(() => {
     if (!onlineRef.current && !hasActiveRef.current) return;
@@ -317,6 +364,9 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       setOnlineState(false);
       setOffer(null);
       setActive(null);
+      setNextState([]);
+      setRouteState(null);
+      nextKeyRef.current = '';
     }
   }, [isAuthenticated, stopWatch, setOffer, setActive]);
 
@@ -326,7 +376,12 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       togglingOnline,
       offer,
       activeDelivery,
+      nextDeliveries,
+      route,
       advancing,
+      doFirst,
+      resetRoute,
+      pickUpAll,
       goOnline,
       goOffline,
       acceptOffer,
@@ -334,7 +389,7 @@ export function RideProvider({ children }: { children: React.ReactNode }): React
       advanceActive,
       confirmDelivery,
     }),
-    [online, togglingOnline, offer, activeDelivery, advancing, goOnline, goOffline, acceptOffer, declineOffer, advanceActive, confirmDelivery],
+    [online, togglingOnline, offer, activeDelivery, nextDeliveries, route, advancing, doFirst, resetRoute, pickUpAll, goOnline, goOffline, acceptOffer, declineOffer, advanceActive, confirmDelivery],
   );
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>;

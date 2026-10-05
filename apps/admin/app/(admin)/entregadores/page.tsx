@@ -7,7 +7,7 @@ import { Icon } from '../../_icons/Icon';
 export const dynamic = 'force-dynamic';
 
 const waLink = (phone: string | null) => {
-  const d = (phone ?? '').replace(/D/g, '');
+  const d = (phone ?? '').replace(/\D/g, '');
   return d ? `https://wa.me/${d.startsWith('55') ? d : '55' + d}` : null;
 };
 

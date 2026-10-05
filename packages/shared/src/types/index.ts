@@ -99,6 +99,13 @@ export type LogisticsConfig = {
    *  dele até a coleta — folga de segurança pra não deixar o pedido esperando
    *  nem o motoboy esperando o pedido. */
   dispatch_lead_minutes: number;
+  /** Frota própria: taxa do cliente = customer_fee até X km… */
+  customer_fee_included_km?: number;
+  /** …e + este valor por km a mais (0 = taxa fixa). */
+  customer_fee_per_extra_km?: number;
+  /** Tempo prometido ao cliente (min, contado da criação do pedido). A rota
+   *  do motoboy prioriza quem está mais perto de estourar esse prazo. */
+  delivery_promise_minutes?: number;
 };
 
 /** Configuração do motor de remuneração (payout_policies.config). */

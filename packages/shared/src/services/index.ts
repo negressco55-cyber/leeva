@@ -48,3 +48,6 @@ export * from './business-hours';
 export * from './restaurant-terms';
 export * from './notify-driver';
 export * from './grouping-dispatch';
+// Frota própria / roteirização (modelo mensal)
+export * from './route-optimizer';
+export * from './motoboy-route';
