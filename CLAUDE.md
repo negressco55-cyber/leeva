@@ -45,8 +45,12 @@ Domain flow in `packages/shared/src/services`:
 
 - Schema lives only in `supabase/migrations/NNNN_*.sql`. They are **applied by hand in the Supabase SQL Editor** (there is no migration runner in CI); after adding one, tell the owner to run it and keep numbering sequential.
 - `packages/shared/src/types/database.ts` is the typed schema. Any new table/column must be added there by hand (or regenerated with `npm run db:types`) or `tsc` fails on `db.from('new_table')`.
-- Multi-tenant RLS keyed on `current_restaurant_id()`; some tables (e.g. `order_messages`) are service-role-only and reached exclusively through API routes after an ownership check.
+- Multi-tenant RLS keyed on `current_restaurant_id()`. `order_messages` is written only through API routes (service role) but readable by the order's team/courier so the chat updates via Realtime (0050).
 - Storage buckets `driver-documents` and `delivery-proof` are private; access is via short-lived signed URLs (`signDoc`).
+
+## Realtime, not polling (Vercel cost)
+
+Polling Vercel every few seconds per courier is what blew the Vercel plan. Live data goes through Supabase Realtime: courier GPS is written straight to Supabase with the `record_my_location` RPC (0050; returns `nearby`, and only then the client calls `/api/location` once per order for the "chegando" notice); the restaurant panel listens with `useLiveOps` (`@leeva/shared/hooks`); chats/offers subscribe to their tables. Any interval left is a 20–60 s safety net, visible-tab only. `/api/*` is excluded from the middleware matcher (routes authenticate themselves). Don't add new short polling loops.
 
 ## Deploy and operations
 
@@ -59,4 +63,4 @@ Domain flow in `packages/shared/src/services`:
 - GitHub push protection is on: never commit tokens or `.env*`. Stage explicit paths (`git add <files>`), never `git add -A` — the tree often holds untracked scratch files (e.g. `apps/restaurante/scratch/`).
 - Never read or print secret values, and never run tests that move real money (Asaas production); payout tests are the owner's to run.
 - Windows shell: use Git Bash or PowerShell; `python3` hangs; Node needs `C:/...` paths; write multi-line edits to a scratch script instead of `node -e`.
-- The free OpenStreetMap tile server (`tile.openstreetmap.org`) blocks this app ("Access blocked"). It is still hard-coded in `apps/motoboy-app/src/components/{LiveMapMini,RouteMapMini,MapaEntrega}.tsx`, `apps/motoboy/app/(app)/_lib/RouteMap.tsx`, and the restaurant/admin `LeevaMap.tsx`; replace with a keyed provider (routing already supports `MAPBOX_TOKEN`; a browser-safe public `pk.` token would be needed for tiles) rather than adding more headers — `LiveMapMini` already sends User-Agent/Referer and is still blocked.
+- The free OpenStreetMap tile server (`tile.openstreetmap.org`) blocks this app ("Access blocked"). The restaurant map (`OsmMapProvider` + restaurant `LeevaMap.tsx`) now uses CARTO tiles; OSM is still hard-coded in `apps/motoboy-app/src/components/{LiveMapMini,RouteMapMini,MapaEntrega}.tsx`, `apps/motoboy/app/(app)/_lib/RouteMap.tsx`, and the admin `LeevaMap.tsx`; replace with a keyed provider (routing already supports `MAPBOX_TOKEN`; a browser-safe public `pk.` token would be needed for tiles) rather than adding more headers — `LiveMapMini` already sends User-Agent/Referer and is still blocked.

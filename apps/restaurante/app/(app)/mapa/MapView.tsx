@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ORDER_STATUS_LABELS } from '@leeva/shared';
 import type { MapData, HeatmapResult } from '@leeva/shared/services';
+import { useLiveOps } from '@leeva/shared/hooks';
 import { apiGet } from '../_lib/client';
+import { applyDriverPosition } from '../_lib/liveMap';
 import LeevaMap, { type MapMarker } from '../_lib/LeevaMap';
 
 type Period = 'today' | '7d' | '30d';
@@ -19,7 +21,6 @@ export default function MapView({
   mapConfig: { tileUrl: string; attribution: string };
   heatmapEnabled: boolean;
 }) {
-  void restaurantId;
   const [map, setMap] = useState(initialMap);
   const [mode, setMode] = useState<'ops' | 'heat'>('ops');
   const [period, setPeriod] = useState<Period>('7d');
@@ -34,11 +35,17 @@ export default function MapView({
     }
   }, []);
 
+  // entregador anda e pedido muda ao vivo (Realtime); o intervalo é só rede de segurança
+  useLiveOps(restaurantId, {
+    onDriverPosition: (p) => setMap((prev) => applyDriverPosition(prev, p)),
+    onOrdersChange: () => void refreshOps(),
+  });
+
   useEffect(() => {
     if (mode !== 'ops') return;
     const iv = setInterval(() => {
       if (document.visibilityState === 'visible') void refreshOps();
-    }, 20000);
+    }, 60000);
     return () => clearInterval(iv);
   }, [mode, refreshOps]);
 

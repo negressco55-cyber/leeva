@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createLeevaBrowserClient } from '@leeva/shared/client';
 import { apiGet, apiPost } from '../_lib/client';
 import { Icon } from '../../_icons/Icon';
 
 type Message = { id: string; senderType: 'restaurant' | 'motoboy'; senderId: string; body: string; createdAt: string };
 
-/** Chat do pedido com o entregador atribuído. Atualiza por polling (5s). */
+/** Chat do pedido com o entregador atribuído. Atualiza ao vivo (Realtime). */
 export function OrderChat({ orderId, startOpen }: { orderId: string; startOpen?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -30,8 +31,17 @@ export function OrderChat({ orderId, startOpen }: { orderId: string; startOpen?:
   useEffect(() => {
     if (!open) return;
     load();
-    const iv = setInterval(load, 5000);
-    return () => clearInterval(iv);
+    // mensagem nova chega pelo Realtime; o intervalo é só rede de segurança
+    const supabase = createLeevaBrowserClient();
+    const ch = supabase
+      .channel(`chat-${orderId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_messages', filter: `order_id=eq.${orderId}` }, () => load())
+      .subscribe();
+    const iv = setInterval(load, 30000);
+    return () => {
+      clearInterval(iv);
+      supabase.removeChannel(ch);
+    };
   }, [open, load]);
 
   useEffect(() => {

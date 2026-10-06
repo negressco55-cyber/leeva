@@ -66,8 +66,9 @@ function precisionFromNominatim(placeRank: number, addressType?: string): Geocod
 
 class OsmMapProvider implements MapProvider {
   readonly name = 'osm';
-  readonly tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-  readonly tileAttribution = '© OpenStreetMap';
+  // tile.openstreetmap.org bloqueia o app ("Access blocked"); CARTO serve os mesmos dados OSM
+  readonly tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  readonly tileAttribution = '© OpenStreetMap · © CARTO';
 
   async geocode(address: string, near?: LatLng): Promise<GeocodeResult | null> {
     if (!address || address.trim().length < 4) return null;

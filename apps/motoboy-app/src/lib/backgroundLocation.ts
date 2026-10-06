@@ -11,7 +11,11 @@
  * automaticamente — nada de ficar drenando bateria à toa.
  *
  * A task roda num contexto de JS separado (headless), então ela NÃO usa os
- * contextos React — pega o token direto do Supabase (que lê do AsyncStorage).
+ * contextos React — usa o cliente Supabase direto (sessão no AsyncStorage).
+ *
+ * A posição vai DIRETO pro Supabase (função record_my_location), sem passar
+ * pela Vercel. Só perto do cliente (< 400 m) o app chama /api/location uma
+ * vez por entrega, para disparar o aviso "seu pedido está chegando".
  */
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
@@ -23,6 +27,7 @@ import { buildLocationBody, lastLocation, shouldThrottle } from './locationPaylo
 export const BG_LOCATION_TASK = 'leeva-bg-location';
 
 let lastSentAt = 0;
+const nearbySent = new Set<string>();
 const MIN_SEND_INTERVAL_MS = 8_000;
 
 TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
@@ -35,14 +40,25 @@ TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
   lastSentAt = now;
 
   try {
-    const { data: sess } = await supabase.auth.getSession();
-    const token = sess.session?.access_token;
-    if (!token) return;
-    await fetch(`${API_URL}/api/location`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(buildLocationBody(last.coords)),
+    const body = buildLocationBody(last.coords);
+    const { data } = await supabase.rpc('record_my_location', {
+      p_latitude: body.latitude,
+      p_longitude: body.longitude,
+      p_accuracy: body.accuracy,
+      p_speed: body.speed,
     });
+    const r = data as { nearby?: boolean; order_id?: string } | null;
+    if (r?.nearby && r.order_id && !nearbySent.has(r.order_id)) {
+      nearbySent.add(r.order_id);
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) return;
+      await fetch(`${API_URL}/api/location`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+    }
   } catch {
     /* sem rede — a próxima leitura tenta de novo */
   }

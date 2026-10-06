@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createLeevaBrowserClient } from '@leeva/shared/client';
 import { apiGet } from '../_lib/client';
 import { Icon } from '../../_icons/Icon';
 
@@ -92,8 +93,20 @@ export function ChatInbox({ onOpenOrder }: { onOpenOrder: (orderId: string) => v
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 8000);
-    return () => clearInterval(iv);
+    // mensagem nova chega pelo Realtime (o RLS só entrega as do próprio
+    // restaurante); o intervalo é só rede de segurança
+    const supabase = createLeevaBrowserClient();
+    const ch = supabase
+      .channel('chat-inbox')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_messages' }, () => load())
+      .subscribe();
+    const iv = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 60000);
+    return () => {
+      clearInterval(iv);
+      supabase.removeChannel(ch);
+    };
   }, [load]);
 
   const [perm, setPerm] = useState<string>(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);

@@ -2,8 +2,8 @@
  * Dados do mapa da CENTRAL DE OPERAÇÕES (visão do restaurante).
  *
  * Mostra: o restaurante, os pedidos ativos e seus destinos, o estado do
- * despacho, a ETA e — só para pedidos em rota — a posição do entregador
- * responsável por AQUELE pedido.
+ * despacho, a ETA e — para pedidos com entregador (indo buscar, retirado
+ * ou em rota) — a posição do entregador responsável por AQUELE pedido.
  *
  * NUNCA expõe a rede de entregadores, telefone de motoboy nem posição de
  * quem não está numa entrega deste restaurante.
@@ -29,6 +29,8 @@ export type MapOrderMarker = {
   routeDistanceKm: number | null;
   late: boolean;
   driverFirstName: string | null;
+  /** id interno do motoboy — liga o ponto de GPS ao vivo (Realtime) ao marcador. */
+  motoboyId: string | null;
   driverPosition: { latitude: number; longitude: number } | null;
 };
 
@@ -40,6 +42,8 @@ export type MapData = {
 };
 
 const SLA_TOTAL_MIN = 55;
+/** Status em que o restaurante vê o entregador no mapa (indo buscar → entregando). */
+const DRIVER_VISIBLE: string[] = ['assigned', 'picked_up', 'in_route'];
 
 export async function getMapData(db: DB, restaurantId: string): Promise<MapData> {
   const { data: rst } = await db
@@ -60,7 +64,7 @@ export async function getMapData(db: DB, restaurantId: string): Promise<MapData>
 
   const rows = orders ?? [];
   const driverIds = [
-    ...new Set(rows.filter((o) => o.motoboy_id && ['picked_up', 'in_route'].includes(o.status)).map((o) => o.motoboy_id!)),
+    ...new Set(rows.filter((o) => o.motoboy_id && DRIVER_VISIBLE.includes(o.status)).map((o) => o.motoboy_id!)),
   ];
   const { data: drivers } = driverIds.length
     ? await db
@@ -76,7 +80,7 @@ export async function getMapData(db: DB, restaurantId: string): Promise<MapData>
     const late = ageMin > SLA_TOTAL_MIN && o.status !== 'in_route' && !o.dispatch_hold;
     let driverFirstName: string | null = null;
     let driverPosition: { latitude: number; longitude: number } | null = null;
-    if (o.motoboy_id && ['picked_up', 'in_route'].includes(o.status)) {
+    if (o.motoboy_id && DRIVER_VISIBLE.includes(o.status)) {
       const d = driverById.get(o.motoboy_id);
       if (d) {
         driverFirstName = (d.full_name ?? 'Entregador').split(' ')[0] ?? 'Entregador';
@@ -106,6 +110,7 @@ export async function getMapData(db: DB, restaurantId: string): Promise<MapData>
       routeDistanceKm: o.route_distance_km != null ? Number(o.route_distance_km) : null,
       late,
       driverFirstName,
+      motoboyId: o.motoboy_id && DRIVER_VISIBLE.includes(o.status) ? o.motoboy_id : null,
       driverPosition,
     };
   });

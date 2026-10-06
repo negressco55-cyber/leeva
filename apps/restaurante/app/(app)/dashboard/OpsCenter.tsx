@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useRealtimeOrders } from '@leeva/shared/hooks';
+import { useLiveOps } from '@leeva/shared/hooks';
 import {
   DISPATCH_STATE_LABELS,
   ORDER_STATUS_LABELS,
@@ -13,10 +12,17 @@ import {
 import type { Situation, MapData } from '@leeva/shared/services';
 import { apiGet, apiPost } from '../_lib/client';
 import LeevaMap, { type MapMarker } from '../_lib/LeevaMap';
-import { Icon } from '../../_icons/Icon';
+import { applyDriverPosition } from '../_lib/liveMap';
 
 type Alert = { key: string; severity: string; title: string; message: string };
+type MapOrder = MapData['orders'][number];
 
+/**
+ * Central de operações: o mapa com TODAS as entregas ativas do
+ * estabelecimento e os entregadores andando ao vivo; ao lado, a lista das
+ * entregas. Tudo chega pelo Supabase Realtime — o recarregamento periódico
+ * é só rede de segurança (e para os atrasos, que dependem do relógio).
+ */
 export default function OpsCenter({
   restaurantId,
   initialSituation,
@@ -32,12 +38,10 @@ export default function OpsCenter({
   mapConfig: { tileUrl: string; attribution: string };
   finance: { deliveries: number; cost: number; margin: number; avgCost: number | null };
 }) {
-  const router = useRouter();
   const [situation, setSituation] = useState(initialSituation);
   const [alerts, setAlerts] = useState(initialAlerts);
   const [map, setMap] = useState(initialMap);
   const [focusId, setFocusId] = useState<string | null>(null);
-  const { orders: rtOrders } = useRealtimeOrders({ restaurantId });
 
   const refresh = useCallback(async () => {
     try {
@@ -49,19 +53,20 @@ export default function OpsCenter({
       setAlerts(a.alerts.active);
       setMap(m);
     } catch {
-      /* ignora */
+      /* ignora — próxima mudança ou o intervalo tentam de novo */
     }
   }, []);
 
+  const { connected } = useLiveOps(restaurantId, {
+    onDriverPosition: (p) => setMap((prev) => applyDriverPosition(prev, p)),
+    onOrdersChange: () => void refresh(),
+  });
+
   useEffect(() => {
-    const t = setTimeout(refresh, 2500);
-    return () => clearTimeout(t);
-  }, [rtOrders.length, refresh]);
-  useEffect(() => {
-    // só faz polling com a aba visível — aba em segundo plano não gasta rede
+    // rede de segurança: 1x por minuto, só com a aba visível
     const iv = setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
-    }, 20000);
+    }, 60000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') void refresh();
     };
@@ -84,6 +89,7 @@ export default function OpsCenter({
         popupHtml: `<b>${escapeHtml(map.restaurant.name)}</b><br/>ponto de coleta`,
       });
     }
+    const driversDrawn = new Set<string>();
     for (const o of map.orders) {
       if (o.destination) {
         out.push({
@@ -98,150 +104,141 @@ export default function OpsCenter({
           popupHtml: `<b>Pedido #${o.orderNumber ?? '—'}</b><br/>${escapeHtml(o.customerName)}<br/>${escapeHtml(o.region ?? '')}<br/>${ORDER_STATUS_LABELS[o.status]}${o.etaMin ? ` · ETA ${o.etaMin}–${o.etaMax} min` : ''}`,
         });
       }
-      if (o.driverPosition) {
+      // um marcador por motoboy, mesmo levando várias entregas agrupadas
+      const driverKey = o.motoboyId ?? `${o.id}-driver`;
+      if (o.driverPosition && !driversDrawn.has(driverKey)) {
+        driversDrawn.add(driverKey);
+        const carrying = map.orders
+          .filter((x) => x.motoboyId && x.motoboyId === o.motoboyId)
+          .map((x) => `#${x.orderNumber ?? '—'}`)
+          .join(', ');
         out.push({
-          id: `${o.id}-driver`,
+          id: `driver-${driverKey}`,
           lat: o.driverPosition.latitude,
           lng: o.driverPosition.longitude,
           label: o.driverFirstName ?? 'Entregador',
           kind: 'driver',
-          popupHtml: `<b>${escapeHtml(o.driverFirstName ?? 'Entregador')}</b><br/>entrega #${o.orderNumber ?? '—'}`,
+          popupHtml: `<b>${escapeHtml(o.driverFirstName ?? 'Entregador')}</b><br/>${carrying || `entrega #${o.orderNumber ?? '—'}`}`,
         });
       }
     }
     return out;
   }, [map]);
 
+  const groups = useMemo(() => groupOrders(map.orders), [map.orders]);
+  const problems = alerts.filter((a) => a.severity !== 'ok');
   const c = situation.counters;
-  const searching = map.counts.searching;
 
   return (
     <>
-      <div className="page-head">
+      <div className="page-head" style={{ marginBottom: 12 }}>
         <div>
           <h1>Visão geral</h1>
-          <div className="sub">Central de operações — <Clock /></div>
+          <div className="sub">
+            <span className={`dot ${connected ? 'ok' : ''}`} /> {connected ? 'Ao vivo' : 'Conectando…'} · <Clock />
+          </div>
         </div>
-        <Link href="/mapa" className="btn sm">
-          Abrir mapa completo
-        </Link>
+        <div className="ops-chips">
+          <Link href="/pedidos" className="ops-chip"><b>{c.total}</b> ativas</Link>
+          <span className="ops-chip"><b>{map.counts.inRoute}</b> em rota</span>
+          <span className={`ops-chip ${map.counts.searching > 0 ? 'warn' : ''}`}>
+            <b>{map.counts.searching}</b> buscando entregador
+          </span>
+          <span className={`ops-chip ${c.late > 0 ? 'danger' : ''}`}><b>{c.late}</b> atrasadas</span>
+          <Link href="/financeiro" className="ops-chip">
+            <b>{finance.avgCost != null ? formatCurrencyBRL(finance.avgCost) : '—'}</b> custo médio hoje
+          </Link>
+        </div>
       </div>
 
-      <section className={`op-alert ${situation.level}`} style={{ alignItems: 'flex-start' }}>
-        <div style={{ fontSize: 20 }}>{situation.emoji}</div>
-        <div>
-          <div style={{ fontWeight: 700 }}>{situation.headline}</div>
-          {situation.lines.map((l, i) => (
-            <div key={i} style={{ marginTop: 2 }}>{l}</div>
-          ))}
-          {situation.action && <div style={{ marginTop: 6, fontWeight: 600 }}>{situation.action}</div>}
-        </div>
-      </section>
-
-      <section className="stat-row" style={{ margin: '14px 0' }}>
-        <Link href="/pedidos" className="stat">
-          <div className="v">{c.total}</div>
-          <div className="l">pedidos ativos</div>
-        </Link>
-        <div className="stat">
-          <div className="v">{map.counts.inRoute}</div>
-          <div className="l">em entrega</div>
-        </div>
-        <div className={`stat ${searching > 0 ? 'warn' : ''}`}>
-          <div className="v">{searching}</div>
-          <div className="l">buscando entregador</div>
-        </div>
-        <div className={`stat ${c.late > 0 ? 'warn' : ''}`}>
-          <div className="v">{c.late}</div>
-          <div className="l">atrasados</div>
-        </div>
-        <div className="stat">
-          <div className="v">{situation.counters.driversAvailable + situation.counters.driversOnDelivery}</div>
-          <div className="l">entregas em execução</div>
-        </div>
-        <Link href="/financeiro" className="stat">
-          <div className="v">{finance.avgCost != null ? formatCurrencyBRL(finance.avgCost) : '—'}</div>
-          <div className="l">custo logístico médio (hoje)</div>
-        </Link>
-      </section>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, alignItems: 'start' }}>
-        <div className="card" style={{ padding: 10 }}>
+      <div className="ops-layout">
+        <div className="ops-map-wrap">
           <LeevaMap
             markers={markers}
             tileUrl={mapConfig.tileUrl}
             attribution={mapConfig.attribution}
             focusId={focusId}
+            className="leaflet-map ops-map-full"
           />
           <div className="map-legend">
             <span><span className="dot" style={{ background: '#8fbcff' }} />Restaurante</span>
+            <span><span className="dot" style={{ background: 'var(--ok)' }} />Entregador / em rota</span>
             <span><span className="dot" style={{ background: 'var(--warn)' }} />Buscando entregador</span>
-            <span><span className="dot" style={{ background: '#8fbcff' }} />A caminho</span>
-            <span><span className="dot" style={{ background: 'var(--ok)' }} />Em entrega</span>
-            <span><span className="dot" style={{ background: '#ef4444' }} />Atrasado</span>
+            <span><span className="dot" style={{ background: '#ff5a1f' }} />Aguardando</span>
+            <span><span className="dot" style={{ background: '#ef4444' }} />Atrasada</span>
           </div>
         </div>
 
-        <div>
-          <div className="card">
-            <div className="card-title">Central de alertas</div>
-            {alerts.filter((a) => a.severity !== 'ok').length === 0 ? (
-              <div className="muted" style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}><span className="dot ok" /> Nenhum problema prioritário.</div>
-            ) : (
-              alerts
-                .filter((a) => a.severity !== 'ok')
-                .map((a) => (
-                  <div key={a.key} className={`op-alert ${a.severity}`}>
-                    <div>
-                      <strong>{a.title}</strong>
-                      <div style={{ fontSize: 13 }}>{a.message}</div>
-                    </div>
-                  </div>
-                ))
+        <aside className="ops-side card">
+          {situation.level !== 'ok' && (
+            <div className={`op-alert ${situation.level}`} style={{ marginBottom: 8 }}>
+              <div>
+                <strong>{situation.headline}</strong>
+                {situation.action && <div style={{ fontSize: 13 }}>{situation.action}</div>}
+              </div>
+            </div>
+          )}
+          {problems.map((a) => (
+            <div key={a.key} className={`op-alert ${a.severity}`} style={{ marginBottom: 8 }}>
+              <div>
+                <strong>{a.title}</strong>
+                <div style={{ fontSize: 13 }}>{a.message}</div>
+              </div>
+            </div>
+          ))}
+
+          <div className="card-title">Entregas ({map.orders.length})</div>
+          <div className="ops-list">
+            {groups.map((g) => (
+              <div key={g.key}>
+                <div className="ops-group">{g.title} · {g.orders.length}</div>
+                {g.orders.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setFocusId(o.id)}
+                    className={`ops-item ${focusId === o.id ? 'active' : ''}`}
+                  >
+                    <span className="dot" style={{ background: colorFor(o.status, o.dispatchState, o.late) }} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span className="ops-item-title">#{o.orderNumber} · {o.customerName}</span>
+                      <span className="ops-item-sub">
+                        {o.region ?? (o.destination ? 'destino no mapa' : 'sem endereço')}
+                        {o.driverFirstName ? ` · ${o.driverFirstName}` : ''}
+                        {o.etaMin ? ` · ${o.etaMin}–${o.etaMax} min` : ''}
+                      </span>
+                    </span>
+                    {o.late && <span className="tag red">atrasada</span>}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {map.orders.length === 0 && (
+              <div className="muted" style={{ fontSize: 13 }}>Nenhuma entrega ativa agora.</div>
             )}
           </div>
-
-          <div className="card">
-            <div className="card-title">Pedidos ({map.orders.length})</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 340, overflowY: 'auto' }}>
-              {map.orders.map((o) => (
-                <button
-                  key={o.id}
-                  onClick={() => setFocusId(o.id)}
-                  className="op-alert"
-                  style={{ textAlign: 'left', cursor: 'pointer', marginBottom: 0, background: 'transparent' }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>
-                      #{o.orderNumber} · {o.customerName}
-                    </div>
-                    <div className="muted" style={{ fontSize: 12 }}>
-                      {o.region ?? o.destination ? o.region ?? 'destino' : 'sem endereço'} ·{' '}
-                      {['searching', 'offered'].includes(o.dispatchState)
-                        ? DISPATCH_STATE_LABELS[o.dispatchState as DispatchState]
-                        : ORDER_STATUS_LABELS[o.status]}
-                      {o.etaMin ? ` · ${o.etaMin}–${o.etaMax} min` : ''}
-                    </div>
-                  </div>
-                  {o.late && <span className="tag red">atrasado</span>}
-                </button>
-              ))}
-              {map.orders.length === 0 && (
-                <div className="muted" style={{ fontSize: 13 }}>Nenhum pedido ativo agora.</div>
-              )}
-            </div>
-          </div>
-        </div>
+        </aside>
       </div>
-      <button
-        onClick={() => router.refresh()}
-        className="btn sm"
-        style={{ marginTop: 12 }}
-      >
-        Atualizar
-      </button>
     </>
   );
+}
+
+/** Agrupa as entregas pela etapa, na ordem em que o restaurante age. */
+function groupOrders(orders: MapOrder[]) {
+  const defs: { key: string; title: string; match: (o: MapOrder) => boolean }[] = [
+    { key: 'searching', title: 'Buscando entregador', match: (o) => ['searching', 'offered', 'failed'].includes(o.dispatchState) && !o.motoboyId },
+    { key: 'assigned', title: 'Entregador indo buscar', match: (o) => o.status === 'assigned' },
+    { key: 'route', title: 'Em rota', match: (o) => o.status === 'picked_up' || o.status === 'in_route' },
+    { key: 'waiting', title: 'Aguardando', match: () => true },
+  ];
+  const used = new Set<string>();
+  return defs
+    .map((d) => {
+      const list = orders.filter((o) => !used.has(o.id) && d.match(o));
+      list.forEach((o) => used.add(o.id));
+      return { key: d.key, title: d.key === 'searching' ? DISPATCH_STATE_LABELS.searching.replace('…', '') : d.title, orders: list };
+    })
+    .filter((g) => g.orders.length > 0);
 }
 
 /** Relógio isolado: re-renderiza só a si mesmo a cada segundo, não a página/mapa. */
@@ -257,7 +254,7 @@ function Clock() {
 
 function colorFor(status: string, dispatch: string, late?: boolean) {
   if (late) return '#ef4444';
-  if (['searching', 'offered'].includes(dispatch)) return 'var(--warn)';
+  if (['searching', 'offered'].includes(dispatch as DispatchState)) return 'var(--warn)';
   if (status === 'in_route' || status === 'picked_up') return 'var(--ok)';
   if (status === 'assigned') return '#8fbcff';
   return '#ff5a1f';

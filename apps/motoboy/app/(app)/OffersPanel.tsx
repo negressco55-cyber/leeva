@@ -123,7 +123,8 @@ export default function OffersPanel({ motoboyId }: { motoboyId: string }) {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 5000);
+    // oferta nova chega pelo Realtime (canal abaixo); o intervalo é só rede de segurança
+    const iv = setInterval(load, 20000);
     const clock = setInterval(() => setNow(Date.now()), 1000);
     const supabase = createLeevaBrowserClient();
     const ch = supabase

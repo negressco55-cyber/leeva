@@ -26,7 +26,9 @@ export function OperationView({
     if (status) qs.set('status', status);
     const load = () => apiGet<NetworkOperation>(`/api/operation?${qs}`).then(setData).catch(() => {});
     load();
-    const iv = setInterval(load, 15000);
+    const iv = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 30000);
     return () => clearInterval(iv);
   }, [region, restaurantId, status]);
 

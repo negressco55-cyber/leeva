@@ -1,4 +1,5 @@
 import { apiGet, apiSend } from './client';
+import { supabase } from '../lib/supabase';
 import type { MotoboyMe, Performance } from '../types';
 
 export function getMe(): Promise<MotoboyMe> {
@@ -9,8 +10,10 @@ export async function setOnline(online: boolean): Promise<{ status: string }> {
   return apiSend<{ ok: boolean; status: string }>('/api/status', 'POST', { online });
 }
 
+/** Grava a posição direto no Supabase (sem passar pela Vercel). Só grava com entrega ativa. */
 export async function sendLocation(latitude: number, longitude: number): Promise<void> {
-  await apiSend('/api/location', 'POST', { latitude, longitude });
+  const { error } = await supabase.rpc('record_my_location', { p_latitude: latitude, p_longitude: longitude });
+  if (error) throw new Error(error.message);
 }
 
 export function getPerformance(): Promise<Performance> {

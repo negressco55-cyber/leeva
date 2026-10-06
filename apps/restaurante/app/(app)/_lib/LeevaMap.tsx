@@ -34,8 +34,8 @@ const KIND_COLOR: Record<string, string> = {
  */
 export default function LeevaMap({
   markers,
-  tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution = '© OpenStreetMap',
+  tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  attribution = '© OpenStreetMap · © CARTO',
   className = 'leaflet-map ops-map',
   heat,
   center,
@@ -54,6 +54,9 @@ export default function LeevaMap({
   const layerRef = useRef<LayerGroup | null>(null);
   const heatLayerRef = useRef<LayerGroup | null>(null);
   const markerById = useRef<Map<string, Marker>>(new Map());
+  const iconKeyById = useRef<Map<string, string>>(new Map());
+  const clickById = useRef<Map<string, () => void>>(new Map());
+  const fitted = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +64,7 @@ export default function LeevaMap({
       const L = await loadL();
       if (cancelled || !elRef.current || mapRef.current) return;
       const map = L.map(elRef.current, { zoomControl: true, attributionControl: true });
-      L.tileLayer(tileUrl, { attribution, maxZoom: 19, subdomains: 'abc' }).addTo(map);
+      L.tileLayer(tileUrl, { attribution, maxZoom: 19, subdomains: 'abcd' }).addTo(map);
       map.setView(center ? [center.lat, center.lng] : [-7.115, -34.86], 13);
       mapRef.current = map;
       layerRef.current = L.layerGroup().addTo(map);
@@ -75,6 +78,10 @@ export default function LeevaMap({
       cancelled = true;
       mapRef.current?.remove();
       mapRef.current = null;
+      markerById.current.clear();
+      iconKeyById.current.clear();
+      clickById.current.clear();
+      fitted.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -101,9 +108,7 @@ export default function LeevaMap({
     const layer = layerRef.current;
     const heatLayer = heatLayerRef.current;
     if (!map || !layer || !heatLayer) return;
-    layer.clearLayers();
     heatLayer.clearLayers();
-    markerById.current.clear();
 
     // heat (círculos translúcidos agregados)
     if (heat?.length) {
@@ -117,8 +122,13 @@ export default function LeevaMap({
       }
     }
 
+    // Atualiza no lugar (não recria): com GPS ao vivo o entregador só ANDA
+    // no mapa — sem piscar, sem fechar o balão aberto, sem reenquadrar.
     const pts: [number, number][] = [];
+    const seen = new Set<string>();
+    let newFixedPoint = false;
     for (const mk of markers) {
+      seen.add(mk.id);
       const color = mk.color ?? KIND_COLOR[mk.kind] ?? '#ff5a1f';
       const size = mk.kind === 'restaurant' ? 30 : mk.kind === 'driver' ? 22 : 26;
       const icon = L.divIcon({
@@ -128,17 +138,50 @@ export default function LeevaMap({
         iconSize: [size, size],
         iconAnchor: [size / 2, size],
       });
-      const marker = L.marker([mk.lat, mk.lng], { icon }).addTo(layer);
-      if (mk.popupHtml) marker.bindPopup(mk.popupHtml);
-      if (mk.onClick) marker.on('click', mk.onClick);
-      markerById.current.set(mk.id, marker);
+      const iconKey = `${mk.kind}|${color}|${size}|${mk.late ? 1 : 0}`;
+      let marker = markerById.current.get(mk.id);
+      if (!marker) {
+        marker = L.marker([mk.lat, mk.lng], { icon }).addTo(layer);
+        markerById.current.set(mk.id, marker);
+        iconKeyById.current.set(mk.id, iconKey);
+        if (mk.kind !== 'driver') newFixedPoint = true;
+      } else {
+        marker.setLatLng([mk.lat, mk.lng]);
+        if (iconKeyById.current.get(mk.id) !== iconKey) {
+          marker.setIcon(icon);
+          iconKeyById.current.set(mk.id, iconKey);
+        }
+      }
+      if (mk.popupHtml) {
+        if (marker.getPopup()) marker.setPopupContent(mk.popupHtml);
+        else marker.bindPopup(mk.popupHtml);
+      }
+      // troca só o NOSSO handler (o bindPopup tem o dele no mesmo evento)
+      const prevClick = clickById.current.get(mk.id);
+      if (prevClick) marker.off('click', prevClick);
+      if (mk.onClick) {
+        marker.on('click', mk.onClick);
+        clickById.current.set(mk.id, mk.onClick);
+      } else clickById.current.delete(mk.id);
       pts.push([mk.lat, mk.lng]);
     }
+    for (const [id, marker] of markerById.current) {
+      if (!seen.has(id)) {
+        layer.removeLayer(marker);
+        markerById.current.delete(id);
+        iconKeyById.current.delete(id);
+        clickById.current.delete(id);
+      }
+    }
 
-    if (pts.length > 1) {
-      map.fitBounds(pts as [number, number][], { padding: [40, 40], maxZoom: 15 });
-    } else if (pts.length === 1) {
-      map.setView(pts[0]!, 14);
+    // enquadra na primeira vez e quando aparece pedido novo — não a cada GPS
+    if (!fitted.current || newFixedPoint) {
+      if (pts.length > 1) {
+        map.fitBounds(pts as [number, number][], { padding: [40, 40], maxZoom: 15 });
+      } else if (pts.length === 1) {
+        map.setView(pts[0]!, 14);
+      }
+      if (pts.length > 0) fitted.current = true;
     }
   }
 

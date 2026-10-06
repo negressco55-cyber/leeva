@@ -2159,6 +2159,15 @@ export type Database = {
         Args: { retention?: string }
         Returns: number
       }
+      record_my_location: {
+        Args: {
+          p_latitude: number
+          p_longitude: number
+          p_accuracy?: number
+          p_speed?: number
+        }
+        Returns: Json
+      }
       configure_dispatch_cron: {
         Args: { p_schedule?: string; p_secret: string; p_target_url: string }
         Returns: string

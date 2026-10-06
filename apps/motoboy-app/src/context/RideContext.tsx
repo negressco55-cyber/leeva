@@ -12,8 +12,10 @@ import { useAuth } from './AuthContext';
 import { usePosition } from './PositionContext';
 
 const LOCATION_INTERVAL_MS = 10_000;
-const POLL_ACTIVE_MS = 5_000;
-const POLL_BACKGROUND_MS = 20_000;
+// Ofertas e entregas chegam pelo Realtime (subscribeMotoboyRealtime); o
+// polling é só rede de segurança caso a conexão ao vivo caia.
+const POLL_ACTIVE_MS = 15_000;
+const POLL_BACKGROUND_MS = 60_000;
 
 interface RideContextValue {
   online: boolean;

@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { apiGet, apiSend } from '../api/client';
+import { supabase } from '../lib/supabase';
 import { useTheme } from '../theme/ThemeContext';
 import type { Theme } from '../theme/theme';
 
 type Message = { id: string; senderType: 'restaurant' | 'motoboy'; body: string; createdAt: string };
 
-/** Chat do pedido com o restaurante (polling de 5s enquanto aberto). */
+/** Chat do pedido com o restaurante (ao vivo pelo Realtime enquanto aberto). */
 export function DeliveryChat({ orderId }: { orderId: string }): React.JSX.Element {
   const t = useTheme();
   const styles = makeStyles(t);
@@ -29,8 +30,16 @@ export function DeliveryChat({ orderId }: { orderId: string }): React.JSX.Elemen
   useEffect(() => {
     if (!open) return;
     void load();
-    const iv = setInterval(() => void load(), 5000);
-    return () => clearInterval(iv);
+    // mensagem nova chega pelo Realtime; o intervalo é só rede de segurança
+    const ch = supabase
+      .channel(`chat-${orderId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_messages', filter: `order_id=eq.${orderId}` }, () => void load())
+      .subscribe();
+    const iv = setInterval(() => void load(), 30000);
+    return () => {
+      clearInterval(iv);
+      void supabase.removeChannel(ch);
+    };
   }, [open, load]);
 
   async function send(): Promise<void> {

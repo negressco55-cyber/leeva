@@ -21,6 +21,8 @@ export default function TrackingLive({
   useEffect(() => {
     if (snap.delivered || snap.cancelled) return;
     const iv = setInterval(async () => {
+      // cliente com a página em segundo plano não gasta servidor
+      if (document.visibilityState !== 'visible') return;
       try {
         const res = await fetch(`/api/track/${token}`, { cache: 'no-store' });
         if (res.ok) setSnap(await res.json());
