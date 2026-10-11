@@ -23,8 +23,8 @@ export default async function EquipePage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Minha equipe</h1>
-          <div className="sub">Seus entregadores. O Leeva despacha automaticamente entre eles.</div>
+          <h1>Motoboys</h1>
+          <div className="sub">Sua equipe. O Leeva manda as entregas e a rota pro app deles, e você acompanha todo mundo em Ao vivo.</div>
         </div>
       </div>
       <TeamManager

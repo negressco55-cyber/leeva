@@ -25,6 +25,7 @@ export const RATE_LIMITS = {
   tracking: { limit: 60, windowSeconds: 60 }, // por IP
   webhook: { limit: 300, windowSeconds: 60 }, // por provedor+restaurante
   geocode: { limit: 30, windowSeconds: 60 }, // por restaurante
+  'parse-text': { limit: 20, windowSeconds: 60 }, // "colar pedido" (IA), por restaurante
   auth: { limit: 10, windowSeconds: 60 }, // por IP
   default: { limit: 60, windowSeconds: 60 },
 } as const;

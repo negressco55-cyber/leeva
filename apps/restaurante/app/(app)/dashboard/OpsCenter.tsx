@@ -90,6 +90,25 @@ export default function OpsCenter({
       });
     }
     const driversDrawn = new Set<string>();
+    // equipe própria primeiro: todo motoboy online aparece, com o nome em cima
+    for (const d of map.team ?? []) {
+      if (!d.position) continue;
+      driversDrawn.add(d.id);
+      const carrying = map.orders
+        .filter((x) => x.motoboyId === d.id)
+        .map((x) => `#${x.orderNumber ?? '—'}`)
+        .join(', ');
+      out.push({
+        id: `driver-${d.id}`,
+        lat: d.position.latitude,
+        lng: d.position.longitude,
+        label: d.name.split(' ')[0] ?? d.name,
+        kind: 'driver',
+        showLabel: true,
+        color: d.state === 'busy' ? 'var(--ok)' : FREE_COLOR,
+        popupHtml: `<b>${escapeHtml(d.name)}</b><br/>${d.state === 'busy' ? `levando ${carrying}` : 'livre, esperando entrega'}`,
+      });
+    }
     for (const o of map.orders) {
       if (o.destination) {
         out.push({
@@ -128,12 +147,17 @@ export default function OpsCenter({
   const groups = useMemo(() => groupOrders(map.orders), [map.orders]);
   const problems = alerts.filter((a) => a.severity !== 'ok');
   const c = situation.counters;
+  const team = map.team ?? [];
+  const hasTeam = team.length > 0;
+  const freeCount = team.filter((d) => d.state === 'free').length;
+  const busyCount = team.filter((d) => d.state === 'busy').length;
+  const [tab, setTab] = useState<'orders' | 'team'>('orders');
 
   return (
     <>
       <div className="page-head" style={{ marginBottom: 12 }}>
         <div>
-          <h1>Visão geral</h1>
+          <h1>Ao vivo</h1>
           <div className="sub">
             <span className={`dot ${connected ? 'ok' : ''}`} /> {connected ? 'Ao vivo' : 'Conectando…'} · <Clock />
           </div>
@@ -141,6 +165,11 @@ export default function OpsCenter({
         <div className="ops-chips">
           <Link href="/pedidos" className="ops-chip"><b>{c.total}</b> ativas</Link>
           <span className="ops-chip"><b>{map.counts.inRoute}</b> em rota</span>
+          {hasTeam && (
+            <button type="button" className="ops-chip" onClick={() => setTab('team')}>
+              <b>{freeCount}</b> motoboys livres · <b>{busyCount}</b> em entrega
+            </button>
+          )}
           <span className={`ops-chip ${map.counts.searching > 0 ? 'warn' : ''}`}>
             <b>{map.counts.searching}</b> buscando entregador
           </span>
@@ -163,6 +192,7 @@ export default function OpsCenter({
           <div className="map-legend">
             <span><span className="dot" style={{ background: '#8fbcff' }} />Restaurante</span>
             <span><span className="dot" style={{ background: 'var(--ok)' }} />Entregador / em rota</span>
+            {hasTeam && <span><span className="dot" style={{ background: FREE_COLOR }} />Motoboy livre</span>}
             <span><span className="dot" style={{ background: 'var(--warn)' }} />Buscando entregador</span>
             <span><span className="dot" style={{ background: '#ff5a1f' }} />Aguardando</span>
             <span><span className="dot" style={{ background: '#ef4444' }} />Atrasada</span>
@@ -187,7 +217,21 @@ export default function OpsCenter({
             </div>
           ))}
 
-          <div className="card-title">Entregas ({map.orders.length})</div>
+          {hasTeam ? (
+            <div className="seg" style={{ marginBottom: 10 }}>
+              <button type="button" className={`seg-btn ${tab === 'orders' ? 'active' : ''}`} onClick={() => setTab('orders')}>
+                Entregas ({map.orders.length})
+              </button>
+              <button type="button" className={`seg-btn ${tab === 'team' ? 'active' : ''}`} onClick={() => setTab('team')}>
+                Motoboys ({freeCount + busyCount}/{team.length} online)
+              </button>
+            </div>
+          ) : (
+            <div className="card-title">Entregas ({map.orders.length})</div>
+          )}
+          {tab === 'team' && hasTeam ? (
+            <TeamList team={team} orders={map.orders} focusId={focusId} onFocus={setFocusId} />
+          ) : (
           <div className="ops-list">
             {groups.map((g) => (
               <div key={g.key}>
@@ -217,10 +261,79 @@ export default function OpsCenter({
               <div className="muted" style={{ fontSize: 13 }}>Nenhuma entrega ativa agora.</div>
             )}
           </div>
+          )}
         </aside>
       </div>
     </>
   );
+}
+
+const FREE_COLOR = '#a78bfa';
+const STATE_LABEL = { busy: 'em entrega', free: 'livre', offline: 'offline' } as const;
+
+/** A equipe agora: quem está livre, quem está levando o quê e quem sumiu do GPS. */
+function TeamList({
+  team,
+  orders,
+  focusId,
+  onFocus,
+}: {
+  team: MapData['team'];
+  orders: MapOrder[];
+  focusId: string | null;
+  onFocus: (id: string) => void;
+}) {
+  const order = { busy: 0, free: 1, offline: 2 } as const;
+  const sorted = [...team].sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name));
+  return (
+    <div className="ops-list">
+      {sorted.map((d) => {
+        const carrying = orders.filter((o) => o.motoboyId === d.id);
+        const markerId = `driver-${d.id}`;
+        const digits = d.phone.replace(/\D/g, '');
+        const wa = digits ? `https://wa.me/${digits.length <= 11 ? `55${digits}` : digits}` : null;
+        const noGps = d.state !== 'offline' && !d.position;
+        return (
+          <div key={d.id} className={`ops-item ${focusId === markerId ? 'active' : ''}`} style={{ opacity: d.state === 'offline' ? 0.55 : 1 }}>
+            <span
+              className="dot"
+              style={{ background: d.state === 'busy' ? 'var(--ok)' : d.state === 'free' ? FREE_COLOR : 'var(--muted)' }}
+            />
+            <button
+              type="button"
+              onClick={() => d.position && onFocus(markerId)}
+              disabled={!d.position}
+              style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 0, padding: 0, color: 'inherit', cursor: d.position ? 'pointer' : 'default' }}
+            >
+              <span className="ops-item-title">{d.name}</span>
+              <span className="ops-item-sub">
+                {STATE_LABEL[d.state]}
+                {carrying.length > 0 ? ` · ${carrying.map((o) => `#${o.orderNumber ?? '—'}`).join(', ')}` : ''}
+                {noGps ? ' · sem GPS agora' : ''}
+                {d.lastSeenAt ? ` · visto ${ago(d.lastSeenAt)}` : ''}
+              </span>
+            </button>
+            {wa && (
+              <a className="btn sm" href={wa} target="_blank" rel="noreferrer" title="Chamar no WhatsApp">
+                WhatsApp
+              </a>
+            )}
+          </div>
+        );
+      })}
+      <Link href="/equipe" className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+        Cadastrar ou convidar motoboy →
+      </Link>
+    </div>
+  );
+}
+
+function ago(iso: string) {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  return h < 24 ? `há ${h} h` : `há ${Math.round(h / 24)} d`;
 }
 
 /** Agrupa as entregas pela etapa, na ordem em que o restaurante age. */

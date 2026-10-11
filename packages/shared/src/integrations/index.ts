@@ -7,3 +7,6 @@ export * from './website';
 export * from './registry';
 export { parseWhatsAppOrder } from './ai/whatsapp-parser';
 export type { OrderDraft, ParseResult } from './ai/whatsapp-parser';
+export { parseOrderText, parseOrderTextHeuristic, parseMoney } from './ai/order-text-parser';
+export type { OrderTextDraft } from './ai/order-text-parser';
+export * from './opendelivery';

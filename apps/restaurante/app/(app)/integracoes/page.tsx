@@ -1,5 +1,6 @@
 import { requireRestaurantContext } from '@/lib/context';
 import { ConnectMenu } from './ConnectMenu';
+import { OpenDeliveryCard } from './OpenDeliveryCard';
 import { IfoodLink } from './IfoodLink';
 
 export const dynamic = 'force-dynamic';
@@ -21,14 +22,22 @@ export default async function IntegracoesPage() {
       <div className="card">
         <div className="card-title">Como um pedido chega no Leeva</div>
         <ul className="muted" style={{ fontSize: 13, lineHeight: 1.9, margin: 0, paddingLeft: 18 }}>
-          <li><b>Digitando no painel</b> — aba Pedidos → Nova entrega. Serve pra qualquer um.</li>
-          <li><b>Do seu cardápio digital / PDV / site</b> — pela chave de conexão (abaixo). Cobre a maioria das plataformas.</li>
-          <li><b>Por WhatsApp</b> — a IA lê a mensagem do cliente e monta o pedido pra você confirmar.</li>
+          <li>
+            <b>Colando o pedido</b> — Pedidos → Nova entrega → <i>Colar pedido do cardápio</i>. Copie o pedido no{' '}
+            <b>Anota AI</b>, Goomer, WhatsApp ou qualquer cardápio e cole: o Leeva preenche nome, telefone, endereço,
+            valor e pagamento. Funciona hoje, com qualquer sistema.
+          </li>
+          <li>
+            <b>Automático pelo Open Delivery</b> — Cardápio Web, Saipos e outros que seguem o padrão da Abrasel (abaixo).
+          </li>
+          <li><b>Automático pela chave de conexão</b> — site próprio ou plataforma que tenha webhook (abaixo).</li>
           <li><b>Do iFood</b> — conector próprio (abaixo), depende da homologação do iFood.</li>
         </ul>
       </div>
 
       <ConnectMenu deliveriesUrl={deliveriesUrl} />
+
+      <OpenDeliveryCard baseUrl={base} />
 
       <IfoodLink />
     </div>

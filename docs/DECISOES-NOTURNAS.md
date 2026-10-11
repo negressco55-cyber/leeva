@@ -1152,3 +1152,26 @@ Migration 0042 pendente de aplicar no Supabase.
   achar no celular — resolvido junto com a separação foto/arquivo
   acima (agora tem um botão "escolher arquivo" bem visível).
 - Migration 0043 pendente de aplicar.
+
+## 10/10/2026 — modelo novo: só mensalidade + motoboys próprios
+
+O dono decidiu: o Leeva vira app de roteirização/gestão da EQUIPE PRÓPRIA do
+estabelecimento, cobrando só mensalidade (plano `mensal`, migration 0049). O
+Leeva não mexe em dinheiro de entrega.
+
+- Painel (fleet_mode = 'own'): menu Ao vivo (mapa) · Pedidos · Motoboys ·
+  Indicadores · Acerto e financeiro · Integrações · Configurações. Saíram do
+  menu: Créditos, Entregadores (rede) e Mapa (o mapa de calor abre por
+  Indicadores). Contas antigas da rede mantêm o menu antigo.
+- Ao vivo: a equipe aparece SEMPRE no mapa quando online (migration 0051 —
+  `record_my_location` grava posição de motoboy own sem entrega, order_id
+  NULL), com nome no pino e aba "Motoboys" (livre/em entrega/offline, último
+  GPS, WhatsApp). `MapData.team`.
+- Onboarding: sem escolha de frota (sempre own) e só planos mensais.
+- Nova entrega na frota própria mostra km, quanto o motoboy recebe e a taxa
+  do cliente — não fala mais em crédito.
+- Integrações: "Colar pedido" (Anota AI e qualquer cardápio) e Open Delivery
+  (logística). Ver docs/INTEGRATIONS.md.
+- ATENÇÃO: no banco faltavam 0048, 0049 e 0050 (o código de 05–06/10 já
+  estava no ar sem elas → GPS não gravava desde então). Junto com a 0051,
+  precisam ser aplicadas.

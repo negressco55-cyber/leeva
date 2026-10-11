@@ -170,15 +170,18 @@ export default function ConfigForm({
         />
       </div>
 
-      <div className="card">
-        <div className="card-title">Frota</div>
-        {(Object.keys(FLEET_MODE_LABELS) as FleetMode[]).map((m) => (
-          <label key={m} style={{ display: 'block', padding: '4px 0' }}>
-            <input type="radio" checked={fleetMode === m} onChange={() => setFleetMode(m)} disabled={!isOwner} style={{ marginRight: 8 }} />
-            {FLEET_MODE_LABELS[m]}
-          </label>
-        ))}
-      </div>
+      {/* modelo atual é só frota própria: a escolha fica só pra contas antigas da rede */}
+      {initial.fleetMode !== 'own' && (
+        <div className="card">
+          <div className="card-title">Frota</div>
+          {(Object.keys(FLEET_MODE_LABELS) as FleetMode[]).map((m) => (
+            <label key={m} style={{ display: 'block', padding: '4px 0' }}>
+              <input type="radio" checked={fleetMode === m} onChange={() => setFleetMode(m)} disabled={!isOwner} style={{ marginRight: 8 }} />
+              {FLEET_MODE_LABELS[m]}
+            </label>
+          ))}
+        </div>
+      )}
 
       {fleetMode === 'own' && (() => {
         // simulação pra o dono enxergar o efeito: entrega de 5 km

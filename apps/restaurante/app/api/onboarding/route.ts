@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       return json({ error: msg, code: pickup.reason }, pickup.reason === 'geocoder_unavailable' ? 503 : 400);
     }
     const fleetMode = (
-      ['own', 'leeva', 'hybrid'].includes(b.fleetMode ?? '') ? b.fleetMode : 'leeva'
+      ['own', 'leeva', 'hybrid'].includes(b.fleetMode ?? '') ? b.fleetMode : 'own'
     ) as 'own' | 'leeva' | 'hybrid';
 
     const businessHours = sanitizeBusinessHours(b.businessHours);

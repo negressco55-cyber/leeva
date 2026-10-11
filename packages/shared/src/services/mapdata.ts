@@ -7,6 +7,10 @@
  *
  * NUNCA expõe a rede de entregadores, telefone de motoboy nem posição de
  * quem não está numa entrega deste restaurante.
+ *
+ * Exceção — a EQUIPE PRÓPRIA (fleet='own', restaurant_id = este): é do
+ * próprio estabelecimento, então aparece sempre em `team`, com posição
+ * quando está online (mesmo parado esperando entrega).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
@@ -34,9 +38,23 @@ export type MapOrderMarker = {
   driverPosition: { latitude: number; longitude: number } | null;
 };
 
+/** Motoboy da equipe própria, para o painel "Equipe agora" do mapa. */
+export type TeamDriver = {
+  id: string;
+  name: string;
+  phone: string;
+  /** offline · livre (online sem entrega) · em entrega */
+  state: 'offline' | 'free' | 'busy';
+  activeOrders: number;
+  position: { latitude: number; longitude: number } | null;
+  /** quando o GPS dele chegou por último (ISO) */
+  lastSeenAt: string | null;
+};
+
 export type MapData = {
   restaurant: { name: string; position: { latitude: number; longitude: number } | null };
   orders: MapOrderMarker[];
+  team: TeamDriver[];
   counts: { active: number; searching: number; inRoute: number; late: number; waiting: number };
   generatedAt: string;
 };
@@ -115,7 +133,41 @@ export async function getMapData(db: DB, restaurantId: string): Promise<MapData>
     };
   });
 
+  // equipe própria: todos os motoboys ativos do estabelecimento, online ou não
+  const { data: own } = await db
+    .from('motoboys')
+    .select('id, full_name, phone, status, current_latitude, current_longitude, location_updated_at')
+    .eq('restaurant_id', restaurantId)
+    .eq('fleet', 'own')
+    .eq('active', true)
+    .order('full_name')
+    .limit(100);
+  const busyCount = new Map<string, number>();
+  for (const o of rows) {
+    if (o.motoboy_id && DRIVER_VISIBLE.includes(o.status)) {
+      busyCount.set(o.motoboy_id, (busyCount.get(o.motoboy_id) ?? 0) + 1);
+    }
+  }
+  const team: TeamDriver[] = (own ?? []).map((d) => {
+    const n = busyCount.get(d.id) ?? 0;
+    const online = d.status !== 'offline';
+    const fresh = !!d.location_updated_at && now - new Date(d.location_updated_at).getTime() < 5 * 60000;
+    return {
+      id: d.id,
+      name: d.full_name,
+      phone: d.phone,
+      state: n > 0 ? 'busy' : online ? 'free' : 'offline',
+      activeOrders: n,
+      position:
+        (online || n > 0) && fresh && isValidLatLng(d.current_latitude, d.current_longitude)
+          ? { latitude: d.current_latitude as number, longitude: d.current_longitude as number }
+          : null,
+      lastSeenAt: d.location_updated_at,
+    };
+  });
+
   return {
+    team,
     restaurant: {
       name: rst?.name ?? 'Restaurante',
       position: isValidLatLng(rst?.latitude, rst?.longitude)

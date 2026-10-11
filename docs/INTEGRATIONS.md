@@ -98,6 +98,32 @@ update integrations set config = config || jsonb_build_object('api_key_hash', '<
 where restaurant_id = '<id>' and provider = 'menu';
 ```
 
+## <a id="colar-pedido"></a>Colar pedido (qualquer cardápio, inclusive Anota AI)
+
+Anota AI (do iFood) não tem API pública pra logística. O caminho que funciona
+com qualquer cardápio: Pedidos → Nova entrega → *Colar pedido do cardápio*.
+`POST /api/orders/parse-text { text }` → `parseOrderText`
+(`packages/shared/src/integrations/ai/order-text-parser.ts`): heurística por
+rótulos ("Cliente:", "Endereço:", "Total:", "Pagamento:", "troco") + Haiku se
+`ANTHROPIC_API_KEY` existir. Só preenche o formulário; nada é criado sem o
+restaurante confirmar e localizar o endereço.
+
+## <a id="opendelivery"></a>Open Delivery (logística)
+
+Padrão da Abrasel. O cardápio/PDV (Cardápio Web, Saipos…) chama o Leeva como
+empresa de logística:
+
+- `POST /api/opendelivery/oauth/token` — client_credentials; `client_secret` = chave de
+  integração do painel (a mesma da API própria); o access_token devolvido é a própria chave.
+- `POST /api/opendelivery/v1/logistics/delivery` — pedido de entrega; mapeado por
+  `openDeliveryToFlat` (`integrations/opendelivery.ts`) e criado por `lib/intake.ts`
+  (mesmo caminho da `/api/v1/deliveries`). Responde 202 `{ deliveryId, event: 'PENDING' }`.
+- `GET /api/opendelivery/v1/logistics/delivery/{deliveryId|orderId}` — evento atual
+  (`openDeliveryEvent`), entregador e link de rastreio.
+
+Ainda não implementado: webhook de status de volta pro cardápio e cancelamento
+pelo cardápio. Testar com cada plataforma antes de prometer.
+
 ## <a id="ifood"></a>iFood
 
 **Duas coisas importantes que a versão anterior deste doc errava:**

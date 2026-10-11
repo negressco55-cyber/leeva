@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Leeva is a logistics SaaS for restaurants (not a food marketplace): orders arrive from the restaurant's own channels, Leeva auto-dispatches a courier, tracks the delivery and bills for it. The restaurant never picks a courier. All user-facing copy is PT-BR. The owner is not a programmer — explain outcomes in plain Portuguese, decide details yourself, and do not push technical choices onto them.
+Leeva is a logistics SaaS for restaurants (not a food marketplace): orders arrive from the restaurant's own channels, Leeva auto-dispatches a courier and tracks the delivery. **Current model (since 2026-10-10): monthly fee only, the restaurant's OWN couriers (`fleet_mode='own'`); Leeva does not handle delivery money.** The Leeva network / credits / payouts code still exists for legacy accounts. See the 10/10 entry in `docs/DECISOES-NOTURNAS.md`. The restaurant never picks a courier. All user-facing copy is PT-BR. The owner is not a programmer — explain outcomes in plain Portuguese, decide details yourself, and do not push technical choices onto them.
 
 ## Commands
 

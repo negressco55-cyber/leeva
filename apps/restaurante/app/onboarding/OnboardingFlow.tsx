@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FLEET_MODE_LABELS, formatCurrencyBRL, type FleetMode } from '@leeva/shared';
+import { formatCurrencyBRL, type FleetMode } from '@leeva/shared';
 import { defaultBusinessHours, type BusinessHours } from '@leeva/shared/services/business-hours';
 import { apiGet, apiPost } from '../(app)/_lib/client';
 import { BusinessHoursEditor } from '../(app)/_lib/BusinessHoursEditor';
@@ -41,7 +41,8 @@ export default function OnboardingFlow({
   const [lng, setLng] = useState(initial.longitude != null ? String(initial.longitude) : '');
   const [geoMsg, setGeoMsg] = useState<string | null>(null);
   const [located, setLocated] = useState(initial.latitude != null && initial.longitude != null);
-  const [fleetMode, setFleetMode] = useState<FleetMode>(initial.fleetMode);
+  // modelo atual: só frota própria + mensalidade (sem rede Leeva)
+  const fleetMode: FleetMode = 'own';
   const [hours, setHours] = useState<BusinessHours>(defaultBusinessHours());
   const [expectedOrders, setExpectedOrders] = useState('');
   const [planCode, setPlanCode] = useState(plans[0]?.code ?? 'start');
@@ -139,22 +140,12 @@ export default function OnboardingFlow({
 
       {step === 2 && (
         <div className="card" style={{ display: 'grid', gap: 10 }}>
-          <div className="card-title">Como você quer entregar?</div>
-          {(Object.keys(FLEET_MODE_LABELS) as FleetMode[]).map((m) => (
-            <label key={m} className="op-alert" style={{ cursor: 'pointer', background: fleetMode === m ? 'var(--accent-soft)' : 'transparent' }}>
-              <input type="radio" checked={fleetMode === m} onChange={() => setFleetMode(m)} style={{ marginRight: 8 }} />
-              <div>
-                <strong>{FLEET_MODE_LABELS[m]}</strong>
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {m === 'own'
-                    ? 'Você cadastra seus entregadores. O Leeva organiza o despacho e as rotas.'
-                    : m === 'leeva'
-                      ? 'O Leeva encontra automaticamente um entregador da rede. Você não gerencia frota.'
-                      : 'Usa sua frota primeiro e a rede Leeva quando faltar entregador.'}
-                </div>
-              </div>
-            </label>
-          ))}
+          <div className="card-title">Seus motoboys, organizados</div>
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.7 }}>
+            Você usa os <b>seus próprios entregadores</b> e paga eles direto, como já faz hoje. O Leeva monta as
+            rotas, manda as entregas pro app deles e mostra todo mundo no mapa ao vivo. Depois de entrar, cadastre a
+            equipe em <b>Motoboys</b> e mande o convite pelo WhatsApp.
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn" onClick={() => setStep(1)}>Voltar</button>
             <button className="btn primary" onClick={() => setStep(3)}>Continuar</button>
@@ -194,7 +185,7 @@ export default function OnboardingFlow({
             <label key={p.code} className="op-alert" style={{ cursor: 'pointer', background: planCode === p.code ? 'var(--accent-soft)' : 'transparent' }}>
               <input type="radio" checked={planCode === p.code} onChange={() => setPlanCode(p.code)} style={{ marginRight: 8 }} />
               <div style={{ flex: 1 }}>
-                <strong>{p.name}</strong> — {Number(p.monthly_price) > 0 ? `${formatCurrencyBRL(p.monthly_price)}/mês + ` : 'sem mensalidade — '}{formatCurrencyBRL(p.per_delivery_margin)} por entrega (além do valor do entregador)
+                <strong>{p.name}</strong> — {formatCurrencyBRL(p.monthly_price)}/mês, sem taxa por entrega
                 <div className="muted" style={{ fontSize: 12 }}>
                   {p.trial_days} dias grátis · {(p.features as { leeva_network?: boolean }).leeva_network ? 'rede Leeva' : 'frota própria'}
                   {(p.features as { heatmap?: boolean }).heatmap ? ' · heatmap' : ''}

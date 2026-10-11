@@ -29,9 +29,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect('/onboarding');
   }
 
-  // Fase 5: o restaurante não cadastra mais motoboy — todos vêm da rede Leeva
-  // (self-service + aprovação central). "Minha equipe" fica escondida.
-  const showTeam = false;
+  // Modelo atual (10/10): frota própria + mensalidade — menu centrado no mapa
+  // ao vivo e na equipe. Restaurantes antigos da rede Leeva mantêm o menu antigo.
+  const ownFleet = rst?.fleet_mode === 'own';
 
   return (
     <div className="app-shell">
@@ -40,7 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           Leeva
           <small>{ctx.restaurantName}</small>
         </div>
-        <Nav showTeam={showTeam} />
+        <Nav ownFleet={ownFleet} />
         <div className="spacer" />
         <div className="side-foot">
           {ctx.fullName ?? ctx.email}

@@ -28,7 +28,10 @@ export default async function IndicadoresPage({
   return (
     <div className="grid" style={{ gap: 20 }}>
       <div className="spread">
-        <h1 style={{ margin: 0 }}>Indicadores</h1>
+        <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
+          <h1 style={{ margin: 0 }}>Indicadores</h1>
+          <Link href="/mapa" className="muted" style={{ fontSize: 13 }}>Mapa de calor: de onde vêm os pedidos →</Link>
+        </div>
         <div className="row">
           {PERIODS.map((p) => (
             <Link

@@ -20,6 +20,8 @@ export type MapMarker = {
   late?: boolean;
   onClick?: () => void;
   popupHtml?: string;
+  /** mostra o `label` fixo em cima do pino (ex.: nome do motoboy) */
+  showLabel?: boolean;
 };
 
 const KIND_COLOR: Record<string, string> = {
@@ -156,6 +158,10 @@ export default function LeevaMap({
         if (marker.getPopup()) marker.setPopupContent(mk.popupHtml);
         else marker.bindPopup(mk.popupHtml);
       }
+      if (mk.showLabel) {
+        if (marker.getTooltip()) marker.setTooltipContent(mk.label);
+        else marker.bindTooltip(mk.label, { permanent: true, direction: 'top', offset: [0, -size], className: 'leeva-pin-label' });
+      } else if (marker.getTooltip()) marker.unbindTooltip();
       // troca só o NOSSO handler (o bindPopup tem o dele no mesmo evento)
       const prevClick = clickById.current.get(mk.id);
       if (prevClick) marker.off('click', prevClick);

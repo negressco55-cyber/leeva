@@ -11,7 +11,7 @@ type KeyRow = {
   revoked_at: string | null;
 };
 
-function CopyButton({ text, label = 'Copiar' }: { text: string; label?: string }) {
+export function CopyButton({ text, label = 'Copiar' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button

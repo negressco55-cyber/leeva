@@ -83,11 +83,25 @@ function Icon({ k }: { k: IconKey }): ReactNode {
   );
 }
 
-export function Nav({ showTeam }: { showTeam: boolean }) {
+/**
+ * Menu do modelo atual (frota própria + mensalidade): o mapa ao vivo é a
+ * tela principal. Sem Créditos (não há saldo pré-pago), sem Entregadores da
+ * rede (a equipe é dele, fica em Motoboys) e sem Mapa separado (o mapa de
+ * calor abre por Indicadores).
+ */
+const NAV_OWN: { href: string; label: string; icon: IconKey }[] = [
+  { href: '/dashboard', label: 'Ao vivo', icon: 'map' },
+  { href: '/pedidos', label: 'Pedidos', icon: 'orders' },
+  { href: '/equipe', label: 'Motoboys', icon: 'scooter' },
+  { href: '/indicadores', label: 'Indicadores', icon: 'chart' },
+  { href: '/financeiro', label: 'Acerto e financeiro', icon: 'money' },
+  { href: '/integracoes', label: 'Integrações', icon: 'plug' },
+  { href: '/configuracoes', label: 'Configurações', icon: 'gear' },
+];
+
+export function Nav({ ownFleet }: { ownFleet: boolean }) {
   const pathname = usePathname();
-  const links = showTeam
-    ? [...NAV.slice(0, 3), { href: '/equipe', label: 'Minha equipe', icon: 'scooter' as IconKey }, ...NAV.slice(3)]
-    : NAV;
+  const links = ownFleet ? NAV_OWN : NAV;
   return (
     <>
       {links.map((n) => (

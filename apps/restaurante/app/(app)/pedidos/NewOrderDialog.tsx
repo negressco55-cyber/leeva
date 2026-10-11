@@ -21,7 +21,21 @@ type FeePreview = {
   total?: number;
   balance?: number;
   sufficient?: boolean;
+  ownFleet?: boolean;
+  customerDeliveryFee?: number;
   error?: string;
+};
+
+type PastedDraft = {
+  customerName: string | null;
+  customerPhone: string | null;
+  address: string | null;
+  total: number | null;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  notes: string | null;
+  externalId: string | null;
+  sourceHint: string | null;
 };
 
 type GeoStatus = 'idle' | 'ok' | 'not_found' | 'unavailable';
@@ -54,6 +68,41 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
   const [err, setErr] = useState<string | null>(null);
   const [fee, setFee] = useState<FeePreview | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [pasting, setPasting] = useState(false);
+  const [pasteMsg, setPasteMsg] = useState<string | null>(null);
+
+  /** "Colar pedido": lê o texto copiado do cardápio e preenche o formulário. */
+  async function applyPaste() {
+    setPasting(true);
+    setPasteMsg(null);
+    try {
+      const { draft: d } = await apiPost<{ draft: PastedDraft }>('/api/orders/parse-text', { text: pasteText });
+      if (d.customerName) setCustomerName(d.customerName);
+      if (d.customerPhone) setCustomerPhone(d.customerPhone);
+      if (d.address) setAddress(d.address);
+      if (d.paymentMethod !== 'unknown') {
+        setPaymentMethod(d.paymentMethod);
+        setPaymentStatus(d.paymentStatus);
+      }
+      if (d.total != null) setOrderValue(String(d.total));
+      const extra = [d.externalId ? `Pedido ${d.sourceHint ?? ''} #${d.externalId}`.replace('  ', ' ') : null, d.notes]
+        .filter(Boolean)
+        .join(' · ');
+      if (extra) setNotes(extra);
+      const missing = [!d.customerName && 'nome', !d.address && 'endereço'].filter(Boolean);
+      setPasteMsg(
+        missing.length
+          ? `Preenchi o que achei. Falta: ${missing.join(' e ')}.`
+          : 'Pronto! Confira os dados e clique em "Localizar no mapa".',
+      );
+      setPasteText('');
+    } catch (e) {
+      setPasteMsg((e as Error).message);
+    } finally {
+      setPasting(false);
+    }
+  }
 
   const collectOnDelivery = paymentPendingOnDelivery(paymentMethod, paymentStatus);
 
@@ -175,6 +224,26 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
         </p>
 
         <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+          <details className="section" open={!customerName && !address}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+              Colar pedido do cardápio (Anota AI, Goomer, WhatsApp…)
+            </summary>
+            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+              <textarea
+                className="input"
+                rows={4}
+                placeholder="Copie o pedido inteiro no seu cardápio ou no WhatsApp e cole aqui. O Leeva preenche nome, telefone, endereço, valor e pagamento."
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" className="btn sm primary" onClick={applyPaste} disabled={pasting || pasteText.trim().length < 10}>
+                  {pasting ? 'Lendo…' : 'Preencher com o pedido'}
+                </button>
+                {pasteMsg && <span className="muted" style={{ fontSize: 12 }}>{pasteMsg}</span>}
+              </div>
+            </div>
+          </details>
           <input className="input" placeholder="Nome do cliente *" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
           <input className="input" placeholder="Telefone (WhatsApp) — para o rastreamento" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
           <input className="input" placeholder="Endereço de entrega * (rua, número, bairro)" value={address} onChange={(e) => setAddress(e.target.value)} />
@@ -236,7 +305,16 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
           )}
 
           {/* pré-visualização da taxa */}
-          {fee?.ok && fee.total != null && (
+          {/* frota própria: o Leeva não cobra por entrega — mostra só o que importa pro dono */}
+          {fee?.ok && fee.ownFleet && (
+            <div className="op-alert info" style={{ marginBottom: 0, fontSize: 13 }}>
+              {fee.distanceKm != null && <><b>{fee.distanceKm} km</b> · </>}
+              seu motoboy recebe <b>{formatCurrencyBRL(fee.driverPayout ?? 0)}</b>
+              {fee.customerDeliveryFee != null && <> · taxa pro cliente pela sua tabela: <b>{formatCurrencyBRL(fee.customerDeliveryFee)}</b></>}
+            </div>
+          )}
+
+          {fee?.ok && !fee.ownFleet && fee.total != null && (
             <div className="op-alert info" style={{ marginBottom: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>
                 Esta entrega vai custar {formatCurrencyBRL(fee.total)}
@@ -326,12 +404,12 @@ export default function NewOrderDialog({ onClose, onCreated }: { onClose: () => 
               !customerName.trim() ||
               !address.trim() ||
               !addressReady ||
-              (fee?.ok === true && fee.sufficient === false)
+              (fee?.ok === true && !fee.ownFleet && fee.sufficient === false)
             }
           >
             {busy
               ? 'Criando…'
-              : fee?.ok && fee.sufficient === false
+              : fee?.ok && !fee.ownFleet && fee.sufficient === false
                 ? 'Saldo insuficiente'
                 : !addressReady
                   ? 'Localize o endereço primeiro'
